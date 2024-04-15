@@ -1,0 +1,17 @@
+{
+  "name": "com.textmeshdots",
+  "description": "DOTS native world space text",
+  "version": "0.0.1",
+  "unity": "2023.3",
+  "displayName": "TextMeshDOTS",
+  "dependencies": {
+    "com.unity.entities": "1.2.0",
+    "com.unity.entities.graphics": "1.2.0"
+  },
+  "keywords": [
+    "DOTS", "Entities", "Text"
+  ],
+  "author": {
+    "name": "DOTS Community"
+  }
+}
