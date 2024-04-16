@@ -10,9 +10,7 @@ using static Unity.Entities.SystemAPI;
 namespace Latios.Calligraphics.Systems
 {
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
-    [UpdateInGroup(typeof(CalligraphicsUpdateSuperSystem))]
     [RequireMatchingQueriesForUpdate]
-    [DisableAutoCreation]
     public partial struct GenerateGlyphsSystem : ISystem
     {
         EntityQuery m_query;
@@ -22,12 +20,12 @@ namespace Latios.Calligraphics.Systems
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            m_query = state.Fluent()
-                      .With<FontBlobReference>(    true)
-                      .With<RenderGlyph>(          false)
-                      .With<CalliByte>(            true)
-                      .With<TextBaseConfiguration>(true)
-                      .With<TextRenderControl>(    false)
+            m_query = QueryBuilder()
+                      .WithAll<FontBlobReference>()
+                      .WithAllRW<RenderGlyph>()
+                      .WithAll<CalliByte>()
+                      .WithAll<TextBaseConfiguration>()
+                      .WithAllRW<TextRenderControl>()
                       .Build();
             m_skipChangeFilter = (state.WorldUnmanaged.Flags & WorldFlags.Editor) == WorldFlags.Editor;
         }
@@ -37,7 +35,7 @@ namespace Latios.Calligraphics.Systems
         {
             state.Dependency = new Job
             {
-                additionalEntitiesHandle    = GetBufferTypeHandle<AdditionalFontMaterialEntity>(true),
+                //additionalEntitiesHandle    = GetBufferTypeHandle<AdditionalFontMaterialEntity>(true),
                 calliByteHandle             = GetBufferTypeHandle<CalliByte>(true),
                 fontBlobReferenceHandle     = GetComponentTypeHandle<FontBlobReference>(true),
                 fontBlobReferenceLookup     = GetComponentLookup<FontBlobReference>(true),
@@ -63,7 +61,7 @@ namespace Latios.Calligraphics.Systems
             [ReadOnly] public BufferTypeHandle<CalliByte>                    calliByteHandle;
             [ReadOnly] public ComponentTypeHandle<TextBaseConfiguration>     textBaseConfigurationHandle;
             [ReadOnly] public ComponentTypeHandle<FontBlobReference>         fontBlobReferenceHandle;
-            [ReadOnly] public BufferTypeHandle<AdditionalFontMaterialEntity> additionalEntitiesHandle;
+            //[ReadOnly] public BufferTypeHandle<AdditionalFontMaterialEntity> additionalEntitiesHandle;
             [ReadOnly] public ComponentLookup<FontBlobReference>             fontBlobReferenceLookup;
 
             public uint lastSystemVersion;
@@ -89,8 +87,8 @@ namespace Latios.Calligraphics.Systems
 
                 // Optional
                 var  selectorBuffers           = chunk.GetBufferAccessor(ref selectorHandle);
-                var  additionalEntitiesBuffers = chunk.GetBufferAccessor(ref additionalEntitiesHandle);
-                bool hasMultipleFonts          = selectorBuffers.Length > 0 && additionalEntitiesBuffers.Length > 0;
+                //var  additionalEntitiesBuffers = chunk.GetBufferAccessor(ref additionalEntitiesHandle);
+                //bool hasMultipleFonts          = selectorBuffers.Length > 0 && additionalEntitiesBuffers.Length > 0;
 
                 FontMaterialSet fontMaterialSet = default;
 
@@ -103,14 +101,14 @@ namespace Latios.Calligraphics.Systems
                     var textRenderControl     = textRenderControls[indexInChunk];
 
                     m_glyphMappingWriter.StartWriter(glyphMappingMasks.Length > 0 ? glyphMappingMasks[indexInChunk].mask : default);
-                    if (hasMultipleFonts)
-                    {
-                        fontMaterialSet.Initialize(fontBlobReference.blob, selectorBuffers[indexInChunk], additionalEntitiesBuffers[indexInChunk], ref fontBlobReferenceLookup);
-                    }
-                    else
-                    {
+                    //if (hasMultipleFonts)
+                    //{
+                    //    fontMaterialSet.Initialize(fontBlobReference.blob, selectorBuffers[indexInChunk], additionalEntitiesBuffers[indexInChunk], ref fontBlobReferenceLookup);
+                    //}
+                    //else
+                    //{
                         fontMaterialSet.Initialize(fontBlobReference.blob);
-                    }
+                    //}
 
                     GlyphGeneration.CreateRenderGlyphs(ref renderGlyphs,
                                                        ref m_glyphMappingWriter,

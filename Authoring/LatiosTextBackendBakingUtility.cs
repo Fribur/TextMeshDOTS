@@ -1,4 +1,3 @@
-using Latios.Kinemation.Authoring;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -11,53 +10,26 @@ namespace Latios.Calligraphics.Rendering.Authoring
 {
     [BurstCompile]
     public static class LatiosTextBackendBakingUtility
-    {
-        public const string kTextBackendMeshPath     = "Packages/com.latios.latiosframework/Kinemation/Resources/LatiosTextBackendMesh.mesh";
-        public const string kTextBackendMeshResource = "LatiosTextBackendMesh";
+    {        
+        public const string kResourcePath = "Assets/Resources";
+        //public const string kTextBackendMeshPath     = "Packages/com.textmeshdots/Resources/TextBackendMesh.mesh";
+        public const string kTextBackendMeshPath = "Assets/Resources/TextBackendMesh.mesh";
+        public const string kTextBackendMeshResource = "TextBackendMesh";
 
-        public static void BakeTextBackendMeshAndMaterial(this IBaker baker, Renderer renderer, Material material)
+        public static void BakeTextBackendMeshAndMaterial(this IBaker baker, Entity entity, RenderMeshDescription renderMeshDescription, Material material)
         {
             var mesh = Resources.Load<Mesh>(kTextBackendMeshResource);
 
-            RenderingBakingTools.GetLOD(baker, renderer, out var lodSettings);
-
-            var rendererSettings = new MeshRendererBakeSettings
-            {
-                targetEntity                = baker.GetEntity(TransformUsageFlags.Renderable),
-                renderMeshDescription       = new RenderMeshDescription(renderer),
-                isDeforming                 = true,
-                suppressDeformationWarnings = false,
-                useLightmapsIfPossible      = true,
-                lightmapIndex               = renderer.lightmapIndex,
-                lightmapScaleOffset         = renderer.lightmapScaleOffset,
-                lodSettings                 = lodSettings,
-                isStatic                    = baker.IsStatic(),
-                localBounds                 = default,
-            };
-
-            baker.BakeMeshAndMaterial(rendererSettings, mesh, material);
-
-            var entity = baker.GetEntity(TransformUsageFlags.Renderable);
+            baker.BakeMeshAndMaterial(entity, renderMeshDescription, mesh, material);
 
             baker.AddComponent(entity, new TextRenderControl { flags = TextRenderControl.Flags.Dirty });
             baker.AddBuffer<RenderGlyph>(entity);
             baker.AddComponent<TextShaderIndex>(entity);
         }
 
-        public static void BakeTextBackendMeshAndMaterial(this IBaker baker, MeshRendererBakeSettings rendererSettings, Material material)
-        {
-            var mesh = Resources.Load<Mesh>(kTextBackendMeshResource);
-
-            baker.BakeMeshAndMaterial(rendererSettings, mesh, material);
-
-            baker.AddComponent(rendererSettings.targetEntity, new TextRenderControl { flags = TextRenderControl.Flags.Dirty });
-            baker.AddBuffer<RenderGlyph>(rendererSettings.targetEntity);
-            baker.AddComponent<TextShaderIndex>(rendererSettings.targetEntity);
-        }
-
         #region Mesh Building
 #if UNITY_EDITOR
-        [UnityEditor.MenuItem("Assets/Create/Latios/Text BackendMesh")]
+        [UnityEditor.MenuItem("TextMeshDOTS/Text BackendMesh")]
         static void CreateMeshAsset()
         {
             var glyphCounts = new NativeArray<int>(5, Allocator.Temp);
@@ -68,6 +40,8 @@ namespace Latios.Calligraphics.Rendering.Authoring
             glyphCounts[4] = 16384;
 
             var mesh = CreateMesh(16384, glyphCounts);
+            if(!UnityEditor.AssetDatabase.IsValidFolder(kResourcePath))
+                UnityEditor.AssetDatabase.CreateFolder("Assets", "Resources");
             UnityEditor.AssetDatabase.CreateAsset(mesh, kTextBackendMeshPath);
         }
 #endif

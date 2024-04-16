@@ -139,16 +139,6 @@ namespace Latios.Calligraphics.Rendering
         public Flags flags;
     }
 
-    /// <summary>
-    /// An additional rendered text entity containing a different font and material.
-    /// The additional entity shares the RenderGlyph buffer, and uses a mask to identify
-    /// the glyphs to render.
-    /// </summary>
-    [InternalBufferCapacity(0)]
-    public struct AdditionalFontMaterialEntity : IBufferElementData
-    {
-        public EntityWith<FontBlobReference> entity;
-    }
 
     /// <summary>
     /// A per-glyph index into the font and material that should be used to render it.

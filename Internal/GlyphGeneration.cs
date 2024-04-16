@@ -1,15 +1,11 @@
 using Latios.Calligraphics.Rendering;
 using Latios.Calligraphics.RichText;
-using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
-using UnityEngine;
-using UnityEngine.TextCore;
 using UnityEngine.TextCore.LowLevel;
 using UnityEngine.TextCore.Text;
-using UnityEngine.UIElements;
 
 namespace Latios.Calligraphics
 {

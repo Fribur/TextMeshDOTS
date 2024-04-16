@@ -8,7 +8,6 @@ using UnityEngine.TextCore.LowLevel;
 
 namespace Latios.Calligraphics
 {
-    //TODO: Underlay, Bold, Smallcaps
     public struct FontBlob
     {
         public BlobArray<GlyphBlob>               characters;
@@ -39,9 +38,6 @@ namespace Latios.Calligraphics
 
         //public float underlineOffset;
 
-        /// <summary>
-        /// Padding that is read from material properties
-        /// </summary>
         public float materialPadding;
 
         public float baseScale => 1f / pointSize * scale * .1f;

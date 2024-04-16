@@ -30,29 +30,6 @@ namespace Latios.Calligraphics
             m_fontMaterialArray.Add(new FontMaterial(singleFont));
         }
 
-        public void Initialize(BlobAssetReference<FontBlob>                baseFont,
-                               DynamicBuffer<FontMaterialSelectorForGlyph> selectorBuffer,
-                               DynamicBuffer<AdditionalFontMaterialEntity> entities,
-                               ref ComponentLookup<FontBlobReference>      blobLookup)
-        {
-            Initialize(baseFont);
-            m_selectorBuffer = selectorBuffer;
-            m_selectorBuffer.Clear();
-            m_hasMultipleFonts = true;
-            m_fontToEntityIndexArray.Clear();
-            for (int i = 0; i < entities.Length; i++)
-            {
-                if (blobLookup.TryGetComponent(entities[i].entity, out var blobRef))
-                {
-                    if (blobRef.blob.IsCreated)
-                    {
-                        m_fontMaterialArray.Add(new FontMaterial(blobRef.blob));
-                        m_fontToEntityIndexArray.Add((byte)i);
-                    }
-                }
-            }
-        }
-
         unsafe struct FontMaterial
         {
             FontBlob* m_fontBlobPtr;
