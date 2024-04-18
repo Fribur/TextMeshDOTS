@@ -59,6 +59,9 @@ namespace Latios.Calligraphics.Authoring
             for (int i = 0; i < glyphPairAdjustmentsSource.Count; i++)
             {
                 var src            = glyphPairAdjustmentsSource[i];
+                if(!(glyphToCharacterMap.ContainsKey((int)src.firstAdjustmentRecord.glyphIndex) && glyphToCharacterMap.ContainsKey((int)src.secondAdjustmentRecord.glyphIndex)))
+                    continue;
+
                 adjustmentPairs[i] = new AdjustmentPair
                 {
                     firstAdjustment = new GlyphAdjustment
