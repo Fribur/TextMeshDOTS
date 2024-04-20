@@ -51,9 +51,9 @@ namespace Latios.Calligraphics.Authoring
 
             for (int i = 0; i < font.characterTable.Count; i++)
             {
-                var c = font.characterTable[i];
-                if (c.glyph != null)
-                    glyphToCharacterMap.Add((int)c.glyph.index, i);
+                var character = font.characterTable[i];
+                if (character.glyph != null)
+                    glyphToCharacterMap.Add((int)character.glyph.index, i);
             }
 
             for (int i = 0; i < glyphPairAdjustmentsSource.Count; i++)
@@ -86,16 +86,19 @@ namespace Latios.Calligraphics.Authoring
 
             for (int i = 0; i < font.characterTable.Count; i++)
             {
+                //character.glyph=null in Unity 6 when subscene is closed.
+                //let's hope length and sorting of font.characterTable and font.glyphTable are always aligned
                 var character = font.characterTable[i];
+                var glyph = font.glyphTable[i]; 
 
-                if (character.glyph != null)
+                if (glyph != null)
                 {
                     ref GlyphBlob glyphBlob = ref glyphBuilder[i];
 
                     glyphBlob.unicode            = character.unicode;
-                    glyphBlob.glyphScale         = character.glyph.scale;
-                    glyphBlob.glyphMetrics       = character.glyph.metrics;
-                    glyphBlob.glyphRect          = character.glyph.glyphRect;
+                    glyphBlob.glyphScale         = glyph.scale;
+                    glyphBlob.glyphMetrics       = glyph.metrics;
+                    glyphBlob.glyphRect          = glyph.glyphRect;
 
                     //Add kerning adjustments
                     adjustmentCacheBefore.Clear();
