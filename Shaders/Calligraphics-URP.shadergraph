@@ -241,11 +241,7 @@
             "m_Id": "582354ef6247410ebbdd1fee066e7896"
         }
     ],
-    "m_GroupDatas": [
-        {
-            "m_Id": "d0a791a544614667962a9a9a9ce0c68a"
-        }
-    ],
+    "m_GroupDatas": [],
     "m_StickyNoteDatas": [],
     "m_Edges": [
         {
@@ -1364,7 +1360,7 @@
     ],
     "synonyms": [],
     "m_Precision": 0,
-    "m_PreviewExpanded": true,
+    "m_PreviewExpanded": false,
     "m_DismissedVersion": 0,
     "m_PreviewMode": 0,
     "m_CustomColors": {
@@ -1511,10 +1507,10 @@
         "m_Expanded": true,
         "m_Position": {
             "serializedVersion": "2",
-            "x": -4788.0,
-            "y": -2434.0,
+            "x": -4788.50048828125,
+            "y": -2436.0,
             "width": 238.0,
-            "height": 278.0
+            "height": 277.999755859375
         }
     },
     "m_Slots": [
@@ -4666,17 +4662,6 @@
         "m_SerializableColors": []
     },
     "m_SerializedDescriptor": "VertexDescription.CustomUV1#2"
-}
-
-{
-    "m_SGVersion": 0,
-    "m_Type": "UnityEditor.ShaderGraph.GroupData",
-    "m_ObjectId": "d0a791a544614667962a9a9a9ce0c68a",
-    "m_Title": "Screen Space Ratio",
-    "m_Position": {
-        "x": -6486.0,
-        "y": -3367.0
-    }
 }
 
 {

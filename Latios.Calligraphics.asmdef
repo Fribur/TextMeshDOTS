@@ -11,7 +11,8 @@
         "Unity.Mathematics",
         "Unity.Mathematics.Extensions",
         "Unity.Burst",
-        "Unity.Entities.Graphics"
+        "Unity.Entities.Graphics",
+        "Unity.Transforms"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

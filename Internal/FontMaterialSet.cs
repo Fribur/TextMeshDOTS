@@ -1,10 +1,8 @@
-using Latios.Calligraphics.Rendering;
+using TextMeshDOTS.Rendering;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-using Unity.Mathematics;
 
-namespace Latios.Calligraphics
+namespace TextMeshDOTS
 {
     internal unsafe struct FontMaterialSet
     {

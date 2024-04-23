@@ -11,7 +11,7 @@
 
 //// Todo: This system needs to be reworked for more optimal scheduling.
 
-//namespace Latios.Calligraphics.Rendering.Systems
+//namespace Latios.Rendering
 //{
 //    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
 //    [RequireMatchingQueriesForUpdate]

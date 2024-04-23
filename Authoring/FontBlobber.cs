@@ -5,7 +5,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine.TextCore.Text;
 
-namespace Latios.Calligraphics.Authoring
+namespace TextMeshDOTS.Authoring
 {
     public static class FontBlobber
     {

@@ -36,7 +36,7 @@ using Unity.Rendering;
 // TextMeshPro. The glyph stays compressed in its 96 byte form on the GPU and is decoded directly in
 // the vertex shader.
 
-namespace Latios.Calligraphics.Rendering
+namespace TextMeshDOTS.Rendering
 {
     [MaterialProperty("_latiosTextGlyphBase")]
     public struct TextShaderIndex : IComponentData
@@ -52,6 +52,7 @@ namespace Latios.Calligraphics.Rendering
         public uint firstMaskIndex;
     }
 
+    /// <summary> 96 byte glyph data </summary>
     public struct RenderGlyph : IBufferElementData
     {
         public float2 blPosition;

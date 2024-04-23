@@ -6,7 +6,7 @@ using Unity.Mathematics;
 using Unity.Rendering;
 using UnityEngine;
 
-namespace Latios.Calligraphics.Rendering.Authoring
+namespace TextMeshDOTS.Rendering.Authoring
 {
     [BurstCompile]
     public static class LatiosTextBackendBakingUtility
@@ -91,7 +91,7 @@ namespace Latios.Calligraphics.Rendering.Authoring
         }
 
         [BurstCompile]
-        static void BuildIndexBuffer(ref NativeArray<ushort> indices)
+        public static void BuildIndexBuffer(ref NativeArray<ushort> indices)
         {
             int glyphCount = indices.Length / 6;
             for (ushort i = 0; i < glyphCount; i++)

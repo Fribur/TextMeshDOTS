@@ -1,5 +1,5 @@
-using Latios.Calligraphics.Rendering;
-using Latios.Calligraphics.RichText;
+using TextMeshDOTS.Rendering;
+using TextMeshDOTS.RichText;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -7,7 +7,7 @@ using Unity.Mathematics;
 using UnityEngine.TextCore.LowLevel;
 using UnityEngine.TextCore.Text;
 
-namespace Latios.Calligraphics
+namespace TextMeshDOTS
 {
     internal static class GlyphGeneration
     {

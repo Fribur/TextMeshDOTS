@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Unity.Mathematics;
 
-namespace Latios.Calligraphics
+namespace TextMeshDOTS
 {
     /// <summary>
     /// An axis-aligned bounding box, or AABB for short, is a box aligned with coordinate axes and

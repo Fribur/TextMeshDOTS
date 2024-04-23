@@ -1,14 +1,15 @@
-using Latios.Calligraphics.Rendering.Authoring;
+using TextMeshDOTS.Rendering.Authoring;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Graphics;
 using Unity.Mathematics;
 using Unity.Rendering;
+using UnityEditor.PackageManager;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.TextCore.Text;
 
-namespace Latios.Calligraphics.Authoring
+namespace TextMeshDOTS.Authoring
 {
     [DisallowMultipleComponent]
     [AddComponentMenu("TextMeshDOTS/Text Renderer")]
@@ -30,6 +31,9 @@ namespace Latios.Calligraphics.Authoring
         public Color32 color = Color.white;
 
         public FontAsset font;
+
+        public Mesh dummyMesh;
+        public Material proceduralMaterial;
     }
 
 
@@ -61,6 +65,12 @@ namespace Latios.Calligraphics.Authoring
                 fontStyle         = authoring.fontStyle,
                 fontWeight        = authoring.fontWeight,
             });
+
+            AddComponent(entity, new TestProceduralMaterial
+            {
+                mesh = new UnityObjectRef<Mesh> { Value = authoring.dummyMesh },
+                material = new UnityObjectRef<Material> { Value = authoring.proceduralMaterial }
+            }); 
         }
 
         void AddFontRendering(Entity entity, FontAsset fontAsset)
@@ -91,7 +101,7 @@ namespace Latios.Calligraphics.Authoring
                 // Register the Blob Asset to the Baker for de-duplication and reverting.
                 AddBlobAssetWithCustomHash<FontBlob>(ref blobReference, customHash);
             }
-            AddComponent(entity, new FontBlobReference { blob = blobReference });
+            AddComponent(entity, new FontBlobReference { blob = blobReference });            
         }
     }
 }

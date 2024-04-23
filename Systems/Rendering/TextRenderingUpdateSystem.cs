@@ -7,7 +7,7 @@ using Unity.Rendering;
 
 using static Unity.Entities.SystemAPI;
 
-namespace Latios.Calligraphics.Rendering.Systems
+namespace TextMeshDOTS.Rendering
 {
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]

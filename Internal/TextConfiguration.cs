@@ -1,10 +1,10 @@
-using Latios.Calligraphics.RichText;
+using TextMeshDOTS.RichText;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
 
-namespace Latios.Calligraphics
+namespace TextMeshDOTS
 {
     internal struct TextConfiguration
     {

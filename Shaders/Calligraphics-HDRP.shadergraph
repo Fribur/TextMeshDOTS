@@ -259,11 +259,7 @@
             "m_Id": "a598b3c0f91f458aa71416adeffa3287"
         }
     ],
-    "m_GroupDatas": [
-        {
-            "m_Id": "d0a791a544614667962a9a9a9ce0c68a"
-        }
-    ],
+    "m_GroupDatas": [],
     "m_StickyNoteDatas": [],
     "m_Edges": [
         {
@@ -4969,17 +4965,6 @@
     "m_Value": 0.5,
     "m_DefaultValue": 0.5,
     "m_Labels": []
-}
-
-{
-    "m_SGVersion": 0,
-    "m_Type": "UnityEditor.ShaderGraph.GroupData",
-    "m_ObjectId": "d0a791a544614667962a9a9a9ce0c68a",
-    "m_Title": "Screen Space Ratio",
-    "m_Position": {
-        "x": -6486.0,
-        "y": -3367.0
-    }
 }
 
 {

@@ -4,7 +4,7 @@ using UnityEditor.ShaderGraph.Drawing.Controls;
 using UnityEditor.ShaderGraph.Internal;
 using UnityEngine;
 
-namespace Latios.Kinemation.Editor.ShaderGraphNodes
+namespace TextMeshDOTS.Kinemation.Editor.ShaderGraphNodes
 {
     [Title("Input", "Text", "Latios Text")]
     class LatiosTextNode : AbstractMaterialNode, IGeneratesBodyCode, IGeneratesFunction, IMayRequireVertexID, IMayRequirePosition, IMayRequireNormal,
@@ -93,7 +93,7 @@ namespace Latios.Kinemation.Editor.ShaderGraphNodes
                 overrideReferenceName   = "_latiosTextGlyphBase",
                 overrideHLSLDeclaration = true,
                 hlslDeclarationOverride = HLSLDeclaration.HybridPerInstance,
-                hidden                  = true,
+                hidden                  = false,
                 value                   = Vector2.zero
             });
             properties.AddShaderProperty(new Vector1ShaderProperty()
@@ -102,7 +102,7 @@ namespace Latios.Kinemation.Editor.ShaderGraphNodes
                 overrideReferenceName   = "_latiosTextGlyphMaskBase",
                 overrideHLSLDeclaration = true,
                 hlslDeclarationOverride = HLSLDeclaration.HybridPerInstance,
-                hidden                  = true,
+                hidden                  = false,
                 value                   = 0f
             });
 
@@ -149,7 +149,7 @@ namespace Latios.Kinemation.Editor.ShaderGraphNodes
                 sb.AppendLine("#if defined(UNITY_DOTS_INSTANCING_ENABLED)");
                 // Comment mutes function-not-provided warning
                 sb.AppendLine("// includeLatiosText");
-                sb.AppendLine("#include \"Packages/com.latios.latiosframework/Calligraphics/ShaderLibrary/TextGlyphParsing.hlsl\"");
+                sb.AppendLine("#include \"Packages/com.textmeshdots/ShaderLibrary/TextGlyphParsing.hlsl\"");
                 sb.AppendLine("#endif");
             });
         }

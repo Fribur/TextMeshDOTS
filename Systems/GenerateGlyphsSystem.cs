@@ -1,13 +1,12 @@
-using Latios.Calligraphics.Rendering;
+using TextMeshDOTS.Rendering;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
 
 using static Unity.Entities.SystemAPI;
 
-namespace Latios.Calligraphics.Systems
+namespace TextMeshDOTS
 {
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]

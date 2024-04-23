@@ -1,6 +1,6 @@
 using Unity.Entities;
 
-namespace Latios.Calligraphics
+namespace TextMeshDOTS
 {
     /// <summary>
     /// An aspect for working with renderable text

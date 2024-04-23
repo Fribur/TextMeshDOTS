@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Latios.Calligraphics.RichText
+namespace TextMeshDOTS.RichText
 {
     internal struct HighlightState
     {

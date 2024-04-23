@@ -3,7 +3,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
 
-namespace Latios.Calligraphics
+namespace TextMeshDOTS
 {
     internal struct GlyphMappingWriter
     {

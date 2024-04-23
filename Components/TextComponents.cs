@@ -3,8 +3,20 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
 
-namespace Latios.Calligraphics
+namespace TextMeshDOTS
 {
+
+    /// <summary> A reference to a dummy mesh and a procedural material </summary>
+    public struct TestProceduralMaterial : IComponentData
+    {
+        /// <summary>
+        /// mesh is only needed for testing, can be eliminated once vertices are proceduraly generated
+        /// </summary>
+        public UnityObjectRef<Mesh> mesh; 
+        public UnityObjectRef<Material> material;
+    }
+
+
     /// <summary>
     /// A reference to the font blob asset used for text rendering.
     /// If you choose to change this at runtime, you must also change the material designed to work with the font.
