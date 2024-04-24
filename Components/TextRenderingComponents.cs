@@ -38,7 +38,7 @@ using Unity.Rendering;
 
 namespace TextMeshDOTS.Rendering
 {
-    [MaterialProperty("_latiosTextGlyphBase")]
+    [MaterialProperty("_TextShaderIndex")]
     public struct TextShaderIndex : IComponentData
     {
         public uint firstGlyphIndex;
@@ -46,7 +46,7 @@ namespace TextMeshDOTS.Rendering
     }
 
     // Only present if there are child fonts
-    [MaterialProperty("_latiosTextGlyphMaskBase")]
+    [MaterialProperty("_TextMaterialMaskShaderIndex")]
     public struct TextMaterialMaskShaderIndex : IComponentData
     {
         public uint firstMaskIndex;

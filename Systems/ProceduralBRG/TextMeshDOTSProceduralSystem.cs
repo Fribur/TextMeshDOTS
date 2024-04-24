@@ -28,11 +28,11 @@
 //        NativeArray<float4x4> zero;
 //        NativeArray<float3x4> objectToWorld;
 //        NativeArray<float3x4> worldToObject;
-//        NativeArray<TextShaderIndex> _latiosTextGlyphBase;
+//        NativeArray<TextShaderIndex> _TextShaderIndex;
 //        //corresponding instanced shader property IDs 
 //        int objectToWorldID;
 //        int worldToObjectID;
-//        int latiosTextGlyphBaseID;
+//        int textShaderIndexID;
 
 //        //visible Instances GraphicsBuffer and NativeArrays to set the data
 //        GraphicsBuffer _gpuVisibleInstances;
@@ -83,7 +83,7 @@
 //            if (!_initialized)
 //            {
 //                InitializeBRG(fontBlobReferenceEntity);
-//                //Debug.Log("Initialzied BRG");
+//                Debug.Log("Initialzied text BRG: Procedural");
 //            }
 //        }
 //        protected override void OnDestroy()
@@ -100,7 +100,7 @@
 //                zero.Dispose();
 //                objectToWorld.Dispose();
 //                worldToObject.Dispose();
-//                _latiosTextGlyphBase.Dispose();
+//                _TextShaderIndex.Dispose();
 //                _sysmemVisibleInstances.Dispose();
 //            }
 //        }
@@ -208,7 +208,7 @@
 //            zero = new NativeArray<float4x4>(1, Allocator.Persistent, NativeArrayOptions.ClearMemory);
 //            objectToWorld = new NativeArray<float3x4>(_itemCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
 //            worldToObject = new NativeArray<float3x4>(_itemCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
-//            _latiosTextGlyphBase = new NativeArray<TextShaderIndex>(_itemCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+//            _TextShaderIndex = new NativeArray<TextShaderIndex>(_itemCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
 //            _sysmemVisibleInstances = new NativeArray<int>(_itemCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
 
 //            int intCountGpuPersistent = BRGStaticHelper.BufferCountForInstances((packedMatrixSize * 2) + textShaderIndexSize, _itemCount, extraBytes);
@@ -245,7 +245,7 @@
 //                objectToWorld[i] = BRGStaticHelper.GetPackedMatrix(localToWorld.Value);                 // compute the new current frame matrix
 //                worldToObject[i] = BRGStaticHelper.GetPackedMatrix(math.inverse(localToWorld.Value));   // compute the new inverse matrix
 
-//                _latiosTextGlyphBase[i] = textShaderIndex.ValueRO;
+//                _TextShaderIndex[i] = textShaderIndex.ValueRO;
 //                _sysmemVisibleInstances[i] = i;
 //            }
 
@@ -260,14 +260,14 @@
 //            _gpuPersistentInstanceData.SetData(zero, 0, 0, 1);
 //            _gpuPersistentInstanceData.SetData(objectToWorld, 0, (int)(byteAddressObjectToWorld / packedMatrixSize), objectToWorld.Length);
 //            _gpuPersistentInstanceData.SetData(worldToObject, 0, (int)(byteAddressWorldToObject / packedMatrixSize), worldToObject.Length);
-//            _gpuPersistentInstanceData.SetData(_latiosTextGlyphBase, 0, (int)(byteAddressTextGlyphBase / textShaderIndexSize), _latiosTextGlyphBase.Length);
+//            _gpuPersistentInstanceData.SetData(_TextShaderIndex, 0, (int)(byteAddressTextGlyphBase / textShaderIndexSize), _TextShaderIndex.Length);
 
 //            //setup batchMetatData that informes shader about (1) propertyID, (2) offset of position where property data starts and
 //            //(3) if the property is instanced or not (0x80000000 means data is instanced, 0 means it not and shader should pull this data from global buffer)
 //            var batchMetadata = new NativeArray<MetadataValue>(4, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
 //            batchMetadata[0] = new MetadataValue { NameID = objectToWorldID, Value = byteAddressObjectToWorld | 0x80000000 }; // matrices, 
 //            batchMetadata[1] = new MetadataValue { NameID = worldToObjectID, Value = byteAddressWorldToObject | 0x80000000 }; // inverse matrices
-//            batchMetadata[2] = new MetadataValue { NameID = latiosTextGlyphBaseID, Value = byteAddressTextGlyphBase | 0x80000000 };// latiosTextGlyphBaseID
+//            batchMetadata[2] = new MetadataValue { NameID = textShaderIndexID, Value = byteAddressTextGlyphBase | 0x80000000 };// textShaderIndexID
 //            #endregion
 
 //            //set visible instances GraphicsBuffer
@@ -303,7 +303,7 @@
 //        {
 //            objectToWorldID = Shader.PropertyToID("unity_ObjectToWorld");   //instanced property (information about via MetaData buffer)
 //            worldToObjectID = Shader.PropertyToID("unity_WorldToObject");   //instanced property (information about via MetaData buffer)
-//            latiosTextGlyphBaseID = Shader.PropertyToID("_latiosTextGlyphBase");//instanced property (information about via MetaData buffer)
+//            textShaderIndexID = Shader.PropertyToID("_TextShaderIndex");//instanced property (information about via MetaData buffer)
 //            latiosTextBufferID = Shader.PropertyToID("_latiosTextBuffer");                //global property
 //        }
 //    }

@@ -17,14 +17,17 @@ uniform ByteAddressBuffer _latiosTextBuffer;
 uniform ByteAddressBuffer _latiosTextMaskBuffer;
 #endif
 
-void SampleGlyph_float(int VertexID, int BaseIndex, int GlyphCount, uint MaskBase, out float3 Position, out float3 Normal, out float3 Tangent, out float4 UVA, out float2 UVB, out float4 Color)
+void SampleGlyph_float(uint VertexID, float2 TextShaderIndex, float TextMaterialMaskShaderIndex, out float3 Position, out float3 Normal, out float3 Tangent, out float4 UVA, out float2 UVB, out float4 Color)
 {
-    Position = float3(0, 0, 0);
-    Normal = float3(0, 0, 0);
-    Tangent = float3(0, 0, 0);
-    UVA = float4(0, 0, 0, 0);
-    UVB = float2(0, 0);
-    Color = float4(0, 0, 0, 1);
+    uint BaseIndex = asuint(TextShaderIndex.x);
+    uint GlyphCount = asuint(TextShaderIndex.y);
+    uint MaskBase = asuint(TextMaterialMaskShaderIndex);
+    Position = (float3) 0;
+    Normal = (float3) 0;
+    Tangent = (float3) 0;
+    UVA = (float4) 0;
+    UVB = (float2) 0;
+    Color = (float4) 0;
 #if defined(UNITY_DOTS_INSTANCING_ENABLED)
 
     if (GlyphCount <= (VertexID >> 2))

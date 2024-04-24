@@ -1,6 +1,6 @@
 {
-    "name": "Latios.Calligraphics",
-    "rootNamespace": "Latios.Calligraphics",
+    "name": "TextmeshDOTS",
+    "rootNamespace": "TextmeshDOTS",
     "references": [
         "Latios.Core",
         "Latios.Psyshock",

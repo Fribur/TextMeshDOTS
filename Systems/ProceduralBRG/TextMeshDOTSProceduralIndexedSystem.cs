@@ -34,11 +34,11 @@ namespace TextMeshDOTS.Rendering
         NativeArray<float4x4> zero;
         NativeArray<float3x4> objectToWorld;
         NativeArray<float3x4> worldToObject;
-        NativeArray<TextShaderIndex> _latiosTextGlyphBase;
+        NativeArray<TextShaderIndex> _TextShaderIndex;
         //corresponding instanced shader property IDs 
         int objectToWorldID;
         int worldToObjectID;
-        int latiosTextGlyphBaseID;
+        int textShaderIndexID;
 
         //visible Instances GraphicsBuffer and NativeArrays to set the data
         GraphicsBuffer _gpuVisibleInstances;
@@ -89,7 +89,7 @@ namespace TextMeshDOTS.Rendering
             if (!_initialized)
             {
                 InitializeBRG(fontBlobReferenceEntity);
-                //Debug.Log("Initialzied BRG");
+                Debug.Log("Initialzied text BRG: Procedural Index");
             }
         }
         protected override void OnDestroy()
@@ -100,13 +100,14 @@ namespace TextMeshDOTS.Rendering
                 if (proceduralMaterial) _batchRendererGroup.UnregisterMaterial(_proceduralMaterialID);
 
                 _batchRendererGroup.Dispose();
+                _indexBuffer.Dispose();
                 _gpuPersistentInstanceData.Dispose();
                 _gpuVisibleInstances.Dispose();
                 _latiosTextBuffer.Dispose();
                 zero.Dispose();
                 objectToWorld.Dispose();
                 worldToObject.Dispose();
-                _latiosTextGlyphBase.Dispose();
+                _TextShaderIndex.Dispose();
                 _sysmemVisibleInstances.Dispose();
                 _sysmemIndexBuffer.Dispose();
             }
@@ -215,7 +216,7 @@ namespace TextMeshDOTS.Rendering
             zero = new NativeArray<float4x4>(1, Allocator.Persistent, NativeArrayOptions.ClearMemory);
             objectToWorld = new NativeArray<float3x4>(_itemCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
             worldToObject = new NativeArray<float3x4>(_itemCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
-            _latiosTextGlyphBase = new NativeArray<TextShaderIndex>(_itemCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
+            _TextShaderIndex = new NativeArray<TextShaderIndex>(_itemCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
             _sysmemVisibleInstances = new NativeArray<int>(_itemCount, Allocator.Persistent, NativeArrayOptions.ClearMemory);
 
             int intCountGpuPersistent = BRGStaticHelper.BufferCountForInstances((packedMatrixSize * 2) + textShaderIndexSize, _itemCount, extraBytes);
@@ -246,13 +247,15 @@ namespace TextMeshDOTS.Rendering
             // (2) set objectToWorld, matrixPrevious, worldToObject, textShaderIndex, visibleInstances
             for (int i = 0; i < _itemCount; ++i)
             {
-                //var pos = localToWorld.Position;
-                //objectToWorld[i] = BRGStaticHelper.GetPackedMatrix(pos.x, pos.y, pos.y);              // compute the new current frame matrix
-                //worldToObject[i] = BRGStaticHelper.GetPackedInverseMatrix(pos.x, pos.y, pos.y);       // compute the new inverse matrix
-                objectToWorld[i] = BRGStaticHelper.GetPackedMatrix(localToWorld.Value);                 // compute the new current frame matrix
-                worldToObject[i] = BRGStaticHelper.GetPackedMatrix(math.inverse(localToWorld.Value));   // compute the new inverse matrix
+                var pos = localToWorld.Position;
+                //Debug.Log($"Position: {pos}");
+                objectToWorld[i] = BRGStaticHelper.GetPackedMatrix(pos.x, pos.y, pos.z);              // compute the new current frame matrix
+                worldToObject[i] = BRGStaticHelper.GetPackedInverseMatrix(pos.x, pos.y, pos.z);       // compute the new inverse matrix
+                //objectToWorld[i] = BRGStaticHelper.GetPackedMatrix(localToWorld.Value);                 // compute the new current frame matrix
+                //worldToObject[i] = BRGStaticHelper.GetPackedMatrix(math.inverse(localToWorld.Value));   // compute the new inverse matrix
 
-                _latiosTextGlyphBase[i] = textShaderIndex.ValueRO;
+                _TextShaderIndex[i] = textShaderIndex.ValueRO;
+                //Debug.Log($"first glyph: {textShaderIndex.ValueRO.firstGlyphIndex} glyphCount: {textShaderIndex.ValueRO.glyphCount}");
                 _sysmemVisibleInstances[i] = i;
             }
 
@@ -263,18 +266,20 @@ namespace TextMeshDOTS.Rendering
             uint byteAddressWorldToObject = byteAddressObjectToWorld + (uint)(packedMatrixSize * _itemCount);   //576
             uint byteAddressTextGlyphBase = byteAddressWorldToObject + (uint)(packedMatrixSize * _itemCount);   //1056
 
+            //Debug.Log($"offsets: {byteAddressObjectToWorld} {byteAddressWorldToObject} {byteAddressTextGlyphBase}");
+
             //Upload instanced shader property data to the persistent GraphicsBuffer
             _gpuPersistentInstanceData.SetData(zero, 0, 0, 1);
             _gpuPersistentInstanceData.SetData(objectToWorld, 0, (int)(byteAddressObjectToWorld / packedMatrixSize), objectToWorld.Length);
             _gpuPersistentInstanceData.SetData(worldToObject, 0, (int)(byteAddressWorldToObject / packedMatrixSize), worldToObject.Length);
-            _gpuPersistentInstanceData.SetData(_latiosTextGlyphBase, 0, (int)(byteAddressTextGlyphBase / textShaderIndexSize), _latiosTextGlyphBase.Length);
+            _gpuPersistentInstanceData.SetData(_TextShaderIndex, 0, (int)(byteAddressTextGlyphBase / textShaderIndexSize), _TextShaderIndex.Length);
 
             //setup batchMetatData that informes shader about (1) propertyID, (2) offset of position where property data starts and
             //(3) if the property is instanced or not (0x80000000 means data is instanced, 0 means it not and shader should pull this data from global buffer)
             var batchMetadata = new NativeArray<MetadataValue>(4, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             batchMetadata[0] = new MetadataValue { NameID = objectToWorldID, Value = byteAddressObjectToWorld | 0x80000000 };       // matrices, 
             batchMetadata[1] = new MetadataValue { NameID = worldToObjectID, Value = byteAddressWorldToObject | 0x80000000 };       // inverse matrices
-            batchMetadata[2] = new MetadataValue { NameID = latiosTextGlyphBaseID, Value = byteAddressTextGlyphBase | 0x80000000 }; // latiosTextGlyphBaseID
+            batchMetadata[2] = new MetadataValue { NameID = textShaderIndexID, Value = byteAddressTextGlyphBase | 0x80000000 }; // textShaderIndexID
             #endregion
 
             //set visible instances GraphicsBuffer
@@ -284,14 +289,16 @@ namespace TextMeshDOTS.Rendering
             //setup shader properties that are uploaded into global buffer providing data valid for all instances
             var quadCount = renderGlyphs.Length;
             var indexCount = quadCount * 6;
-            var target = UseConstantBuffer ? GraphicsBuffer.Target.Constant : GraphicsBuffer.Target.Structured;
-            //var target = UseConstantBuffer ? GraphicsBuffer.Target.Constant : GraphicsBuffer.Target.Raw;
+            //var target = UseConstantBuffer ? GraphicsBuffer.Target.Constant : GraphicsBuffer.Target.Structured;
+            var target = UseConstantBuffer ? GraphicsBuffer.Target.Constant : GraphicsBuffer.Target.Raw;
 
-            _latiosTextBuffer = new GraphicsBuffer(target, quadCount, 96);
+            _latiosTextBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Raw, quadCount, 96);
             _latiosTextBuffer.SetData(renderGlyphs);
 
             _sysmemIndexBuffer = new NativeArray<int>(indexCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             BRGStaticHelper.BuildIndexBuffer(ref _sysmemIndexBuffer);
+            //for (int i = 0; i < _sysmemIndexBuffer.Length; i++)
+            //    Debug.Log($"{_sysmemIndexBuffer[i]}");
             _indexBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Index, indexCount, 4);
             _indexBuffer.SetData(_sysmemIndexBuffer);
 
@@ -316,7 +323,7 @@ namespace TextMeshDOTS.Rendering
         {
             objectToWorldID = Shader.PropertyToID("unity_ObjectToWorld");   //instanced property (information about via MetaData buffer)
             worldToObjectID = Shader.PropertyToID("unity_WorldToObject");   //instanced property (information about via MetaData buffer)
-            latiosTextGlyphBaseID = Shader.PropertyToID("_latiosTextGlyphBase");//instanced property (information about via MetaData buffer)
+            textShaderIndexID = Shader.PropertyToID("_TextShaderIndex");//instanced property (information about via MetaData buffer)
             latiosTextBufferID = Shader.PropertyToID("_latiosTextBuffer");                //global property
         }
     }
