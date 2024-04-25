@@ -24,9 +24,8 @@ namespace TextMeshDOTS.Rendering
                       .WithAll<RenderGlyph>()
                       .WithAllRW<RenderBounds>()
                       .WithAllRW<TextRenderControl>()
-                      .WithAllRW<MaterialMeshInfo>()
                       .WithAbsent<FontMaterialSelectorForGlyph>()
-                      .Build(); 
+                      .Build();
 
             m_skipChangeFilter = (state.WorldUnmanaged.Flags & WorldFlags.Editor) == WorldFlags.Editor;
         }
@@ -44,9 +43,8 @@ namespace TextMeshDOTS.Rendering
                 glyphHandle = GetBufferTypeHandle<RenderGlyph>(true),
                 boundsHandle = GetComponentTypeHandle<RenderBounds>(false),
                 controlHandle = GetComponentTypeHandle<TextRenderControl>(false),
-                materialMeshInfoHandle = GetComponentTypeHandle<MaterialMeshInfo>(false),
                 lastSystemVersion = m_skipChangeFilter ? 0 : state.LastSystemVersion
-            }.ScheduleParallel(m_singleFontQuery, state.Dependency);            
+            }.ScheduleParallel(m_singleFontQuery, state.Dependency);
         }
 
         [BurstCompile]
@@ -55,7 +53,6 @@ namespace TextMeshDOTS.Rendering
             [ReadOnly] public BufferTypeHandle<RenderGlyph> glyphHandle;
             public ComponentTypeHandle<RenderBounds> boundsHandle;
             public ComponentTypeHandle<TextRenderControl> controlHandle;
-            public ComponentTypeHandle<MaterialMeshInfo> materialMeshInfoHandle;
             public uint lastSystemVersion;
 
             public unsafe void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
@@ -75,7 +72,6 @@ namespace TextMeshDOTS.Rendering
 
                 var ctrlRW = chunk.GetComponentDataPtrRW(ref controlHandle);
                 var bounds = chunk.GetComponentDataPtrRW(ref boundsHandle);
-                var mmis = chunk.GetComponentDataPtrRW(ref materialMeshInfoHandle);
                 var glyphBuffers = chunk.GetBufferAccessor(ref glyphHandle);
 
                 for (int entity = firstEntityNeedingUpdate; entity < chunk.Count; entity++)
@@ -100,24 +96,7 @@ namespace TextMeshDOTS.Rendering
                         aabb.Min = 0f;
                         aabb.Max = 0f;
                     }
-                    bounds[entity] = new RenderBounds { Value = new AABB { Center = aabb.Center, Extents = aabb.Extents} };
-                    ref var mmi = ref mmis[entity];
-
-                    if (glyphBuffer.Length <= 8)
-                        mmi.SubMesh = 0;
-                    else if (glyphBuffer.Length <= 64)
-                        mmi.SubMesh = 1;
-                    else if (glyphBuffer.Length <= 512)
-                        mmi.SubMesh = 2;
-                    else if (glyphBuffer.Length <= 4096)
-                        mmi.SubMesh = 3;
-                    else if (glyphBuffer.Length <= 16384)
-                        mmi.SubMesh = 4;
-                    else
-                    {
-                        UnityEngine.Debug.LogWarning("Glyphs in RenderGlyph buffer exceeds max capacity of 16384 and will be truncated.");
-                        mmi.SubMesh = 4;
-                    }
+                    bounds[entity] = new RenderBounds { Value = new AABB { Center = aabb.Center, Extents = aabb.Extents } };
                 }
             }
         }

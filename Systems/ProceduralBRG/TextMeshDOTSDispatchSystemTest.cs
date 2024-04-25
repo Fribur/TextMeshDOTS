@@ -7,13 +7,14 @@
 //using UnityEngine;
 //using UnityEngine.Rendering;
 //using Unity.Mathematics;
+//using TextMeshDOTS.Rendering.Authoring;
 
 //namespace TextMeshDOTS.Rendering
 //{
 //    //[WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
 //    [UpdateInGroup(typeof(PresentationSystemGroup))]
 //    [BurstCompile]
-//    public unsafe partial class TextMeshDOTSProceduralSystem : SystemBase
+//    public unsafe partial class TextMeshDOTSProceduralIndexedSystem : SystemBase
 //    {
 //        EntityQuery textToRenderQ;
 
@@ -22,6 +23,12 @@
 
 //        BatchMaterialID _proceduralMaterialID;
 //        UnityObjectRef<Material> proceduralMaterial;
+
+//        //GraphicsBuffer to provide indices to the procedural shader
+//        GraphicsBuffer _indexBuffer;
+//        NativeArray<ushort> _sysmemIndexBuffer;
+//        NativeArray<uint> _glyphCountPerInstance;
+
 
 //        //persistent GraphicsBuffer providing instanced shader property data and NativeArrays to set the data
 //        GraphicsBuffer _gpuPersistentInstanceData;
@@ -83,7 +90,7 @@
 //            if (!_initialized)
 //            {
 //                InitializeBRG(fontBlobReferenceEntity);
-//                Debug.Log("Initialzied text BRG: Procedural");
+//                Debug.Log("Initialzied text BRG: Procedural Index");
 //            }
 //        }
 //        protected override void OnDestroy()
@@ -94,6 +101,7 @@
 //                if (proceduralMaterial) _batchRendererGroup.UnregisterMaterial(_proceduralMaterialID);
 
 //                _batchRendererGroup.Dispose();
+//                _indexBuffer.Dispose();
 //                _gpuPersistentInstanceData.Dispose();
 //                _gpuVisibleInstances.Dispose();
 //                _latiosTextBuffer.Dispose();
@@ -102,6 +110,8 @@
 //                worldToObject.Dispose();
 //                _TextShaderIndex.Dispose();
 //                _sysmemVisibleInstances.Dispose();
+//                _sysmemIndexBuffer.Dispose();
+//                _glyphCountPerInstance.Dispose();
 //            }
 //        }
 
@@ -143,7 +153,7 @@
 //            for (int i = 0; i < _itemCount; ++i)
 //                drawCommands.visibleInstances[i] = _sysmemVisibleInstances[i];
 
-//            //some variables to track drawcommands and resulting offsets into buffer        
+//            //some variables to track drawcommands and resulting offsets into buffer
 //            uint drawCallCount = 1;
 //            uint visibleBaseOffset = 0;
 
@@ -162,10 +172,10 @@
 //                    visibleOffset = visibleBaseOffset + i * _instancesPerItem,
 //                    visibleCount = _instancesPerItem,
 //                    topology = MeshTopology.Triangles,
-//                    indexBufferHandle = default,
+//                    indexBufferHandle = _indexBuffer.bufferHandle,
 //                    baseVertex = 0,
 //                    indexOffsetBytes = 0,
-//                    elementCount = _elementsPerDraw,
+//                    elementCount = _glyphCountPerInstance[0],
 //                };
 //            }
 //            visibleBaseOffset += drawCallCount * _instancesPerItem;
@@ -239,12 +249,8 @@
 //            // (2) set objectToWorld, matrixPrevious, worldToObject, textShaderIndex, visibleInstances
 //            for (int i = 0; i < _itemCount; ++i)
 //            {
-//                //var pos = localToWorld.Position;
-//                //objectToWorld[i] = BRGStaticHelper.GetPackedMatrix(pos.x, pos.y, pos.y);              // compute the new current frame matrix
-//                //worldToObject[i] = BRGStaticHelper.GetPackedInverseMatrix(pos.x, pos.y, pos.y);       // compute the new inverse matrix
 //                objectToWorld[i] = BRGStaticHelper.GetPackedMatrix(localToWorld.Value);                 // compute the new current frame matrix
 //                worldToObject[i] = BRGStaticHelper.GetPackedMatrix(math.inverse(localToWorld.Value));   // compute the new inverse matrix
-
 //                _TextShaderIndex[i] = textShaderIndex.ValueRO;
 //                _sysmemVisibleInstances[i] = i;
 //            }
@@ -256,7 +262,9 @@
 //            uint byteAddressWorldToObject = byteAddressObjectToWorld + (uint)(packedMatrixSize * _itemCount);   //576
 //            uint byteAddressTextGlyphBase = byteAddressWorldToObject + (uint)(packedMatrixSize * _itemCount);   //1056
 
-//            //Upload our instance instanced shader property data to the persistent GraphicsBuffer
+//            //Debug.Log($"offsets: {byteAddressObjectToWorld} {byteAddressWorldToObject} {byteAddressTextGlyphBase}");
+
+//            //Upload instanced shader property data to the persistent GraphicsBuffer
 //            _gpuPersistentInstanceData.SetData(zero, 0, 0, 1);
 //            _gpuPersistentInstanceData.SetData(objectToWorld, 0, (int)(byteAddressObjectToWorld / packedMatrixSize), objectToWorld.Length);
 //            _gpuPersistentInstanceData.SetData(worldToObject, 0, (int)(byteAddressWorldToObject / packedMatrixSize), worldToObject.Length);
@@ -265,9 +273,9 @@
 //            //setup batchMetatData that informes shader about (1) propertyID, (2) offset of position where property data starts and
 //            //(3) if the property is instanced or not (0x80000000 means data is instanced, 0 means it not and shader should pull this data from global buffer)
 //            var batchMetadata = new NativeArray<MetadataValue>(4, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
-//            batchMetadata[0] = new MetadataValue { NameID = objectToWorldID, Value = byteAddressObjectToWorld | 0x80000000 }; // matrices, 
-//            batchMetadata[1] = new MetadataValue { NameID = worldToObjectID, Value = byteAddressWorldToObject | 0x80000000 }; // inverse matrices
-//            batchMetadata[2] = new MetadataValue { NameID = textShaderIndexID, Value = byteAddressTextGlyphBase | 0x80000000 };// textShaderIndexID
+//            batchMetadata[0] = new MetadataValue { NameID = objectToWorldID, Value = byteAddressObjectToWorld | 0x80000000 };       // matrices, 
+//            batchMetadata[1] = new MetadataValue { NameID = worldToObjectID, Value = byteAddressWorldToObject | 0x80000000 };       // inverse matrices
+//            batchMetadata[2] = new MetadataValue { NameID = textShaderIndexID, Value = byteAddressTextGlyphBase | 0x80000000 }; // textShaderIndexID
 //            #endregion
 
 //            //set visible instances GraphicsBuffer
@@ -276,11 +284,24 @@
 //            #region global shader properties
 //            //setup shader properties that are uploaded into global buffer providing data valid for all instances
 //            var quadCount = renderGlyphs.Length;
-//            //var target = UseConstantBuffer ? GraphicsBuffer.Target.Constant : GraphicsBuffer.Target.Structured;
+//            var indexCount = (uint)quadCount * 6;
 //            var target = UseConstantBuffer ? GraphicsBuffer.Target.Constant : GraphicsBuffer.Target.Raw;
 
-//            _latiosTextBuffer = new GraphicsBuffer(target, quadCount, 96);
+//            _latiosTextBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Raw, quadCount, 96);
 //            _latiosTextBuffer.SetData(renderGlyphs);
+
+//            //_sysmemIndexBuffer = new NativeArray<ushort>(indexCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+//            //LatiosTextBackendBakingUtility.BuildIndexBuffer(ref _sysmemIndexBuffer);
+//            //_indexBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Index, indexCount, 2);
+//            //_indexBuffer.SetData(_sysmemIndexBuffer);
+
+//            _sysmemIndexBuffer = new NativeArray<ushort>(65535, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+//            LatiosTextBackendBakingUtility.BuildIndexBuffer(ref _sysmemIndexBuffer);
+//            _indexBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Index, 65535, 2);
+//            _indexBuffer.SetData(_sysmemIndexBuffer);
+
+//            _glyphCountPerInstance = new NativeArray<uint>(_itemCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+//            _glyphCountPerInstance[0] = indexCount;
 
 //            if (UseConstantBuffer)
 //            {
@@ -290,7 +311,7 @@
 //            {
 //                Shader.SetGlobalBuffer(latiosTextBufferID, _latiosTextBuffer);
 //            }
-//            _elementsPerDraw = (uint)quadCount;
+//            _elementsPerDraw = (uint)indexCount;
 //            #endregion
 
 //            // Register batch
