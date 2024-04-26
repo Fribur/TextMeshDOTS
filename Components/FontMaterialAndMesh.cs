@@ -7,5 +7,6 @@ namespace TextMeshDOTS
     public struct FontMaterial : IComponentData
     {
         public UnityObjectRef<Material> fontMaterial;
+        public UnityObjectRef<Mesh> backendMesh;
     }
 }

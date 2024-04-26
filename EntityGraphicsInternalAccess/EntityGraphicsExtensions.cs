@@ -1,17 +1,16 @@
-using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Rendering;
 using UnityEngine;
 using Unity.Mathematics;
-using System;
-
 
 public static class EntityGraphicsInternals
-{    public static void BakeMeshAndMaterial(this IBaker baker, Entity entity, RenderMeshDescription renderMeshDescription, Mesh mesh,  Material material)
+{
+    //copied from Entitie Graphics MeshRendererBakingUtility.ConvertToSingleEntity
+    public static void BakeMeshAndMaterial(this IBaker baker, Entity entity, RenderMeshDescription renderMeshDescription, Mesh mesh,  Material material)
     {
-        var componentFlag = RenderMeshUtility.EntitiesGraphicsComponentFlags.Baking;
-        componentFlag.AppendMotionAndProbeFlags(renderMeshDescription, baker.IsStatic());
         Material[] materials = new Material[] { material };
+        var componentFlag = RenderMeshUtility.EntitiesGraphicsComponentFlags.Baking;
+        componentFlag.AppendMotionAndProbeFlags(renderMeshDescription, baker.IsStatic());        
         componentFlag.AppendDepthSortedFlag(materials);
         baker.AddComponent(entity, RenderMeshUtility.ComputeComponentTypes(componentFlag));
 
@@ -20,5 +19,10 @@ public static class EntityGraphicsInternals
         baker.SetComponent(entity, new RenderMeshUnmanaged(mesh, material, subMeshIndexInfo));
         baker.SetComponent(entity, new RenderBounds { Value = mesh.bounds.ToAABB() });
     }
+    public static int NumFramesInFlight()
+    {
+        return SparseUploader.NumFramesInFlight;
+    }
 }
+
 

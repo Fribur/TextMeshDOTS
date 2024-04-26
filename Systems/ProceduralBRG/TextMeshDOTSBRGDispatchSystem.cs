@@ -8,7 +8,6 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using Unity.Mathematics;
 using TextMeshDOTS.Rendering.Authoring;
-using Chart3D.LayerSpawner.Jobs;
 using Unity.Rendering;
 
 namespace TextMeshDOTS.Rendering
@@ -16,7 +15,8 @@ namespace TextMeshDOTS.Rendering
     //[WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     [BurstCompile]
-    public unsafe partial class TextMeshDOTSDispatchSystem : SystemBase
+    [DisableAutoCreation]
+    public unsafe partial class TextMeshDOTSBRGDispatchSystem : SystemBase
     {
         EntityQuery textToRenderQ;
 
@@ -106,7 +106,7 @@ namespace TextMeshDOTS.Rendering
                 _batchRendererGroup.Dispose();
                 _gpuIndexBuffer.Dispose();
                 _cpuIndexBuffer.Dispose();
-                _gpuPersistentInstanceData.Dispose();                
+                _gpuPersistentInstanceData.Dispose();
                 zero.Dispose();
                 objectToWorld.Dispose();
                 worldToObject.Dispose();
@@ -135,11 +135,11 @@ namespace TextMeshDOTS.Rendering
             globalBounds = new NativeArray<AABB>(1, Allocator.Persistent);
             maxTextLength = new NativeArray<uint>(1, Allocator.Persistent);
 
-            int intCountGpuPersistent = BRGStaticHelper.BufferCountForInstances((packedMatrixSize * 2) + textShaderIndexSize, _itemCount, extraBytes);
-            int intCountGpuVisible = BRGStaticHelper.BufferCountForInstances(sizeof(int), _itemCount, 0);
+            int intCountGpuPersistent = StaticHelper.BufferCountForInstances((packedMatrixSize * 2) + textShaderIndexSize, _itemCount, extraBytes);
+            int intCountGpuVisible = StaticHelper.BufferCountForInstances(sizeof(int), _itemCount, 0);
 
             //fetch data for setting the instanced batch
-            var CollectGlyphDataJob = new CollectGlyphDataJob
+            var CollectGlyphDataJob = new CollectBRGGlyphDataJob
             {
                 objectToWorld = objectToWorld,
                 worldToObject = worldToObject,
@@ -253,7 +253,7 @@ namespace TextMeshDOTS.Rendering
                 renderingLayerMask = 1,
                 layer = 0,
                 motionMode = MotionVectorGenerationMode.ForceNoMotion,
-                shadowCastingMode = ShadowCastingMode.On,
+                shadowCastingMode = ShadowCastingMode.Off,
                 receiveShadows = false,
                 staticShadowCaster = false,
                 allDepthSorted = false
@@ -262,7 +262,7 @@ namespace TextMeshDOTS.Rendering
             //initialize draw commands
             var drawCommands = new BatchCullingOutputDrawCommands();
             drawCommands.drawRangeCount = 1;
-            drawCommands.drawRanges = BRGStaticHelper.Malloc<BatchDrawRange>(1);
+            drawCommands.drawRanges = StaticHelper.Malloc<BatchDrawRange>(1);
 
             // ProceduralIndirect draw range
             drawCommands.drawRanges[0] = new BatchDrawRange
@@ -275,7 +275,7 @@ namespace TextMeshDOTS.Rendering
 
             //define which instances are visible (To-Do: investigate if culling can be done on GPU without further data uploads)
             drawCommands.visibleInstanceCount = _itemCount;
-            drawCommands.visibleInstances = BRGStaticHelper.Malloc<int>(_itemCount);
+            drawCommands.visibleInstances = StaticHelper.Malloc<int>(_itemCount);
             for (int i = 0; i < _itemCount; ++i)
                 drawCommands.visibleInstances[i] = _cpuVisibleInstances[i];
 
@@ -284,7 +284,7 @@ namespace TextMeshDOTS.Rendering
 
             // Procedural draw command
             drawCommands.proceduralDrawCommandCount = 1;
-            drawCommands.proceduralDrawCommands = BRGStaticHelper.Malloc<BatchDrawCommandProcedural>(1);
+            drawCommands.proceduralDrawCommands = StaticHelper.Malloc<BatchDrawCommandProcedural>(1);
             for (int i = 0; i < 1; ++i)
             {
                 drawCommands.proceduralDrawCommands[0] = new BatchDrawCommandProcedural

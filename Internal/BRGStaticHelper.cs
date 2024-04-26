@@ -1,11 +1,12 @@
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
+using Unity.Rendering;
 using UnityEngine;
 
 namespace TextMeshDOTS.Rendering
 {
-    public static unsafe class BRGStaticHelper
+    public static unsafe class StaticHelper
     {
         // Helper function to allocate BRG buffers during the BRG callback function
         public static T* Malloc<T>(int count) where T : unmanaged
@@ -72,6 +73,48 @@ namespace TextMeshDOTS.Rendering
                 indices[dst + 3] = (ushort)(src + 2);
                 indices[dst + 4] = (ushort)(src + 3);
                 indices[dst + 5] = src;
+            }
+        }
+        public static void SetSubMesh(int glyphCount, ref MaterialMeshInfo mmi)
+        {
+            switch (glyphCount)
+            {
+                case int _ when glyphCount <= 4:
+                    mmi.SubMesh = 0; break;
+                case int _ when glyphCount <= 8:
+                    mmi.SubMesh = 1; break;
+                case int _ when glyphCount <= 16:
+                    mmi.SubMesh = 2; break;
+                case int _ when glyphCount <= 24:
+                    mmi.SubMesh = 3; break;
+                case int _ when glyphCount <= 32:
+                    mmi.SubMesh = 4; break;
+                case int _ when glyphCount <= 48:
+                    mmi.SubMesh = 5; break;
+                case int _ when glyphCount <= 64:
+                    mmi.SubMesh = 6; break;
+                case int _ when glyphCount <= 96:
+                    mmi.SubMesh = 7; break;
+                case int _ when glyphCount <= 128:
+                    mmi.SubMesh = 8; break;
+                case int _ when glyphCount <= 256:
+                    mmi.SubMesh = 9; break;
+                case int _ when glyphCount <= 512:
+                    mmi.SubMesh = 10; break;
+                case int _ when glyphCount <= 1024:
+                    mmi.SubMesh = 11; break;
+                case int _ when glyphCount <= 2048:
+                    mmi.SubMesh = 12; break;
+                case int _ when glyphCount <= 4096:
+                    mmi.SubMesh = 13; break;
+                case int _ when glyphCount <= 8192:
+                    mmi.SubMesh = 14; break;
+                case int _ when glyphCount <= 16384:
+                    mmi.SubMesh = 15; break;
+                default:
+                    mmi.SubMesh = 15;
+                    UnityEngine.Debug.LogWarning("Glyphs in RenderGlyph buffer exceeds max capacity of 16384 and will be truncated.");
+                    break;
             }
         }
     }

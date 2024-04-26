@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using TextMeshDOTS.Rendering;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -7,10 +6,10 @@ using Unity.Mathematics;
 using Unity.Rendering;
 using Unity.Transforms;
 
-namespace Chart3D.LayerSpawner.Jobs
+namespace TextMeshDOTS.Rendering
 {
     [BurstCompile]
-    partial struct CollectGlyphDataJob : IJobEntity
+    partial struct CollectBRGGlyphDataJob : IJobEntity
     {
         //data for persistent GraphicsBuffer providing instanced shader property data
         public NativeArray<float3x4> objectToWorld;
@@ -30,27 +29,27 @@ namespace Chart3D.LayerSpawner.Jobs
         //glyph data for global _latiosTextBuffer 
         public NativeList<RenderGlyph> renderGlyphs;
 
-        void Execute([EntityIndexInQuery] int idx, 
-            ref TextShaderIndex textShaderIndex, 
-            in LocalToWorld localToWorld, 
-            in RenderBounds renderBounds, 
+        void Execute([EntityIndexInQuery] int idx,
+            ref TextShaderIndex textShaderIndex,
+            in LocalToWorld localToWorld,
+            in RenderBounds renderBounds,
             in DynamicBuffer<RenderGlyph> renderGlyphBuffer)
-        {            
+        {
             textShaderIndex.firstGlyphIndex = firstGlyphIndex;
             textShaderIndex.glyphCount = (uint)renderGlyphBuffer.Length;
             firstGlyphIndex += textShaderIndex.glyphCount;
             maxTextLength[0] = math.max(maxTextLength[0], textShaderIndex.glyphCount);
 
             //collect data for global instance property buffer
-            objectToWorld[idx] = BRGStaticHelper.GetPackedMatrix(localToWorld.Value);                 // compute the new current frame matrix
-            worldToObject[idx] = BRGStaticHelper.GetPackedMatrix(math.inverse(localToWorld.Value));   // compute the new inverse matrix
+            objectToWorld[idx] = StaticHelper.GetPackedMatrix(localToWorld.Value);                 // compute the new current frame matrix
+            worldToObject[idx] = StaticHelper.GetPackedMatrix(math.inverse(localToWorld.Value));   // compute the new inverse matrix
             textShaderIndices[idx] = textShaderIndex;
             visibleInstances[idx] = idx;
 
             //collect glyph data for global _latiosTextBuffer
             renderGlyphs.AddRange(renderGlyphBuffer.AsNativeArray());
 
-            globalBounds[0] = GetAABB(math.min(globalBounds[0].Min, renderBounds.Value.Min), 
+            globalBounds[0] = GetAABB(math.min(globalBounds[0].Min, renderBounds.Value.Min),
                                       math.max(globalBounds[0].Max, renderBounds.Value.Max));
         }
 
@@ -61,5 +60,5 @@ namespace Chart3D.LayerSpawner.Jobs
             var center = min + extents;
             return new AABB { Extents = extents, Center = center };
         }
-    }    
+    }
 }

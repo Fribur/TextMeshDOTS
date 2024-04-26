@@ -7,9 +7,15 @@ cross dependencies to a minimum, we aim to only depend on unmodified [Unity Enti
 be able to utilize TextCore FontAssets. Possibly we use a custom BatchRenderGroup instead of Entity Graphics. 
 
 # How to use
+
+You can choose to render text either via a custom BatchRenderGroup (BatchDrawCommandProcedural), or via native Entities Graphics.
+To do so, add [DisableAutoCreation] either to the system found in `Systems\ProceduralBRG`, or to systems in `Systems\Rendering`.
+BatchDrawCommandProcedural does not appear to have any advantage compared to the Entities Graphics, so it is currently disabled.
+
 (1) Autoring workflow
 -	Generate backend Mesh: `Menue-->TextMeshDOTS-->Text Backend mesh`
 -   Create a SubScene
+-   When using Entities Graphics, add a dummy cube mesh (otherwise text will not be rendered...reason unknown at this time)
 -   Add empty GameObject
 -   Add TextRenderer component
 -   Set font asset to `TextMeshDOTS/Fonts/LiberationSans SDF`, type in some text
@@ -24,8 +30,10 @@ be able to utilize TextCore FontAssets. Possibly we use a custom BatchRenderGrou
 -   Close subscene
 -   Modify `RuntimeTextRendererSpawner.cs` to spawn any number of TextRenderer
 -   Hit play
+- 
 
 # Known issues
+-   When using Entities Graphics and autoring workflow, text will not be rendered...reason unknown at this time. Can be fixed by adding a cube GameObject into the subscene.
 -   Spawned text is not updated right now 
 -   FontAsset switching functionality of Calligraphics has been temporarily removed
 

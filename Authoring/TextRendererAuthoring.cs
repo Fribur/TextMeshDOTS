@@ -4,7 +4,8 @@ using Unity.Entities;
 using Unity.Entities.Graphics;
 using Unity.Mathematics;
 using Unity.Rendering;
-using UnityEditor.PackageManager;
+using Unity.Transforms;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.TextCore.Text;
@@ -31,9 +32,6 @@ namespace TextMeshDOTS.Authoring
         public Color32 color = Color.white;
 
         public FontAsset font;
-
-        public Mesh dummyMesh;
-        public Material proceduralMaterial;
     }
 
 
@@ -66,11 +64,8 @@ namespace TextMeshDOTS.Authoring
                 fontWeight        = authoring.fontWeight,
             });
 
-            AddComponent(entity, new TestProceduralMaterial
-            {
-                mesh = new UnityObjectRef<Mesh> { Value = authoring.dummyMesh },
-                material = new UnityObjectRef<Material> { Value = authoring.proceduralMaterial }
-            }); 
+            var textStatsEntity = CreateAdditionalEntity(TransformUsageFlags.None);
+            AddComponent(textStatsEntity, TextMeshDOTSArchetypes.GetTextStatisticsTypeset());
         }
 
         void AddFontRendering(Entity entity, FontAsset fontAsset)

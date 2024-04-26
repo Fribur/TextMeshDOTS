@@ -4,6 +4,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Rendering;
+using UnityEditor.PackageManager;
 using UnityEngine;
 
 namespace TextMeshDOTS.Rendering.Authoring
@@ -32,12 +33,23 @@ namespace TextMeshDOTS.Rendering.Authoring
         [UnityEditor.MenuItem("TextMeshDOTS/Text BackendMesh")]
         static void CreateMeshAsset()
         {
-            var glyphCounts = new NativeArray<int>(5, Allocator.Temp);
-            glyphCounts[0] = 8;
-            glyphCounts[1] = 64;
-            glyphCounts[2] = 512;
-            glyphCounts[3] = 4096;
-            glyphCounts[4] = 16384;
+            var glyphCounts = new NativeArray<int>(16, Allocator.Temp);
+            glyphCounts[0] = 4;
+            glyphCounts[1] = 8;
+            glyphCounts[2] = 16;
+            glyphCounts[3] = 24;
+            glyphCounts[4] = 32;
+            glyphCounts[5] = 48;
+            glyphCounts[6] = 64;
+            glyphCounts[7] = 96;
+            glyphCounts[8] = 128;
+            glyphCounts[9] = 256;
+            glyphCounts[10] = 512;
+            glyphCounts[11] = 1024;
+            glyphCounts[12] = 2048;
+            glyphCounts[13] = 4096;
+            glyphCounts[14] = 8192;
+            glyphCounts[15] = 16384;
 
             var mesh = CreateMesh(16384, glyphCounts);
             if(!UnityEditor.AssetDatabase.IsValidFolder(kResourcePath))

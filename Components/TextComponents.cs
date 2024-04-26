@@ -5,16 +5,7 @@ using UnityEngine.TextCore.Text;
 
 namespace TextMeshDOTS
 {
-
-    /// <summary> A reference to a dummy mesh and a procedural material </summary>
-    public struct TestProceduralMaterial : IComponentData
-    {
-        /// <summary>
-        /// mesh is only needed for testing, can be eliminated once vertices are proceduraly generated
-        /// </summary>
-        public UnityObjectRef<Mesh> mesh; 
-        public UnityObjectRef<Material> material;
-    }
+    public struct TextStatisticsTag : IComponentData { }
 
 
     /// <summary>
