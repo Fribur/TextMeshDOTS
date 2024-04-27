@@ -2,6 +2,7 @@ using Unity.Entities;
 using Unity.Rendering;
 using UnityEngine;
 using Unity.Mathematics;
+using UnityEngine.UI;
 
 public static class EntityGraphicsInternals
 {
@@ -19,9 +20,17 @@ public static class EntityGraphicsInternals
         baker.SetComponent(entity, new RenderMeshUnmanaged(mesh, material, subMeshIndexInfo));
         baker.SetComponent(entity, new RenderBounds { Value = mesh.bounds.ToAABB() });
     }
-    public static int NumFramesInFlight()
+    public static void IndexToQwIndexAndMask(int batchIndex, out int qw, out long mask)
     {
-        return SparseUploader.NumFramesInFlight;
+        AtomicHelpers.IndexToQwIndexAndMask(batchIndex, out qw, out mask);
+    }
+    public static unsafe void AtomicAnd(long* qwords, int index, long value)
+    {
+        AtomicHelpers.AtomicAnd(qwords, index, value);
+    }
+    public static void PrintChunkInfo(EntitiesGraphicsChunkInfo info)
+    {
+        Debug.Log($"Valid {info.Valid} BatchIndex {info.BatchIndex} ChunkTypesBegin {info.ChunkTypesBegin} ChunkTypesEnd {info.ChunkTypesEnd}");
     }
 }
 

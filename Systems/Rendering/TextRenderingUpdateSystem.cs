@@ -4,21 +4,17 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Rendering;
-using UnityEngine;
 using static Unity.Entities.SystemAPI;
-using static UnityEditor.Experimental.AssetDatabaseExperimental.AssetDatabaseCounters;
 
 namespace TextMeshDOTS.Rendering.Systems
 {
     //[WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]
     [BurstCompile]
-    [UpdateBefore(typeof(TextRenderingDispatchSystem))]
     public partial struct TextRenderingUpdateSystem : ISystem
     {
         EntityQuery m_singleFontQuery;
         EntityQuery m_multiFontQuery;
-        EntityQuery m_gpuResidentQuery;
         bool m_skipChangeFilter;
 
         [BurstCompile]
@@ -38,9 +34,6 @@ namespace TextMeshDOTS.Rendering.Systems
                      .WithAllRW<TextRenderControl>()
                      .WithAllRW<MaterialMeshInfo>()
                      .Build();
-            m_gpuResidentQuery = QueryBuilder()
-                     .WithAllRW<GpuResidentUpdateFlag>()
-                     .Build();
 
             m_skipChangeFilter = (state.WorldUnmanaged.Flags & WorldFlags.Editor) == WorldFlags.Editor;
         }
@@ -54,18 +47,12 @@ namespace TextMeshDOTS.Rendering.Systems
             state.EntityManager.SetComponentData(textStats, new GlyphCountThisFrame { glyphCount = 0 });
             state.EntityManager.SetComponentData(textStats, new MaskCountThisFrame { maskCount = 1 });  // Zero reserved for no mask
 
-            state.Dependency = new ClearGpuResidentFlagsJob
-            {
-                gpuResidentHandle = GetComponentTypeHandle<GpuResidentUpdateFlag>(false)
-            }.ScheduleParallel(m_gpuResidentQuery, state.Dependency);
-
             state.Dependency = new SingleFontJob
             {
                 glyphHandle = GetBufferTypeHandle<RenderGlyph>(true),
                 boundsHandle = GetComponentTypeHandle<RenderBounds>(false),
                 controlHandle = GetComponentTypeHandle<TextRenderControl>(false),
                 materialMeshInfoHandle = GetComponentTypeHandle<MaterialMeshInfo>(false),
-                gpuResidentHandle = GetComponentTypeHandle<GpuResidentUpdateFlag>(false),
                 lastSystemVersion = m_skipChangeFilter ? 0 : state.LastSystemVersion
             }.ScheduleParallel(m_singleFontQuery, state.Dependency);
 
@@ -77,27 +64,12 @@ namespace TextMeshDOTS.Rendering.Systems
                 entityHandle = GetEntityTypeHandle(),
                 glyphHandle = GetBufferTypeHandle<RenderGlyph>(true),
                 glyphMaskLookup = GetBufferLookup<RenderGlyphMask>(false),
-                gpuResidentAllocationLookup = GetComponentLookup<GpuResidentUpdateFlag>(false),
                 lastSystemVersion = m_skipChangeFilter ? 0 : state.LastSystemVersion,
                 materialMeshInfoLookup = GetComponentLookup<MaterialMeshInfo>(false),
                 selectorHandle = GetBufferTypeHandle<FontMaterialSelectorForGlyph>(true)
             }.ScheduleParallel(m_multiFontQuery, state.Dependency);
         }
 
-        [BurstCompile]
-        struct ClearGpuResidentFlagsJob : IJobChunk
-        {
-            public ComponentTypeHandle<GpuResidentUpdateFlag> gpuResidentHandle;
-
-            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
-            {
-                var enabled = chunk.GetEnabledMask(ref gpuResidentHandle);
-                for (int i = 0; i < chunk.Count; i++)
-                {
-                    enabled[i] = false;
-                }
-            }
-        }
 
         [BurstCompile]
         struct SingleFontJob : IJobChunk
@@ -106,7 +78,6 @@ namespace TextMeshDOTS.Rendering.Systems
             public ComponentTypeHandle<RenderBounds> boundsHandle;
             public ComponentTypeHandle<TextRenderControl> controlHandle;
             public ComponentTypeHandle<MaterialMeshInfo> materialMeshInfoHandle;
-            public ComponentTypeHandle<GpuResidentUpdateFlag> gpuResidentHandle;
             public uint lastSystemVersion;
 
             public unsafe void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
@@ -128,16 +99,12 @@ namespace TextMeshDOTS.Rendering.Systems
                 var bounds = chunk.GetComponentDataPtrRW(ref boundsHandle);
                 var mmis = chunk.GetComponentDataPtrRW(ref materialMeshInfoHandle);
                 var glyphBuffers = chunk.GetBufferAccessor(ref glyphHandle);
-                var bits = chunk.GetEnabledMask(ref gpuResidentHandle);
-                var bitsValid = bits.GetOptionalEnabledRefRO<GpuResidentUpdateFlag>(firstEntityNeedingUpdate).IsValid;  // Todo: There should be a better option here.
 
                 for (int entity = firstEntityNeedingUpdate; entity < chunk.Count; entity++)
                 {
                     if ((ctrlRW[entity].flags & TextRenderControl.Flags.Dirty) != TextRenderControl.Flags.Dirty)
                         continue;
                     ctrlRW[entity].flags &= ~TextRenderControl.Flags.Dirty;
-                    if (bitsValid)
-                        bits[entity] = true;
 
                     var glyphBuffer = glyphBuffers[entity].AsNativeArray();
                     var aabb = new Aabb { Min = float.MaxValue, Max = float.MinValue };
@@ -175,7 +142,6 @@ namespace TextMeshDOTS.Rendering.Systems
             [NativeDisableParallelForRestriction] public ComponentLookup<TextRenderControl> controlLookup;
             [NativeDisableParallelForRestriction] public ComponentLookup<MaterialMeshInfo> materialMeshInfoLookup;
             [NativeDisableParallelForRestriction] public BufferLookup<RenderGlyphMask> glyphMaskLookup;
-            [NativeDisableParallelForRestriction] public ComponentLookup<GpuResidentUpdateFlag> gpuResidentAllocationLookup;
             public uint lastSystemVersion;
 
             public unsafe void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
@@ -198,9 +164,6 @@ namespace TextMeshDOTS.Rendering.Systems
                     if ((ctrl.flags & TextRenderControl.Flags.Dirty) != TextRenderControl.Flags.Dirty)
                         continue;
                     ctrl.flags &= ~TextRenderControl.Flags.Dirty;
-                    var gpuBit = gpuResidentAllocationLookup.GetComponentEnabledRefRWOptional<GpuResidentUpdateFlag>(entity);
-                    if (gpuBit.IsValid)
-                        gpuBit.ValueRW = true;
 
                     var glyphBuffer = glyphBuffers[entityIndex].AsNativeArray();
                     var selectorBuffer = selectorBuffers[entityIndex].AsNativeArray().Reinterpret<byte>();
@@ -280,8 +243,6 @@ namespace TextMeshDOTS.Rendering.Systems
                 public Entity entity;
             }
         }
-
-
     }
 }
 

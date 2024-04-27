@@ -37,8 +37,14 @@ namespace TextMeshDOTS.Authoring
         {
             if (initialized)
                 return;
-            if (!SystemAPI.TryGetSingleton<FontMaterial>(out FontMaterial fontMaterial))
+            if (!SystemAPI.TryGetSingleton(out FontMaterial fontMaterial))
                 return;
+
+            if (!(frameCount == 0 ^ frameCount == 100))
+            {
+                frameCount++;
+                return;
+            }
 
             var entitiesGraphicsSystem = World.GetExistingSystemManaged<EntitiesGraphicsSystem>();
             var brgMaterialID = entitiesGraphicsSystem.RegisterMaterial(fontMaterial.fontMaterial);
@@ -53,8 +59,8 @@ namespace TextMeshDOTS.Authoring
 
             var textBaseConfiguration = new TextBaseConfiguration
             {
-                fontSize = 4,
-                color = (Color32)Color.white,
+                fontSize = 12,
+                color = (Color32)Color.blue,
                 maxLineWidth = 3,
                 lineJustification = HorizontalAlignmentOptions.Left,
                 verticalAlignment = VerticalAlignmentOptions.Top,
@@ -70,15 +76,15 @@ namespace TextMeshDOTS.Authoring
                 StaticShadowCaster = false,
             };
 
-            var text1 = "the quick brown fox jumps over the lazy dog the quick brown fox jumps over the lazy dog";
+            //var text1 = "the quick brown fox jumps over the lazy dog the quick brown fox jumps over the lazy dog";
             var text2 = "Test 123";
             var text3 = "ZYX";
             int count = 100;
             int half = count / 2;
             var factor = 3.0f;
 
-            var finalText = text1;
-            Debug.Log($"length: {finalText.Length}");
+            var finalText = text2;
+            //Debug.Log($"length: {finalText.Length}");
             StaticHelper.SetSubMesh(finalText.Length, ref materialMeshInfo);
             if (frameCount == 0)
             {
@@ -102,8 +108,34 @@ namespace TextMeshDOTS.Authoring
                 }
             }
 
+            count = 100;
+            half = count / 2;
+            factor = 2.0f;
+            textBaseConfiguration.color = Color.red;
+            if (frameCount == 100)
+            {
+                for (int i = 0; i < count; i++)
+                {
+                    for (int j = 0; j < count; j++)
+                    {
+                        var entity = EntityManager.CreateEntity(textRenderArchetype);
+                        EntityManager.SetSharedComponent(entity, filterSettings);
+                        var calliByteBuffer = EntityManager.GetBuffer<CalliByte>(entity);
+                        var calliString = new CalliString(calliByteBuffer);
+                        //string text = i.ToString() + j.ToString();
+                        calliString.Append(text3);
+
+                        EntityManager.SetComponentData(entity, textBaseConfiguration);
+                        EntityManager.SetComponentData(entity, fontBlobReference);
+                        EntityManager.SetComponentData(entity, LocalTransform.FromPosition(new float3((i - half) * factor - 1, (j - half) * factor - 1, 0)));
+                        EntityManager.SetComponentData(entity, textRenderControl);
+                        EntityManager.SetComponentData(entity, materialMeshInfo);
+                    }
+                }
+            }
             frameCount++;
-            initialized = true;
+
+            //initialized = true;
             //Debug.Log("Text spawned");
         }
     }

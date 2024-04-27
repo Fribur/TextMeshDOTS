@@ -4,7 +4,7 @@ TextMeshDOTS is a fork of [Latios Framework/Calligraphics](https://github.com/Dr
 It aims to provide DOTS native world space text similar to TextMeshPro and TextCore GameObject based text. To keep
 cross dependencies to a minimum, we aim to only depend on unmodified [Unity Entities](https://docs.unity3d.com/Packages/com.unity.entities@1.2/manual/index.html),
 [Unity Entities Graphics](https://docs.unity3d.com/Packages/com.unity.entities.graphics@1.2/manual/index.html) and some functionality in the `UnityEngine.TextCore` namespace to 
-be able to utilize TextCore FontAssets. Possibly we use a custom BatchRenderGroup instead of Entity Graphics. 
+be able to utilize TextCore FontAssets. 
 
 # How to use
 
@@ -30,13 +30,12 @@ BatchDrawCommandProcedural does not appear to have any advantage compared to the
 -   Close subscene
 -   Modify `RuntimeTextRendererSpawner.cs` to spawn any number of TextRenderer
 -   Hit play
-- 
+
 
 # Known issues
--   When using Entities Graphics and autoring workflow, text will not be rendered...reason unknown at this time. Can be fixed by adding a cube GameObject into the subscene.
--   Spawned text is not updated right now 
+-   When using Entities Graphics and autoring workflow, text will not be rendered unless subscene also contains another GameObject that will be rendered by Entity Graphics once backed. Reason unknown at this time. 
+-   Spawned text is uploaded to GPU every frame as mapping of changed chunks into the GPU buffer is not a trivial endeavour 
 -   FontAsset switching functionality of Calligraphics has been temporarily removed
-
 
 ## Special Thanks To the original authors and contributors
 

@@ -1,88 +1,120 @@
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Transforms;
-using UnityEngine;
+using Unity.Jobs;
 using Unity.Rendering;
+using UnityEngine;
 
 namespace TextMeshDOTS.Rendering
 {
+    /// <summary>
+    /// System Uploads every frame all RenderGlyphs into gpuLatiosTextBuffer starting at offset 0, 
+    /// places Glyph Start offsets into TextShaderIndex (also starting at offset 0)
+    /// accomodating changed chunks and new chunks and mapping all this into the GPU buffer appears complicated
+    /// ...research how to do best
+    /// </summary>
     //[WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
-    [UpdateInGroup(typeof(PresentationSystemGroup))]
-    [BurstCompile]
-    public unsafe partial class TextRenderingDispatchSystem : SystemBase
+    [RequireMatchingQueriesForUpdate]
+    public partial class TextRenderingDispatchSystem : SystemBase
     {
-        EntityQuery textToRenderQ;
+        EntityQuery m_glyphsQuery;
+        SparseUploader m_GPUUploader;
+        private ThreadedSparseUploader m_ThreadedGPUUploader;        
+
+        const int kMaxChunkMetadata = 1 * 1024 * 1024;
+        const ulong kMaxGPUAllocatorMemory = 1024 * 1024 * 1024; // 1GiB of potential memory space
+        const long kGPUBufferSizeInitial = 32 * 1024 * 1024;
+        const long kGPUBufferSizeMax = 1023 * 1024 * 1024;
+        const int kGPUUploaderChunkSize = 4 * 1024 * 1024;
+        long m_PersistentInstanceDataSize;
+
 
         //Shader properties valid for entire batch uploaded via SetGlobalBuffer
         GraphicsBuffer gpuLatiosTextBuffer;
-        NativeList<RenderGlyph> cpuLatiosTextBuffer;
-        //corresponding shader property IDs
         int latiosTextBufferID;
-
-        bool _initialized;
 
         protected override void OnCreate()
         {
-            textToRenderQ = SystemAPI.QueryBuilder()
+            m_glyphsQuery = SystemAPI.QueryBuilder()
+                        .WithAll<RenderGlyph, RenderBounds>()
                         .WithAllRW<TextShaderIndex>()
-                        .WithAll<TextRenderControl>()
-                        .WithAll<LocalToWorld>()
-                        .WithAll<RenderBounds>()
-                        .WithAll<RenderGlyph>()
                         .Build();
-            RequireForUpdate(textToRenderQ);
-            GetShaderPropertyIDs();
-        }
-        protected override void OnUpdate()
-        {
-            //To-Do: copy implementation from Calligraphics to update latiosTextBuffer when chunks have changed
-            if (!_initialized)
-            {
-                UploadGlyphDataToGPU();
-                Debug.Log("Initialzied text Entities Graphics");
-            }
+            //m_glyphsQuery.SetChangedVersionFilter(ComponentType.ReadWrite<RenderGlyph>());
+            //m_glyphsQuery.AddOrderVersionFilter();
+            RequireForUpdate(m_glyphsQuery);
+
+            latiosTextBufferID = Shader.PropertyToID("_latiosTextBuffer");
+            m_PersistentInstanceDataSize = kGPUBufferSizeInitial;
+            gpuLatiosTextBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Raw, GraphicsBuffer.UsageFlags.None, (int)m_PersistentInstanceDataSize / 4, 4);
+            m_GPUUploader = new SparseUploader(gpuLatiosTextBuffer, kGPUUploaderChunkSize);
+            Shader.SetGlobalBuffer(latiosTextBufferID, gpuLatiosTextBuffer);
         }
         protected override void OnDestroy()
         {
-            if (_initialized)
-            {
-                gpuLatiosTextBuffer.Dispose();
-                cpuLatiosTextBuffer.Dispose();
-            }
+            m_GPUUploader.Dispose();
+            gpuLatiosTextBuffer.Dispose();
         }
 
-        void UploadGlyphDataToGPU()
+        protected override void OnUpdate()
         {
-            var textRenderCount = textToRenderQ.CalculateEntityCount();
-            cpuLatiosTextBuffer = new NativeList<RenderGlyph>(textRenderCount * 64, Allocator.Persistent);
+            if (!SystemAPI.TryGetSingletonEntity<TextStatisticsTag>(out Entity worldBlackboardEntity))
+                return;
 
-            //fetch data for setting the instanced batch
-            var CollectGlyphDataJob = new CollectEGGlyphDataJob
+            var glyphStreamCount = CollectionHelper.CreateNativeArray<int>(1, WorldUpdateAllocator);
+            glyphStreamCount[0] = m_glyphsQuery.CalculateChunkCountWithoutFiltering();
+            if (glyphStreamCount[0] == 0)
+                return;
+
+            var glyphStreamConstructJh = NativeStream.ScheduleConstruct(out var glyphStream, glyphStreamCount, Dependency, WorldUpdateAllocator);
+            var collectGlyphsJh = new GatherGlyphUploadOperationsJob
             {
-                firstGlyphIndex = 0,
-                renderGlyphs = cpuLatiosTextBuffer,
-            };
-            Dependency = CollectGlyphDataJob.Schedule(textToRenderQ, Dependency);
-            Dependency.Complete();
+                glyphCountThisFrameLookup = SystemAPI.GetComponentLookup<GlyphCountThisFrame>(false),
+                glyphCountThisPass = 0,
+                renderGlyphHandle = SystemAPI.GetBufferTypeHandle<RenderGlyph>(true),
+                streamWriter = glyphStream.AsWriter(),
+                textShaderIndexHandle = SystemAPI.GetComponentTypeHandle<TextShaderIndex>(false),
+                worldBlackboardEntity = worldBlackboardEntity
+            }.Schedule(m_glyphsQuery, glyphStreamConstructJh);
 
-            //setup shader properties that are uploaded into global buffer providing data valid for all instances
-            var UseConstantBuffer = false;
-            var target = UseConstantBuffer ? GraphicsBuffer.Target.Constant : GraphicsBuffer.Target.Raw;
-            gpuLatiosTextBuffer = new GraphicsBuffer(target, cpuLatiosTextBuffer.Length, 96);
-            gpuLatiosTextBuffer.SetData(cpuLatiosTextBuffer.AsArray());
-            if (UseConstantBuffer)
-                Shader.SetGlobalConstantBuffer(latiosTextBufferID, gpuLatiosTextBuffer, 0, cpuLatiosTextBuffer.Length * 4 * 4);
-            else
-                Shader.SetGlobalBuffer(latiosTextBufferID, gpuLatiosTextBuffer);
+            var gpuUploadOperations = new NativeList<GpuUploadOperation>(1, WorldUpdateAllocator);
+            var totalUploadBytes = new NativeReference<int>(WorldUpdateAllocator, NativeArrayOptions.UninitializedMemory);
+            var biggestUploadBytes = new NativeReference<int>(WorldUpdateAllocator, NativeArrayOptions.UninitializedMemory);
+            var finalFirstPhaseJh = new MapPayloadsToUploadBufferJob
+            {
+                gpuUploadOperationStream = glyphStream.AsReader(),
+                gpuUploadOperations = gpuUploadOperations,
+                totalUploadBytes = totalUploadBytes,
+                biggestUploadBytes = biggestUploadBytes,
+            }.Schedule(collectGlyphsJh);
+            finalFirstPhaseJh.Complete();
 
-            _initialized = true;
+            var numGpuUploadOperations = gpuUploadOperations.Length;
+
+            if (numGpuUploadOperations==0)
+                return;
+            
+            m_ThreadedGPUUploader = m_GPUUploader.Begin(totalUploadBytes.Value, biggestUploadBytes.Value, numGpuUploadOperations);
+            var uploadsExecuted = new ExecuteGpuUploads
+            {
+                GpuUploadOperations = gpuUploadOperations.AsArray(),
+                ThreadedSparseUploader = m_ThreadedGPUUploader,
+            }.Schedule(numGpuUploadOperations, 1);
+
+            uploadsExecuted.Complete();
+            gpuUploadOperations.Dispose();
+            EndUpdate();
         }
-
-
-        void GetShaderPropertyIDs()
+        
+        void EndUpdate()
         {
-            latiosTextBufferID = Shader.PropertyToID("_latiosTextBuffer");  //global property
+            if (m_ThreadedGPUUploader.IsValid)
+                m_GPUUploader.EndAndCommit(m_ThreadedGPUUploader);
+
+            // Set the uploader struct to null to ensure that any calls
+            // to EndAndCommit are made with a struct returned from Begin()
+            // on the same frame. This is important in case Begin() is skipped
+            // on a frame.
+            m_ThreadedGPUUploader = default;
         }
     }
 }
+
