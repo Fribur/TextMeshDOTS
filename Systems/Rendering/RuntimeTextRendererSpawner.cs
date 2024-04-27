@@ -41,6 +41,7 @@ namespace TextMeshDOTS.Authoring
                 return;
 
             if (!(frameCount == 0 ^ frameCount == 100))
+            //if (frameCount != 0)
             {
                 frameCount++;
                 return;
@@ -108,7 +109,7 @@ namespace TextMeshDOTS.Authoring
                 }
             }
 
-            count = 100;
+            count = 50;
             half = count / 2;
             factor = 2.0f;
             textBaseConfiguration.color = Color.red;

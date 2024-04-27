@@ -29,7 +29,6 @@ namespace TextMeshDOTS.Rendering
 
             for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
             {
-
                 var buffer = glyphsBuffers[i];
                 int glyphCount = buffer.Length;
 

@@ -13,8 +13,8 @@ struct GlyphVertex
 };
 
 #if defined(UNITY_DOTS_INSTANCING_ENABLED)
-uniform ByteAddressBuffer _latiosTextBuffer;
-uniform ByteAddressBuffer _latiosTextMaskBuffer;
+uniform ByteAddressBuffer _textBuffer;
+uniform ByteAddressBuffer _textMaskBuffer;
 #endif
 
 void SampleGlyph_float(uint VertexID, float2 TextShaderIndex, float TextMaterialMaskShaderIndex, out float3 Position, out float3 Normal, out float3 Tangent, out float4 UVA, out float2 UVB, out float4 Color)
@@ -38,7 +38,7 @@ void SampleGlyph_float(uint VertexID, float2 TextShaderIndex, float TextMaterial
     uint glyphBase = 96 * (BaseIndex + (VertexID >> 2));
     if (MaskBase > 0)
     {
-        uint mask = _latiosTextMaskBuffer.Load(4 * (MaskBase + (VertexID >> 6)));
+        uint mask = _textMaskBuffer.Load(4 * (MaskBase + (VertexID >> 6)));
         uint bit = (VertexID >> 2) & 0xf;
         bit += 16;
         if ((mask & (1 << bit)) == 0)
@@ -55,7 +55,7 @@ void SampleGlyph_float(uint VertexID, float2 TextShaderIndex, float TextMaterial
     const bool isTopRight = (VertexID & 0x3) == 2;
     const bool isBottomRight = (VertexID & 0x3) == 3;
 
-    const uint4 glyphMeta = _latiosTextBuffer.Load4(glyphBase + 80);
+    const uint4 glyphMeta = _textBuffer.Load4(glyphBase + 80);
     
     Normal = float3(0, 0, -1);
     Tangent = float3(1, 0, 0);
@@ -68,35 +68,35 @@ void SampleGlyph_float(uint VertexID, float2 TextShaderIndex, float TextMaterial
 
     if (isBottomLeft)
     {
-        Position.xy = asfloat(_latiosTextBuffer.Load2(glyphBase));
-        UVA.xy = asfloat(_latiosTextBuffer.Load2(glyphBase + 16));
-        UVB = asfloat(_latiosTextBuffer.Load2(glyphBase + 32));
-        packedColor = _latiosTextBuffer.Load(glyphBase + 64);
+        Position.xy = asfloat(_textBuffer.Load2(glyphBase));
+        UVA.xy = asfloat(_textBuffer.Load2(glyphBase + 16));
+        UVB = asfloat(_textBuffer.Load2(glyphBase + 32));
+        packedColor = _textBuffer.Load(glyphBase + 64);
     }
     else if (isTopLeft)
     {
-        Position.x = asfloat(_latiosTextBuffer.Load(glyphBase)) + asfloat(glyphMeta.y);
-        Position.y = asfloat(_latiosTextBuffer.Load(glyphBase + 12));
-        UVA.x = asfloat(_latiosTextBuffer.Load(glyphBase + 16));
-        UVA.y = asfloat(_latiosTextBuffer.Load(glyphBase + 28));
-        UVB = asfloat(_latiosTextBuffer.Load2(glyphBase + 40));
-        packedColor = _latiosTextBuffer.Load(glyphBase + 68);
+        Position.x = asfloat(_textBuffer.Load(glyphBase)) + asfloat(glyphMeta.y);
+        Position.y = asfloat(_textBuffer.Load(glyphBase + 12));
+        UVA.x = asfloat(_textBuffer.Load(glyphBase + 16));
+        UVA.y = asfloat(_textBuffer.Load(glyphBase + 28));
+        UVB = asfloat(_textBuffer.Load2(glyphBase + 40));
+        packedColor = _textBuffer.Load(glyphBase + 68);
     }
     else if (isTopRight)
     {
-        Position.xy = asfloat(_latiosTextBuffer.Load2(glyphBase + 8));
-        UVA.xy = asfloat(_latiosTextBuffer.Load2(glyphBase + 24));
-        UVB = asfloat(_latiosTextBuffer.Load2(glyphBase + 48));
-        packedColor = _latiosTextBuffer.Load(glyphBase + 72);
+        Position.xy = asfloat(_textBuffer.Load2(glyphBase + 8));
+        UVA.xy = asfloat(_textBuffer.Load2(glyphBase + 24));
+        UVB = asfloat(_textBuffer.Load2(glyphBase + 48));
+        packedColor = _textBuffer.Load(glyphBase + 72);
     }
     else // if (isBottomRight)
     {
-        float2 position = asfloat(_latiosTextBuffer.Load2(glyphBase + 4).yx);
+        float2 position = asfloat(_textBuffer.Load2(glyphBase + 4).yx);
         Position.x = position.x - asfloat(glyphMeta.y);
         Position.y = position.y;
-        UVA.xy = asfloat(_latiosTextBuffer.Load2(glyphBase + 20).yx);
-        UVB = asfloat(_latiosTextBuffer.Load2(glyphBase + 56));
-        packedColor = _latiosTextBuffer.Load(glyphBase + 76);
+        UVA.xy = asfloat(_textBuffer.Load2(glyphBase + 20).yx);
+        UVB = asfloat(_textBuffer.Load2(glyphBase + 56));
+        packedColor = _textBuffer.Load(glyphBase + 76);
     }
 
     if (glyphMeta.w != 0)
@@ -107,7 +107,7 @@ void SampleGlyph_float(uint VertexID, float2 TextShaderIndex, float TextMaterial
         float cosine = cos(angle);
         float sine = sin(angle);
         
-        float4 corners = asfloat(_latiosTextBuffer.Load4(glyphBase));
+        float4 corners = asfloat(_textBuffer.Load4(glyphBase));
         float2 center = (corners.xy + corners.zw) * 0.5;
         float2 relative = Position.xy - center;
         float newX = relative.x * cosine - relative.y * sine;
