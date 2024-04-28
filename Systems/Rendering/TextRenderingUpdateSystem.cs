@@ -8,7 +8,7 @@ using static Unity.Entities.SystemAPI;
 
 namespace TextMeshDOTS.Rendering.Systems
 {
-    //[WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]
     [BurstCompile]
     public partial struct TextRenderingUpdateSystem : ISystem

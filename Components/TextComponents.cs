@@ -1,3 +1,4 @@
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
@@ -16,6 +17,10 @@ namespace TextMeshDOTS
     public struct FontBlobReference : IComponentData
     {
         public BlobAssetReference<FontBlob> blob;
+    }
+    public struct MultiFontBlobReferences : IComponentData
+    {
+        public FixedList128Bytes<BlobAssetReference<FontBlob>> blobs;
     }
 
     /// <summary>

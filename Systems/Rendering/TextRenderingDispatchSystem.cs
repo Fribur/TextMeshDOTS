@@ -11,7 +11,7 @@ namespace TextMeshDOTS.Rendering
     /// gpuTextBuffer start at offset 0, TextShaderIndex.firstGlyphIndex also starting at 0 patching up chunks to accomodating 
     /// changed chunks appears complicated, prone to fragmentation --> research if it's worth it and how to do
     /// </summary>
-    //[WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]
     public partial class TextRenderingDispatchSystem : SystemBase
     {
@@ -22,7 +22,7 @@ namespace TextMeshDOTS.Rendering
         HeapBlock currentHeap;
 
         const ulong kMaxGPUAllocatorMemory = 1024 * 1024 * 1024; // 1GiB of potential memory space
-        const long kGPUBufferSizeInitial = 8 * 1024 * 1024; //start with 8MB textbuffer, will grow when more is needed
+        const long kGPUBufferSizeInitial = 16 * 1024 * 1024; //start with 16MB textbuffer, will grow when more is needed
         const long kGPUBufferSizeMax = 1023 * 1024 * 1024;
         const int kGPUUploaderChunkSize = 4 * 1024 * 1024;
         long m_PersistentInstanceDataSize;

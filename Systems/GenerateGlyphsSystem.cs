@@ -34,7 +34,7 @@ namespace TextMeshDOTS
         {
             state.Dependency = new Job
             {
-                //additionalEntitiesHandle    = GetBufferTypeHandle<AdditionalFontMaterialEntity>(true),
+                additionalEntitiesHandle    = GetBufferTypeHandle<AdditionalFontMaterialEntity>(true),
                 calliByteHandle             = GetBufferTypeHandle<CalliByte>(true),
                 fontBlobReferenceHandle     = GetComponentTypeHandle<FontBlobReference>(true),
                 fontBlobReferenceLookup     = GetComponentLookup<FontBlobReference>(true),
@@ -60,7 +60,7 @@ namespace TextMeshDOTS
             [ReadOnly] public BufferTypeHandle<CalliByte>                    calliByteHandle;
             [ReadOnly] public ComponentTypeHandle<TextBaseConfiguration>     textBaseConfigurationHandle;
             [ReadOnly] public ComponentTypeHandle<FontBlobReference>         fontBlobReferenceHandle;
-            //[ReadOnly] public BufferTypeHandle<AdditionalFontMaterialEntity> additionalEntitiesHandle;
+            [ReadOnly] public BufferTypeHandle<AdditionalFontMaterialEntity> additionalEntitiesHandle;
             [ReadOnly] public ComponentLookup<FontBlobReference>             fontBlobReferenceLookup;
 
             public uint lastSystemVersion;
@@ -86,8 +86,8 @@ namespace TextMeshDOTS
 
                 // Optional
                 var  selectorBuffers           = chunk.GetBufferAccessor(ref selectorHandle);
-                //var  additionalEntitiesBuffers = chunk.GetBufferAccessor(ref additionalEntitiesHandle);
-                //bool hasMultipleFonts          = selectorBuffers.Length > 0 && additionalEntitiesBuffers.Length > 0;
+                var  additionalEntitiesBuffers = chunk.GetBufferAccessor(ref additionalEntitiesHandle);
+                bool hasMultipleFonts          = selectorBuffers.Length > 0 && additionalEntitiesBuffers.Length > 0;
 
                 FontMaterialSet fontMaterialSet = default;
 
@@ -100,14 +100,14 @@ namespace TextMeshDOTS
                     var textRenderControl     = textRenderControls[indexInChunk];
 
                     m_glyphMappingWriter.StartWriter(glyphMappingMasks.Length > 0 ? glyphMappingMasks[indexInChunk].mask : default);
-                    //if (hasMultipleFonts)
-                    //{
-                    //    fontMaterialSet.Initialize(fontBlobReference.blob, selectorBuffers[indexInChunk], additionalEntitiesBuffers[indexInChunk], ref fontBlobReferenceLookup);
-                    //}
-                    //else
-                    //{
+                    if (hasMultipleFonts)
+                    {
+                        fontMaterialSet.Initialize(fontBlobReference.blob, selectorBuffers[indexInChunk], additionalEntitiesBuffers[indexInChunk], ref fontBlobReferenceLookup);
+                    }
+                    else
+                    {
                         fontMaterialSet.Initialize(fontBlobReference.blob);
-                    //}
+                    }
 
                     GlyphGeneration.CreateRenderGlyphs(ref renderGlyphs,
                                                        ref m_glyphMappingWriter,

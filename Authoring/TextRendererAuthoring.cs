@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using TextMeshDOTS.Rendering;
 using TextMeshDOTS.Rendering.Authoring;
 using Unity.Collections;
 using Unity.Entities;
@@ -31,7 +33,7 @@ namespace TextMeshDOTS.Authoring
 
         public Color32 color = Color.white;
 
-        public FontAsset font;
+        public List<FontAsset> fonts;
     }
 
 
@@ -40,13 +42,33 @@ namespace TextMeshDOTS.Authoring
     {
         public override void Bake(TextRendererAuthoring authoring)
         {
-            if (authoring.font == null)
+            if (authoring.fonts == null)
                 return;            
 
             var entity = GetEntity(TransformUsageFlags.Renderable);
 
             //Fonts
-            AddFontRendering(entity, authoring.font);            
+            var font = authoring.fonts[0];
+            font.ReadFontAssetDefinition();
+            AddFontRendering(entity, font);
+
+            if (authoring.fonts.Count > 1)
+            {
+                AddComponent<TextMaterialMaskShaderIndex>(entity);
+                AddBuffer<FontMaterialSelectorForGlyph>(entity);
+                AddBuffer<RenderGlyphMask>(entity);
+                var additionalEntities = AddBuffer<Rendering.AdditionalFontMaterialEntity>(entity).Reinterpret<Entity>();
+                for (int i = 1, length= authoring.fonts.Count; i <length ; i++)
+                {
+                    var newEntity = CreateAdditionalEntity(TransformUsageFlags.Renderable);
+                    font = authoring.fonts[i];
+                    font.ReadFontAssetDefinition();
+                    AddFontRendering(newEntity, font);
+                    AddComponent<TextMaterialMaskShaderIndex>(newEntity);
+                    AddBuffer<RenderGlyphMask>(newEntity);
+                    additionalEntities.Add(newEntity);
+                }
+            }
 
             //Text Content
             var calliString = new CalliString(AddBuffer<CalliByte>(entity));

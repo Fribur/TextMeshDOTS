@@ -80,46 +80,49 @@ namespace TextMeshDOTS.Authoring
             //var text1 = "the quick brown fox jumps over the lazy dog the quick brown fox jumps over the lazy dog";
             var text2 = "Test 123";
             var text3 = "ZYX";
-            int count = 100;
-            int half = count / 2;
-            var factor = 3.0f;
 
-            var finalText = text2;
-            //Debug.Log($"length: {finalText.Length}");
-            StaticHelper.SetSubMesh(finalText.Length, ref materialMeshInfo);
+
+            
             if (frameCount == 0)
             {
-                for (int i = 0; i < count; i++)
+                int count = 100;
+                int half = count / 2;
+                var factor = 3.0f;
+                StaticHelper.SetSubMesh(text2.Length, ref materialMeshInfo);
+                var entities = EntityManager.CreateEntity(textRenderArchetype, count * count, Allocator.Temp);
+                for (int x = 0; x < count; x++)
                 {
-                    for (int j = 0; j < count; j++)
+                    for (int y = 0; y < count; y++)
                     {
-                        var entity = EntityManager.CreateEntity(textRenderArchetype);
+                        var entity = entities[x * count + y];
                         EntityManager.SetSharedComponent(entity, filterSettings);
                         var calliByteBuffer = EntityManager.GetBuffer<CalliByte>(entity);
                         var calliString = new CalliString(calliByteBuffer);
                         //string text = i.ToString() + j.ToString();
-                        calliString.Append(finalText);
+                        calliString.Append(text2);
 
                         EntityManager.SetComponentData(entity, textBaseConfiguration);
                         EntityManager.SetComponentData(entity, fontBlobReference);
-                        EntityManager.SetComponentData(entity, LocalTransform.FromPosition(new float3((i - half) * factor, (j - half) * factor, 0)));
+                        EntityManager.SetComponentData(entity, LocalTransform.FromPosition(new float3((x - half) * factor, (y - half) * factor, 0)));
                         EntityManager.SetComponentData(entity, textRenderControl);
                         EntityManager.SetComponentData(entity, materialMeshInfo);
                     }
                 }
             }
-
-            count = 50;
-            half = count / 2;
-            factor = 2.0f;
-            textBaseConfiguration.color = Color.red;
+            
             if (frameCount == 100)
             {
-                for (int i = 0; i < count; i++)
+                int count = 50;
+                int half = count / 2;
+                var factor = 2.0f;
+                textBaseConfiguration.color = Color.red;
+                StaticHelper.SetSubMesh(text3.Length, ref materialMeshInfo);
+                var entities = EntityManager.CreateEntity(textRenderArchetype, count * count, Allocator.Temp);
+                for (int x = 0; x < count; x++)
                 {
-                    for (int j = 0; j < count; j++)
+                    for (int y = 0; y < count; y++)
                     {
-                        var entity = EntityManager.CreateEntity(textRenderArchetype);
+                        var entity = entities[x * count + y];
                         EntityManager.SetSharedComponent(entity, filterSettings);
                         var calliByteBuffer = EntityManager.GetBuffer<CalliByte>(entity);
                         var calliString = new CalliString(calliByteBuffer);
@@ -128,7 +131,7 @@ namespace TextMeshDOTS.Authoring
 
                         EntityManager.SetComponentData(entity, textBaseConfiguration);
                         EntityManager.SetComponentData(entity, fontBlobReference);
-                        EntityManager.SetComponentData(entity, LocalTransform.FromPosition(new float3((i - half) * factor - 1, (j - half) * factor - 1, 0)));
+                        EntityManager.SetComponentData(entity, LocalTransform.FromPosition(new float3((x - half) * factor - 1, (y - half) * factor - 1, 0)));
                         EntityManager.SetComponentData(entity, textRenderControl);
                         EntityManager.SetComponentData(entity, materialMeshInfo);
                     }
