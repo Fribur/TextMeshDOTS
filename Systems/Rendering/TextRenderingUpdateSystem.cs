@@ -1,7 +1,6 @@
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Rendering;
-using static Unity.Entities.SystemAPI;
 
 namespace TextMeshDOTS.Rendering.Systems
 {
@@ -18,16 +17,18 @@ namespace TextMeshDOTS.Rendering.Systems
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            m_singleFontQuery = QueryBuilder()
+            state.EntityManager.AddComponent(state.SystemHandle, TextMeshDOTSArchetypes.GetTextStatisticsTypeset());
+
+            m_singleFontQuery = SystemAPI.QueryBuilder()
                      .WithAll<RenderGlyph>()
                      .WithAllRW<RenderBounds>()
                      .WithAllRW<TextRenderControl>()
                      .WithAllRW<MaterialMeshInfo>()
                      .WithAbsent<FontMaterialSelectorForGlyph>()
                      .Build();
-            m_singleFontQuery.AddChangedVersionFilter(typeof(TextRenderControl));
+            m_singleFontQuery.AddChangedVersionFilter(ComponentType.ReadOnly<TextRenderControl>());
 
-            m_multiFontQuery = QueryBuilder()
+            m_multiFontQuery = SystemAPI.QueryBuilder()
                      .WithAll<RenderGlyph>()
                      .WithAll<FontMaterialSelectorForGlyph>()
                      .WithAll<AdditionalFontMaterialEntity>()
@@ -42,8 +43,7 @@ namespace TextMeshDOTS.Rendering.Systems
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            if (!TryGetSingletonEntity<TextStatisticsTag>(out Entity textStats))
-                return;            
+            Entity textStats = SystemAPI.GetSingletonEntity<TextStatisticsTag>();
 
             state.EntityManager.SetComponentData(textStats, new GlyphCountThisFrame { glyphCount = 0 });
             state.EntityManager.SetComponentData(textStats, new MaskCountThisFrame { maskCount = 1 });  // Zero reserved for no mask
@@ -54,15 +54,15 @@ namespace TextMeshDOTS.Rendering.Systems
 
             state.Dependency = new UpdateMultiFontJobChunk
             {
-                additionalEntityHandle = GetBufferTypeHandle<AdditionalFontMaterialEntity>(true),
-                boundsLookup = GetComponentLookup<RenderBounds>(false),
-                controlLookup = GetComponentLookup<TextRenderControl>(false),
-                entityHandle = GetEntityTypeHandle(),
-                glyphHandle = GetBufferTypeHandle<RenderGlyph>(true),
-                glyphMaskLookup = GetBufferLookup<RenderGlyphMask>(false),
+                additionalEntityHandle = SystemAPI.GetBufferTypeHandle<AdditionalFontMaterialEntity>(true),
+                boundsLookup = SystemAPI.GetComponentLookup<RenderBounds>(false),
+                controlLookup = SystemAPI.GetComponentLookup<TextRenderControl>(false),
+                entityHandle = SystemAPI.GetEntityTypeHandle(),
+                glyphHandle = SystemAPI.GetBufferTypeHandle<RenderGlyph>(true),
+                glyphMaskLookup = SystemAPI.GetBufferLookup<RenderGlyphMask>(false),
                 lastSystemVersion = m_skipChangeFilter ? 0 : state.LastSystemVersion,
-                materialMeshInfoLookup = GetComponentLookup<MaterialMeshInfo>(false),
-                selectorHandle = GetBufferTypeHandle<FontMaterialSelectorForGlyph>(true)
+                materialMeshInfoLookup = SystemAPI.GetComponentLookup<MaterialMeshInfo>(false),
+                selectorHandle = SystemAPI.GetBufferTypeHandle<FontMaterialSelectorForGlyph>(true)
             }.ScheduleParallel(m_multiFontQuery, state.Dependency);
         }
     }

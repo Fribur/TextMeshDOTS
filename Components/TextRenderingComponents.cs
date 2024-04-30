@@ -168,15 +168,17 @@ namespace TextMeshDOTS.Rendering
     {
         public uint lowerOffsetUpperMask16;
     }
-
+    #region components required by TextRenderingUpdateSystem and TextRenderingDispatchSystem
+    //These singleton components will be added to TextRenderingUpdateSystem in OnCreate()
+    internal struct TextStatisticsTag : IComponentData { }
     internal struct GlyphCountThisFrame : IComponentData
     {
         public uint glyphCount;
     }
-
     internal struct MaskCountThisFrame : IComponentData
     {
         public uint maskCount;
     }
+    #endregion
 }
 

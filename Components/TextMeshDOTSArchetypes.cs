@@ -9,6 +9,7 @@ namespace TextMeshDOTS
 {
     static class TextMeshDOTSArchetypes
     {
+        //These singleton components will be added to TextRenderingUpdateSystem in OnCreate()
         public static ComponentTypeSet GetTextStatisticsTypeset()
         {
             var result = new FixedList128Bytes<ComponentType>

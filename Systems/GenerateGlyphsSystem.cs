@@ -4,8 +4,6 @@ using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
 
-using static Unity.Entities.SystemAPI;
-
 namespace TextMeshDOTS
 {
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
@@ -19,7 +17,7 @@ namespace TextMeshDOTS
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            m_query = QueryBuilder()
+            m_query = SystemAPI.QueryBuilder()
                       .WithAll<FontBlobReference>()
                       .WithAllRW<RenderGlyph>()
                       .WithAll<CalliByte>()
@@ -34,17 +32,17 @@ namespace TextMeshDOTS
         {
             state.Dependency = new Job
             {
-                additionalEntitiesHandle    = GetBufferTypeHandle<AdditionalFontMaterialEntity>(true),
-                calliByteHandle             = GetBufferTypeHandle<CalliByte>(true),
-                fontBlobReferenceHandle     = GetComponentTypeHandle<FontBlobReference>(true),
-                fontBlobReferenceLookup     = GetComponentLookup<FontBlobReference>(true),
-                glyphMappingElementHandle   = GetBufferTypeHandle<GlyphMappingElement>(false),
-                glyphMappingMaskHandle      = GetComponentTypeHandle<GlyphMappingMask>(true),
+                additionalEntitiesHandle    = SystemAPI.GetBufferTypeHandle<AdditionalFontMaterialEntity>(true),
+                calliByteHandle             = SystemAPI.GetBufferTypeHandle<CalliByte>(true),
+                fontBlobReferenceHandle     = SystemAPI.GetComponentTypeHandle<FontBlobReference>(true),
+                fontBlobReferenceLookup     = SystemAPI.GetComponentLookup<FontBlobReference>(true),
+                glyphMappingElementHandle   = SystemAPI.GetBufferTypeHandle<GlyphMappingElement>(false),
+                glyphMappingMaskHandle      = SystemAPI.GetComponentTypeHandle<GlyphMappingMask>(true),
                 lastSystemVersion           = m_skipChangeFilter ? 0 : state.LastSystemVersion,
-                renderGlyphHandle           = GetBufferTypeHandle<RenderGlyph>(false),
-                selectorHandle              = GetBufferTypeHandle<FontMaterialSelectorForGlyph>(false),
-                textBaseConfigurationHandle = GetComponentTypeHandle<TextBaseConfiguration>(true),
-                textRenderControlHandle     = GetComponentTypeHandle<TextRenderControl>(false),
+                renderGlyphHandle           = SystemAPI.GetBufferTypeHandle<RenderGlyph>(false),
+                selectorHandle              = SystemAPI.GetBufferTypeHandle<FontMaterialSelectorForGlyph>(false),
+                textBaseConfigurationHandle = SystemAPI.GetComponentTypeHandle<TextBaseConfiguration>(true),
+                textRenderControlHandle     = SystemAPI.GetComponentTypeHandle<TextRenderControl>(false),
             }.ScheduleParallel(m_query, state.Dependency);
         }
 

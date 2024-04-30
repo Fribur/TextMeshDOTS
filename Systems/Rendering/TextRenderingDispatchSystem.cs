@@ -103,8 +103,7 @@ namespace TextMeshDOTS.Rendering
 
         protected override void OnUpdate()
         {
-            if (!SystemAPI.TryGetSingletonEntity<TextStatisticsTag>(out Entity textStatisticsSingleton))
-                return;
+            Entity textStats = SystemAPI.GetSingletonEntity<TextStatisticsTag>();
 
             if (m_glyphsQuery.IsEmpty)
                 return;
@@ -114,13 +113,14 @@ namespace TextMeshDOTS.Rendering
 
             try
             {
-                Dependency = UpdateRenderGlyphChunks(Dependency, textStatisticsSingleton);
+                Dependency = UpdateRenderGlyphChunks(Dependency, textStats);
                 EndBufferUpdate(ref m_TextThreadedGPUUploader, ref m_TextGPUUploader);
                 EndBufferUpdate(ref m_MaskThreadedGPUUploader, ref m_MaskGPUUploader);
             }
             finally
             {
                 m_TextGPUUploader.FrameCleanup();
+                m_MaskGPUUploader.FrameCleanup();
             }
         }
         JobHandle UpdateRenderGlyphChunks(JobHandle inputDependencies, Entity textStatisticsSingleton)
