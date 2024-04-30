@@ -1,0 +1,26 @@
+{
+    "name": "TextmeshDOTS",
+    "rootNamespace": "TextmeshDOTS",
+    "references": [
+        "Latios.Core",
+        "Latios.Psyshock",
+        "Latios.Kinemation",
+        "Unity.Entities",
+        "Unity.Entities.Hybrid",
+        "Unity.Collections",
+        "Unity.Mathematics",
+        "Unity.Mathematics.Extensions",
+        "Unity.Burst",
+        "Unity.Entities.Graphics",
+        "Unity.Transforms"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

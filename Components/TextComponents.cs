@@ -1,10 +1,14 @@
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
 
-namespace Latios.Calligraphics
+namespace TextMeshDOTS
 {
+    public struct TextStatisticsTag : IComponentData { }
+
+
     /// <summary>
     /// A reference to the font blob asset used for text rendering.
     /// If you choose to change this at runtime, you must also change the material designed to work with the font.
@@ -13,6 +17,10 @@ namespace Latios.Calligraphics
     public struct FontBlobReference : IComponentData
     {
         public BlobAssetReference<FontBlob> blob;
+    }
+    public struct MultiFontBlobReferences : IComponentData
+    {
+        public FixedList128Bytes<BlobAssetReference<FontBlob>> blobs;
     }
 
     /// <summary>

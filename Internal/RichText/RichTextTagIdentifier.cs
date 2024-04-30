@@ -1,4 +1,4 @@
-namespace Latios.Calligraphics.RichText
+namespace TextMeshDOTS.RichText
 {
     // Often referred to as "attributes" though we refrain from that term due to aliasing
     // with both graphics attributes and C# language attributes.

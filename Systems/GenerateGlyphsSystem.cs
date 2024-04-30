@@ -1,18 +1,15 @@
-using Latios.Calligraphics.Rendering;
+using TextMeshDOTS.Rendering;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
 
 using static Unity.Entities.SystemAPI;
 
-namespace Latios.Calligraphics.Systems
+namespace TextMeshDOTS
 {
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
-    [UpdateInGroup(typeof(CalligraphicsUpdateSuperSystem))]
     [RequireMatchingQueriesForUpdate]
-    [DisableAutoCreation]
     public partial struct GenerateGlyphsSystem : ISystem
     {
         EntityQuery m_query;
@@ -22,12 +19,12 @@ namespace Latios.Calligraphics.Systems
         [BurstCompile]
         public void OnCreate(ref SystemState state)
         {
-            m_query = state.Fluent()
-                      .With<FontBlobReference>(    true)
-                      .With<RenderGlyph>(          false)
-                      .With<CalliByte>(            true)
-                      .With<TextBaseConfiguration>(true)
-                      .With<TextRenderControl>(    false)
+            m_query = QueryBuilder()
+                      .WithAll<FontBlobReference>()
+                      .WithAllRW<RenderGlyph>()
+                      .WithAll<CalliByte>()
+                      .WithAll<TextBaseConfiguration>()
+                      .WithAllRW<TextRenderControl>()
                       .Build();
             m_skipChangeFilter = (state.WorldUnmanaged.Flags & WorldFlags.Editor) == WorldFlags.Editor;
         }

@@ -1,4 +1,4 @@
-namespace Latios.Calligraphics.RichText
+namespace TextMeshDOTS.RichText
 {
     internal struct RectOffsets
     {

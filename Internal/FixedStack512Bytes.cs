@@ -1,6 +1,6 @@
 using Unity.Collections;
 
-namespace Latios.Calligraphics
+namespace TextMeshDOTS
 {
     internal struct FixedStack512Bytes<T> where T : unmanaged
     {

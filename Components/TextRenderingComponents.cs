@@ -1,4 +1,3 @@
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Rendering;
@@ -36,9 +35,9 @@ using Unity.Rendering;
 // TextMeshPro. The glyph stays compressed in its 96 byte form on the GPU and is decoded directly in
 // the vertex shader.
 
-namespace Latios.Calligraphics.Rendering
+namespace TextMeshDOTS.Rendering
 {
-    [MaterialProperty("_latiosTextGlyphBase")]
+    [MaterialProperty("_TextShaderIndex")]
     public struct TextShaderIndex : IComponentData
     {
         public uint firstGlyphIndex;
@@ -46,12 +45,13 @@ namespace Latios.Calligraphics.Rendering
     }
 
     // Only present if there are child fonts
-    [MaterialProperty("_latiosTextGlyphMaskBase")]
+    [MaterialProperty("_TextMaterialMaskShaderIndex")]
     public struct TextMaterialMaskShaderIndex : IComponentData
     {
         public uint firstMaskIndex;
     }
 
+    /// <summary> 96 byte glyph data </summary>
     public struct RenderGlyph : IBufferElementData
     {
         public float2 blPosition;
@@ -70,7 +70,7 @@ namespace Latios.Calligraphics.Rendering
         public PackedColor trColor;
         public PackedColor brColor;
 
-        public uint  unicode;
+        public int  unicode; //not needed anywhere-->remove from struct?
         public float shear;  // Should be equal to topLeft.x - bottomLeft.x
         public float scale;
         public float rotationCCW;  // Radians
@@ -131,9 +131,6 @@ namespace Latios.Calligraphics.Rendering
         {
             None = 0,
             Dirty = 1 << 0,
-            ConvertColorGammaToLinear = 1 << 1,
-            ApplyShearToPositions = 1 << 2,
-            // Todo: What other flags would you want?
         }
 
         public Flags flags;
@@ -147,7 +144,7 @@ namespace Latios.Calligraphics.Rendering
     [InternalBufferCapacity(0)]
     public struct AdditionalFontMaterialEntity : IBufferElementData
     {
-        public EntityWith<FontBlobReference> entity;
+        public Entity entity;
     }
 
     /// <summary>

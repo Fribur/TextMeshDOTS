@@ -1,10 +1,10 @@
-using Latios.Calligraphics.RichText;
+using TextMeshDOTS.RichText;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
 
-namespace Latios.Calligraphics
+namespace TextMeshDOTS
 {
     internal struct TextConfiguration
     {
@@ -24,6 +24,9 @@ namespace Latios.Calligraphics
         public FontWeight                     m_fontWeightInternal;
         public FontStyleStack                 m_fontStyleStack;
         public FixedStack512Bytes<FontWeight> m_fontWeightStack;
+
+        public int                     m_currentFontMaterialIndex;
+        public FixedStack512Bytes<int> m_fontMaterialIndexStack;
 
         public HorizontalAlignmentOptions                     m_lineJustification;
         public FixedStack512Bytes<HorizontalAlignmentOptions> m_lineJustificationStack;
@@ -84,6 +87,10 @@ namespace Latios.Calligraphics
             m_fontWeightStack    = new FixedStack512Bytes<FontWeight>();
             m_fontWeightStack.Add(m_fontWeightInternal);
             m_fontStyleStack = new FontStyleStack();
+
+            m_currentFontMaterialIndex = 0;
+            m_fontMaterialIndexStack = new FixedStack512Bytes<int>();
+            m_fontMaterialIndexStack.Add(0);
 
             m_lineJustification      = textBaseConfiguration.lineJustification;
             m_lineJustificationStack = new FixedStack512Bytes<HorizontalAlignmentOptions>();
