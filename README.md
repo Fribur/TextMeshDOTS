@@ -1,26 +1,23 @@
 # TextMeshDOTS
 
 TextMeshDOTS is a fork of [Latios Framework/Calligraphics](https://github.com/Dreaming381/Latios-Framework/tree/master/Calligraphics). 
-It aims to provide DOTS native world space text similar to TextMeshPro and TextCore GameObject based text. To keep
-cross dependencies to a minimum, we aim to only depend on unmodified [Unity Entities](https://docs.unity3d.com/Packages/com.unity.entities@1.2/manual/index.html),
-[Unity Entities Graphics](https://docs.unity3d.com/Packages/com.unity.entities.graphics@1.2/manual/index.html) and some functionality in the `UnityEngine.TextCore` namespace to 
-be able to utilize TextCore FontAssets. 
-
+Utilizing TextCore font assets, TextMeshDOTS renders world space text similar to TextMeshPro. It leverages DOTS provided by the [Unity Entities](https://docs.unity3d.com/Packages/com.unity.entities@1.2/manual/index.html) 
+package to layout the text, and uses native [Unity Entities](https://docs.unity3d.com/Packages/com.unity.entities@1.2/manual/index.html) for rendering it. The HDRP and URP shader are 
+wrapper/ extension of the TextMeshPro SRP shader. TextMeshDots supports almost all richtext tags of [TextMeshPro](https://docs.unity3d.com/Packages/com.unity.textmeshpro@4.0/manual/RichText.html) and TextCore:
+\<allcaps\>, \<alpha\>, \<b\>, \<color\>, \<cspace\>, \<font\>, <\i>, \<lowercase\>, \<sub\>, 
+\<sup\>, \<pos\>, \<voffset\>, \<size\>, \<space=000.00\>, \<mspace=xx.x\>, \<smallcaps\>, 
+<scale=xx.x>, \<rotate\>. Other tags are recognized but not yet rendered. 
 # How to use
 
-You can choose to render text either via a custom BatchRenderGroup (BatchDrawCommandProcedural), or via native Entities Graphics.
-To do so, add [DisableAutoCreation] either to the system found in `Systems\ProceduralBRG`, or to systems in `Systems\Rendering`.
-BatchDrawCommandProcedural does not appear to have any advantage compared to the Entities Graphics, so it is currently disabled.
-
 (1) Autoring workflow
--	Generate backend Mesh: `Menue-->TextMeshDOTS-->Text Backend mesh`
+-	Generate backend mesh: `Menue-->TextMeshDOTS-->Text Backend mesh`
 -   Create a SubScene
--   When using Entities Graphics, add a dummy cube mesh (otherwise text will not be rendered...reason unknown at this time)
--   Add empty GameObject
--   Add TextRenderer component
+-   Add a dummy cube mesh (otherwise text will not be rendered...reason unknown at this time.)
+-   Add empty GameObject, and TextRenderer component on it
 -   Set font asset to `TextMeshDOTS/Fonts/LiberationSans SDF`, type in some text
+-   when attaching Multiple fonts, the richtexttag <font=name_of_font> and </font> can be used for selecting them
 -   Close subscene
--	Font entity will be backed to an entity containing a number of components, amongst them  `DynamicBuffer<RenderGlyph>`. This buffer contains all data required for rendering the text
+-	You should now see the text    
 
 (2) Runtime instantiation workflow
 -   Create a SubScene
@@ -33,9 +30,8 @@ BatchDrawCommandProcedural does not appear to have any advantage compared to the
 
 
 # Known issues
--   When using Entities Graphics and autoring workflow, text will not be rendered unless subscene also contains another GameObject that will be rendered by Entity Graphics once backed. Reason unknown at this time. 
--   Spawned text is uploaded to GPU every frame as mapping of changed chunks into the GPU buffer is not a trivial endeavour 
--   FontAsset switching functionality of Calligraphics has been temporarily removed
+-   When using Entities Graphics and authoring workflow, text will not be rendered unless subscene also contains another GameObject that will be rendered by Entity Graphics once backed. Reason unknown at this time. 
+
 
 ## Special Thanks To the original authors and contributors
 

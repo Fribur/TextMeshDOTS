@@ -5,7 +5,6 @@ using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
 using UnityEngine.TextCore.Text;
-using static UnityEngine.EventSystems.EventTrigger;
 
 
 namespace TextMeshDOTS.Authoring
@@ -29,13 +28,10 @@ namespace TextMeshDOTS.Authoring
                 var FontBlob = FontBlobber.BakeFont(font);
                 AddComponent(entity, new FontBlobReference { blob = FontBlob });
                 AddBlobAsset(ref FontBlob, out Unity.Entities.Hash128 hash);
-
-                var textStatsEntity = CreateAdditionalEntity(TransformUsageFlags.None);
-                AddComponent(textStatsEntity, TextMeshDOTSArchetypes.GetTextStatisticsTypeset());
             }
             else if (authoring.font.Count > 1)
             {
-                MulitFontMaterials mulitFontMaterials = new();
+                MulitFontMaterials mulitFontMaterials = new() { backendMesh = mesh};
                 MultiFontBlobReferences multiFontBlobReferences = new();
                 for (int i = 0; i < authoring.font.Count; i++)
                 {
@@ -48,9 +44,6 @@ namespace TextMeshDOTS.Authoring
                 }
                 AddComponent(entity, mulitFontMaterials);
                 AddComponent(entity, multiFontBlobReferences);
-
-                var textStatsEntity = CreateAdditionalEntity(TransformUsageFlags.None);
-                AddComponent(textStatsEntity, TextMeshDOTSArchetypes.GetTextStatisticsTypeset());
             }
         }
     }

@@ -1,4 +1,5 @@
 using TextMeshDOTS.Rendering;
+using TextMeshDOTS.Rendering.Authoring;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -88,7 +89,7 @@ namespace TextMeshDOTS.Authoring
                 int count = 100;
                 int half = count / 2;
                 var factor = 3.0f;
-                StaticHelper.SetSubMesh(text2.Length, ref materialMeshInfo);
+                LatiosTextBackendBakingUtility.SetSubMesh(text2.Length, ref materialMeshInfo);
                 var entities = EntityManager.CreateEntity(textRenderArchetype, count * count, Allocator.Temp);
                 for (int x = 0; x < count; x++)
                 {
@@ -108,6 +109,7 @@ namespace TextMeshDOTS.Authoring
                         EntityManager.SetComponentData(entity, materialMeshInfo);
                     }
                 }
+                //Debug.Log("Text spawned");
             }
             
             if (frameCount == 100)
@@ -116,7 +118,7 @@ namespace TextMeshDOTS.Authoring
                 int half = count / 2;
                 var factor = 2.0f;
                 textBaseConfiguration.color = Color.red;
-                StaticHelper.SetSubMesh(text3.Length, ref materialMeshInfo);
+                LatiosTextBackendBakingUtility.SetSubMesh(text3.Length, ref materialMeshInfo);
                 var entities = EntityManager.CreateEntity(textRenderArchetype, count * count, Allocator.Temp);
                 for (int x = 0; x < count; x++)
                 {
@@ -136,11 +138,12 @@ namespace TextMeshDOTS.Authoring
                         EntityManager.SetComponentData(entity, materialMeshInfo);
                     }
                 }
+                //Debug.Log("Text spawned");
             }
             frameCount++;
 
             //initialized = true;
-            //Debug.Log("Text spawned");
+            
         }
     }
 }

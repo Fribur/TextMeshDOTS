@@ -51,6 +51,7 @@ namespace TextMeshDOTS.Authoring
             var font = authoring.fonts[0];
             font.ReadFontAssetDefinition();
             AddFontRendering(entity, font);
+            AddBuffer<RenderGlyph>(entity);
 
             if (authoring.fonts.Count > 1)
             {
@@ -62,6 +63,8 @@ namespace TextMeshDOTS.Authoring
                 {
                     var newEntity = CreateAdditionalEntity(TransformUsageFlags.Renderable);
                     font = authoring.fonts[i];
+                    if (font == null)
+                        continue;
                     font.ReadFontAssetDefinition();
                     AddFontRendering(newEntity, font);
                     AddComponent<TextMaterialMaskShaderIndex>(newEntity);
@@ -85,9 +88,6 @@ namespace TextMeshDOTS.Authoring
                 fontStyle         = authoring.fontStyle,
                 fontWeight        = authoring.fontWeight,
             });
-
-            var textStatsEntity = CreateAdditionalEntity(TransformUsageFlags.None);
-            AddComponent(textStatsEntity, TextMeshDOTSArchetypes.GetTextStatisticsTypeset());
         }
 
         void AddFontRendering(Entity entity, FontAsset fontAsset)

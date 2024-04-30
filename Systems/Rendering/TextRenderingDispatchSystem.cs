@@ -7,61 +7,106 @@ using UnityEngine;
 namespace TextMeshDOTS.Rendering
 {
     /// <summary>
-    /// When changed RenderGlyph chunks are detected, the system builds the entire gpuTextBuffer fresh. Uploads into 
-    /// gpuTextBuffer start at offset 0, TextShaderIndex.firstGlyphIndex also starting at 0 patching up chunks to accomodating 
-    /// changed chunks appears complicated, prone to fragmentation --> research if it's worth it and how to do
+    /// When changed RenderGlyph chunks are detected, the system builds the entire gpuTextBuffer fresh. Uploads 
+    /// into  gpuTextBuffer start at offset 0, TextShaderIndex.firstGlyphIndex also starting at 0. Patching up 
+    /// chunks to accomodate changed chunks appears complicated, prone to fragmentation 
+    /// --> research if it's worth it and how to do
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]
     public partial class TextRenderingDispatchSystem : SystemBase
     {
-        EntityQuery m_glyphsQuery, m_changedGlyphsQuery;
-        SparseUploader m_GPUUploader;
-        ThreadedSparseUploader m_ThreadedGPUUploader;
-        HeapAllocator m_GPUPersistentAllocator;
-        HeapBlock currentHeap;
+        EntityQuery m_glyphsQuery, m_changedGlyphsQuery, m_glyphsAndMasksQuery, m_masksQuery;
+
+        #region setup _textBuffer Shader Property
+        GraphicsBuffer m_GPUTextBuffer;
+        int m_textBufferID;
+        SparseUploader m_TextGPUUploader;
+        ThreadedSparseUploader m_TextThreadedGPUUploader;
+        HeapAllocator m_TextGPUAllocator;
+        HeapBlock m_TextCurrentHeap;
+        long m_TextCurrentDataSize;
+        const long m_TextGPUBufferSizeInitial = 8 * 1024 * 1024; //start with 8MB textbuffer, will grow when more is needed
+        const long m_TextGPUBufferSizeMax = 1023 * 1024 * 1024;
+        #endregion
+
+        #region setup _textMAskBuffer Shader Property
+        GraphicsBuffer m_GPUMaskBuffer;
+        int m_MaskBufferID;
+        SparseUploader m_MaskGPUUploader;
+        ThreadedSparseUploader m_MaskThreadedGPUUploader;
+        HeapAllocator m_MaskGPUAllocator;
+        HeapBlock m_MaskCurrentHeap;
+        long m_MaskCurrentDataSize;
+        const long m_MaskGPUBufferSizeInitial = 256 * 1024; //start with 256kB maskbuffer, will grow when more is needed
+        const long m_MaskGPUBufferSizeMax = 1 * 1024 * 1024;
+        #endregion
 
         const ulong kMaxGPUAllocatorMemory = 1024 * 1024 * 1024; // 1GiB of potential memory space
-        const long kGPUBufferSizeInitial = 16 * 1024 * 1024; //start with 16MB textbuffer, will grow when more is needed
-        const long kGPUBufferSizeMax = 1023 * 1024 * 1024;
         const int kGPUUploaderChunkSize = 4 * 1024 * 1024;
-        long m_PersistentInstanceDataSize;
-
-        //Shader properties valid for entire batch uploaded via SetGlobalBuffer
-        GraphicsBuffer gpuTextBuffer;
-        int textBufferID;
 
         protected override void OnCreate()
         {
+            //query single font entitities, and parents entities that have multiple fonts (have AdditionalFontMaterialEntity)
             m_glyphsQuery = SystemAPI.QueryBuilder()
-                        .WithAll<RenderGlyph, RenderBounds>()
-                        .WithAllRW<TextShaderIndex>()
-                        .Build();
+                       .WithAll<RenderGlyph, TextRenderControl, RenderBounds>()
+                       .WithAllRW<TextShaderIndex>()
+                       .Build();
+
+            //same as m_glyphsQuery, except detecing changes is RenderGlyph. This system will only run and
+            //fully rebuild all GPU buffer when this query has entities
             m_changedGlyphsQuery = SystemAPI.QueryBuilder()
-                        .WithAll<RenderGlyph, RenderBounds>()
-                        .WithAll<TextShaderIndex>()
-                        .Build();
+                       .WithAll<RenderGlyph, TextRenderControl, RenderBounds>()
+                       .WithAll<TextShaderIndex>()
+                       .Build();
             m_changedGlyphsQuery.SetChangedVersionFilter(ComponentType.ReadWrite<RenderGlyph>());
 
-            m_GPUPersistentAllocator = new HeapAllocator(kMaxGPUAllocatorMemory, 16);
-            m_PersistentInstanceDataSize = kGPUBufferSizeInitial;
-            gpuTextBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Raw, GraphicsBuffer.UsageFlags.None, (int)m_PersistentInstanceDataSize / 4, 4);
-            currentHeap = m_GPUPersistentAllocator.Allocate((ulong)m_PersistentInstanceDataSize, 1);
-            m_GPUUploader = new SparseUploader(gpuTextBuffer, kGPUUploaderChunkSize);
+            //query all entities having a mask, regardless if they are parent (= have AdditionalFontMaterialEntity) or child 
+            m_masksQuery = SystemAPI.QueryBuilder()
+                        .WithAllRW<TextMaterialMaskShaderIndex>() //review if I need RW
+                        .WithAll<RenderBounds, RenderGlyphMask>()
+                        .Build();
 
-            textBufferID = Shader.PropertyToID("_textBuffer");
-            Shader.SetGlobalBuffer(textBufferID, gpuTextBuffer);
+            //query parents entities that have multiple fonts (have AdditionalFontMaterialEntity)
+            m_glyphsAndMasksQuery = SystemAPI.QueryBuilder()
+                        .WithAll<RenderGlyph, TextRenderControl, RenderBounds>()
+                        .WithAll<TextShaderIndex, TextMaterialMaskShaderIndex, RenderGlyphMask>()
+                        .WithAll<AdditionalFontMaterialEntity>()
+                        .Build();
+
+
+            //setup textBuffer            
+            m_TextGPUAllocator = new HeapAllocator(kMaxGPUAllocatorMemory, 16);
+            m_TextCurrentDataSize = m_TextGPUBufferSizeInitial;
+            m_GPUTextBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Raw, GraphicsBuffer.UsageFlags.None, (int)m_TextCurrentDataSize / 4, 4);
+            m_TextCurrentHeap = m_TextGPUAllocator.Allocate((ulong)m_TextCurrentDataSize, 1);
+            m_TextGPUUploader = new SparseUploader(m_GPUTextBuffer, kGPUUploaderChunkSize);
+            m_textBufferID = Shader.PropertyToID("_textBuffer");
+            Shader.SetGlobalBuffer(m_textBufferID, m_GPUTextBuffer);
+
+            //setup MaskBuffer
+            m_MaskGPUAllocator = new HeapAllocator(kMaxGPUAllocatorMemory, 16);
+            m_MaskCurrentDataSize = m_MaskGPUBufferSizeInitial;
+            m_GPUMaskBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Raw, GraphicsBuffer.UsageFlags.None, (int)m_MaskCurrentDataSize / 4, 4);
+            m_MaskCurrentHeap = m_MaskGPUAllocator.Allocate((ulong)m_MaskCurrentDataSize, 1);
+            m_MaskGPUUploader = new SparseUploader(m_GPUMaskBuffer, kGPUUploaderChunkSize);
+            m_MaskBufferID = Shader.PropertyToID("_textMaskBuffer");
+            Shader.SetGlobalBuffer(m_MaskBufferID, m_GPUMaskBuffer);
         }
         protected override void OnDestroy()
         {
-            m_GPUUploader.Dispose();
-            gpuTextBuffer.Dispose();
-            m_GPUPersistentAllocator.Dispose();
+            m_TextGPUUploader.Dispose();
+            m_GPUTextBuffer.Dispose();
+            m_TextGPUAllocator.Dispose();
+            m_MaskGPUAllocator.Dispose();
         }
 
         protected override void OnUpdate()
         {
-            if (!SystemAPI.TryGetSingletonEntity<TextStatisticsTag>(out Entity worldBlackboardEntity))
+            if (!SystemAPI.TryGetSingletonEntity<TextStatisticsTag>(out Entity textStatisticsSingleton))
+                return;
+
+            if (m_glyphsQuery.IsEmpty)
                 return;
 
             if (m_changedGlyphsQuery.IsEmpty)
@@ -69,105 +114,166 @@ namespace TextMeshDOTS.Rendering
 
             try
             {
-                Dependency = UpdateRenderGlyphChunks(Dependency, worldBlackboardEntity);
-                EndUpdate();
+                Dependency = UpdateRenderGlyphChunks(Dependency, textStatisticsSingleton);
+                EndBufferUpdate(ref m_TextThreadedGPUUploader, ref m_TextGPUUploader);
+                EndBufferUpdate(ref m_MaskThreadedGPUUploader, ref m_MaskGPUUploader);
             }
             finally
             {
-                m_GPUUploader.FrameCleanup();
-            }        
+                m_TextGPUUploader.FrameCleanup();
+            }
         }
-        JobHandle UpdateRenderGlyphChunks(JobHandle inputDependencies, Entity worldBlackboardEntity)
+        JobHandle UpdateRenderGlyphChunks(JobHandle inputDependencies, Entity textStatisticsSingleton)
         {
             JobHandle done = inputDependencies;
-            if (!m_glyphsQuery.IsEmptyIgnoreFilter)
+            var glyphStreamCount = CollectionHelper.CreateNativeArray<int>(1, WorldUpdateAllocator);
+            glyphStreamCount[0] = m_glyphsQuery.CalculateChunkCountWithoutFiltering();
+
+            var glyphsWithChildrenCount = m_glyphsAndMasksQuery.CalculateChunkCountWithoutFiltering();
+
+            //first schedule all jobs related to updating textBuffer
+            var glyphStreamConstructJh = NativeStream.ScheduleConstruct(out var glyphStream, glyphStreamCount, inputDependencies, WorldUpdateAllocator);
+            var collectGlyphsJh = new GatherGlyphUploadOperationsJobChunk
             {
-                var glyphStreamCount = CollectionHelper.CreateNativeArray<int>(1, WorldUpdateAllocator);
-                glyphStreamCount[0] = m_glyphsQuery.CalculateChunkCountWithoutFiltering();
-                if (glyphStreamCount[0] == 0)
-                    return done;
+                glyphCountThisFrameLookup = SystemAPI.GetComponentLookup<GlyphCountThisFrame>(false),
+                renderGlyphHandle = SystemAPI.GetBufferTypeHandle<RenderGlyph>(true),
+                glyphMaskHandle = SystemAPI.GetBufferTypeHandle<RenderGlyphMask>(true),
+                streamWriter = glyphStream.AsWriter(),
+                textShaderIndexHandle = SystemAPI.GetComponentTypeHandle<TextShaderIndex>(false),
+                textStatisticsSingleton = textStatisticsSingleton
+            }.Schedule(m_glyphsQuery, glyphStreamConstructJh);
 
-                var glyphStreamConstructJh = NativeStream.ScheduleConstruct(out var glyphStream, glyphStreamCount, inputDependencies, WorldUpdateAllocator);
-                var collectGlyphsJh = new GatherGlyphUploadOperationsJob
-                {
-                    glyphCountThisFrameLookup = SystemAPI.GetComponentLookup<GlyphCountThisFrame>(false),
-                    glyphCountThisPass = 0,
-                    renderGlyphHandle = SystemAPI.GetBufferTypeHandle<RenderGlyph>(true),
-                    streamWriter = glyphStream.AsWriter(),
-                    textShaderIndexHandle = SystemAPI.GetComponentTypeHandle<TextShaderIndex>(false),
-                    worldBlackboardEntity = worldBlackboardEntity
-                }.Schedule(m_glyphsQuery, glyphStreamConstructJh);
+            var textGPUUploadOperations = new NativeList<GpuUploadOperation>(1, WorldUpdateAllocator);
+            var textTotalUploadBytes = new NativeReference<int>(WorldUpdateAllocator, NativeArrayOptions.UninitializedMemory);
+            var textBiggestUploadBytes = new NativeReference<int>(WorldUpdateAllocator, NativeArrayOptions.UninitializedMemory);
+            var finalFirstPhaseJh = new MapPayloadsToUploadBufferJob
+            {
+                gpuUploadOperationStream = glyphStream.AsReader(),
+                gpuUploadOperations = textGPUUploadOperations,
+                totalUploadBytes = textTotalUploadBytes,
+                biggestUploadBytes = textBiggestUploadBytes,
+            }.Schedule(collectGlyphsJh);
+            finalFirstPhaseJh.Complete();
 
-                var gpuUploadOperations = new NativeList<GpuUploadOperation>(1, WorldUpdateAllocator);
-                var totalUploadBytes = new NativeReference<int>(WorldUpdateAllocator, NativeArrayOptions.UninitializedMemory);
-                var biggestUploadBytes = new NativeReference<int>(WorldUpdateAllocator, NativeArrayOptions.UninitializedMemory);
-                var finalFirstPhaseJh = new MapPayloadsToUploadBufferJob
+            var textGpuUploadOperationsCount = textGPUUploadOperations.Length;
+            if (textGpuUploadOperationsCount != 0)
+            {
+                if (m_TextCurrentHeap.Length < (ulong)textTotalUploadBytes.Value)
+                    m_TextCurrentHeap = m_TextGPUAllocator.Allocate((ulong)textTotalUploadBytes.Value, 1);
+
+                m_TextThreadedGPUUploader = StartBufferUpdate(ref m_GPUTextBuffer, m_textBufferID, m_TextGPUBufferSizeMax, ref m_TextGPUUploader, ref m_TextGPUAllocator, m_TextCurrentDataSize, textTotalUploadBytes.Value, textBiggestUploadBytes.Value, textGpuUploadOperationsCount);
+                var textUploadsExecuted = new ExecuteGpuUploads
                 {
-                    gpuUploadOperationStream = glyphStream.AsReader(),
-                    gpuUploadOperations = gpuUploadOperations,
-                    totalUploadBytes = totalUploadBytes,
-                    biggestUploadBytes = biggestUploadBytes,
-                }.Schedule(collectGlyphsJh);
+                    GpuUploadOperations = textGPUUploadOperations.AsArray(),
+                    ThreadedSparseUploader = m_TextThreadedGPUUploader,
+                }.Schedule(textGpuUploadOperationsCount, 1, finalFirstPhaseJh);
+                done = textUploadsExecuted;
+            }
+            else
+                done = finalFirstPhaseJh;
+
+            //second, schedule all jobs related to updating textMaskBuffer
+            if (glyphsWithChildrenCount > 0)
+            {
+                var maskStreamCount = CollectionHelper.CreateNativeArray<int>(1, WorldUpdateAllocator);
+                maskStreamCount[0] = m_masksQuery.CalculateChunkCountWithoutFiltering();//change this to m_masksQuery when combining with single font system
+
+                var maskStreamConstructJh = NativeStream.ScheduleConstruct(out var maskStream, maskStreamCount, done, WorldUpdateAllocator);
+                var collectMasksJh = new GatherMaskUploadOperationsJobChunk
+                {
+                    glyphMasksHandle = SystemAPI.GetBufferTypeHandle<RenderGlyphMask>(true),
+                    maskCountThisFrameLookup = SystemAPI.GetComponentLookup<MaskCountThisFrame>(false),
+                    textMaterialMaskShaderIndexHandle = SystemAPI.GetComponentTypeHandle<TextMaterialMaskShaderIndex>(false),
+                    streamWriter = maskStream.AsWriter(),
+                    textStatisticsSingleton = textStatisticsSingleton
+                }.Schedule(m_masksQuery, JobHandle.CombineDependencies(maskStreamConstructJh, done));//change this to m_masksQuery when combining with single font system
+
+                var maskGPUUploadOperations = new NativeList<GpuUploadOperation>(1, WorldUpdateAllocator);
+                var totalMaskUploadBytes = new NativeReference<int>(WorldUpdateAllocator, NativeArrayOptions.UninitializedMemory);
+                var biggestMaskUploadBytes = new NativeReference<int>(WorldUpdateAllocator, NativeArrayOptions.UninitializedMemory);
+                var batchMasksJh = new MapPayloadsToUploadBufferJob
+                {
+                    gpuUploadOperationStream = maskStream.AsReader(),
+                    gpuUploadOperations = maskGPUUploadOperations,
+                    totalUploadBytes = totalMaskUploadBytes,
+                    biggestUploadBytes = biggestMaskUploadBytes,
+                }.Schedule(collectMasksJh);
+
+                var copyPropertiesJh = new CopyGlyphShaderIndicesJob
+                {
+                    renderGlyphMaskLookup = SystemAPI.GetBufferLookup<RenderGlyphMask>(true),
+                    textShaderIndexLookup = SystemAPI.GetComponentLookup<TextShaderIndex>(false)
+                }.ScheduleParallel(m_glyphsAndMasksQuery, collectGlyphsJh);
+
+                finalFirstPhaseJh = JobHandle.CombineDependencies(batchMasksJh, copyPropertiesJh);
+
                 finalFirstPhaseJh.Complete();
 
-                var numGpuUploadOperations = gpuUploadOperations.Length;
-                if (numGpuUploadOperations == 0)
-                    return finalFirstPhaseJh;               
-                
-                if (currentHeap.Length < (ulong)totalUploadBytes.Value)
-                    currentHeap = m_GPUPersistentAllocator.Allocate((ulong)totalUploadBytes.Value, 1);
-
-                StartUpdate(totalUploadBytes.Value, biggestUploadBytes.Value, numGpuUploadOperations);
-                var uploadsExecuted = new ExecuteGpuUploads
+                var numGpuMaskUploadOperations = maskGPUUploadOperations.Length;
+                if (numGpuMaskUploadOperations != 0)
                 {
-                    GpuUploadOperations = gpuUploadOperations.AsArray(),
-                    ThreadedSparseUploader = m_ThreadedGPUUploader,
-                }.Schedule(numGpuUploadOperations, 1, finalFirstPhaseJh);
-                uploadsExecuted.Complete();
-                done = uploadsExecuted;                
+                    if (m_MaskCurrentHeap.Length < (ulong)totalMaskUploadBytes.Value)
+                        m_MaskCurrentHeap = m_MaskGPUAllocator.Allocate((ulong)totalMaskUploadBytes.Value, 1);
+
+                    m_MaskThreadedGPUUploader = StartBufferUpdate(ref m_GPUMaskBuffer, m_MaskBufferID, m_MaskGPUBufferSizeMax, ref m_MaskGPUUploader, ref m_MaskGPUAllocator, m_MaskCurrentDataSize, totalMaskUploadBytes.Value, biggestMaskUploadBytes.Value, numGpuMaskUploadOperations);
+                    var maskUploadsExecuted = new ExecuteGpuUploads
+                    {
+                        GpuUploadOperations = maskGPUUploadOperations.AsArray(),
+                        ThreadedSparseUploader = m_MaskThreadedGPUUploader,
+                    }.Schedule(numGpuMaskUploadOperations, 1, batchMasksJh);
+                    done = maskUploadsExecuted;
+                }
+                else
+                    done = batchMasksJh;
             }
+            done.Complete();
             return done;
         }
-        private void StartUpdate(int totalUploadBytes, int biggestUploadBytes, int numOperations)
+
+        static ThreadedSparseUploader StartBufferUpdate(
+            ref GraphicsBuffer targetBuffer,
+            int targetBufferID,
+            long targetBufferMaxSize,
+            ref SparseUploader sparseUploader,
+            ref HeapAllocator heapAllocator,
+            long currentBufferBytes,
+            int totalUploadBytes,
+            int biggestUploadBytes,
+            int uploadOperationsCount)
         {
-            var persistentBytes = EntityGraphicsInternals.OnePastHighestUsedAddress(ref m_GPUPersistentAllocator);
-            if (persistentBytes > (ulong)m_PersistentInstanceDataSize)
+            var persistentBytes = (long)EntityGraphicsInternals.OnePastHighestUsedAddress(ref heapAllocator);
+            if (persistentBytes > currentBufferBytes)
             {
-                //Debug.Log($"TextMeshDOTS: Growing heap from {m_PersistentInstanceDataSize} to {persistentBytes}");
-                while ((ulong)m_PersistentInstanceDataSize < persistentBytes)
-                {
-                    m_PersistentInstanceDataSize *= 2;
-                }
+                //Debug.Log($"TextMeshDOTS: Growing heap from {currentBufferBytes} to at least {persistentBytes}");
+                while (currentBufferBytes < persistentBytes)
+                    currentBufferBytes *= 2;
 
-                if (m_PersistentInstanceDataSize > kGPUBufferSizeMax)
-                {
-                    m_PersistentInstanceDataSize = kGPUBufferSizeMax; // Some backends fails at loading 1024 MiB, but 1023 is fine... This should ideally be a device cap.
-                }
+                if (currentBufferBytes > targetBufferMaxSize)
+                    currentBufferBytes = targetBufferMaxSize; // Some backends fails at loading 1024 MiB, but 1023 is fine... This should ideally be a device cap.
 
-                if (persistentBytes > kGPUBufferSizeMax)
-                    Debug.LogError("TextMeshDOTS: Current loaded RenderGlyphs need more than 1GiB of persistent GPU memory. This is more than some GPU backends can allocate. Try to reduce amount of loaded data.");
+                if (persistentBytes > targetBufferMaxSize)
+                    Debug.LogError("TextMeshDOTS: The text of mask GPU buffer needs more than 1GiB of persistent GPU memory. This is more than some GPU backends can allocate. Try to reduce amount of loaded data.");
 
-                var newBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Raw, GraphicsBuffer.UsageFlags.None, (int)m_PersistentInstanceDataSize / 4, 4);
-                m_GPUUploader.ReplaceBuffer(newBuffer, true);
+                var newBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Raw, GraphicsBuffer.UsageFlags.None, (int)currentBufferBytes / 4, 4);
+                sparseUploader.ReplaceBuffer(newBuffer, true);
 
-                if (gpuTextBuffer != null)
-                    gpuTextBuffer.Dispose();
-                gpuTextBuffer = newBuffer;
-                Shader.SetGlobalBuffer(textBufferID, gpuTextBuffer);
+                if (targetBuffer != null)
+                    targetBuffer.Dispose();
+                targetBuffer = newBuffer;
+                Shader.SetGlobalBuffer(targetBufferID, targetBuffer);
             }
-
-            m_ThreadedGPUUploader = m_GPUUploader.Begin(totalUploadBytes, biggestUploadBytes, numOperations);
+            return sparseUploader.Begin(totalUploadBytes, biggestUploadBytes, uploadOperationsCount);
         }
-        void EndUpdate()
+        void EndBufferUpdate(ref ThreadedSparseUploader m_MaskThreadedGPUUploader, ref SparseUploader m_MaskGPUUploader)
         {
-            if (m_ThreadedGPUUploader.IsValid)
-                m_GPUUploader.EndAndCommit(m_ThreadedGPUUploader);
+            if (m_MaskThreadedGPUUploader.IsValid)
+                m_MaskGPUUploader.EndAndCommit(m_MaskThreadedGPUUploader);
 
             // Set the uploader struct to null to ensure that any calls
             // to EndAndCommit are made with a struct returned from Begin()
             // on the same frame. This is important in case Begin() is skipped
             // on a frame.
-            m_ThreadedGPUUploader = default;
+            m_MaskThreadedGPUUploader = default;
         }
     }
 }

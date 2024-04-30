@@ -44,7 +44,7 @@ namespace TextMeshDOTS
                     if (blobRef.blob.IsCreated)
                     {
                         m_fontMaterialArray.Add(new FontMaterial(blobRef.blob));
-                        m_fontToEntityIndexArray.Add((byte)i);
+                        m_fontToEntityIndexArray.Add((byte)(i + 1));//ensure to substract 1 when accessing AdditionalFontMaterialEntity buffer!
                     }
                 }
             }
