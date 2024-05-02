@@ -1,7 +1,7 @@
 {
   "name": "com.textmeshdots",
   "description": "DOTS native world space text",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "unity": "2023.3",
   "displayName": "TextMeshDOTS",
   "dependencies": {

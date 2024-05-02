@@ -15,10 +15,11 @@ namespace TextMeshDOTS
     {
         public BlobAssetReference<FontBlob> blob;
     }
-    public struct MultiFontBlobReferences : IComponentData
+	public struct MultiFontBlobReferences : IComponentData
     {
         public FixedList128Bytes<BlobAssetReference<FontBlob>> blobs;
     }
+
 
     /// <summary>
     /// The base settings of the text before any rich text tags or animations are applied.
@@ -51,8 +52,8 @@ namespace TextMeshDOTS
         /// </summary>
         public VerticalAlignmentOptions verticalAlignment
         {
-            get => (VerticalAlignmentOptions)((m_alignmentWeightOrtho & 0x380) >> 7);
-            set => m_alignmentWeightOrtho = (ushort)((m_alignmentWeightOrtho & ~0x380) | ((ushort)value << 7));
+            get => (VerticalAlignmentOptions)((m_alignmentWeightOrtho & 0x780) >> 7);
+            set => m_alignmentWeightOrtho = (ushort)((m_alignmentWeightOrtho & ~0x780) | ((ushort)value << 7));
         }
         public FontWeight fontWeight
         {
@@ -70,9 +71,11 @@ namespace TextMeshDOTS
             set => m_alignmentWeightOrtho = (ushort)((m_alignmentWeightOrtho & 0x7fff) | (value ? 0x8000 : 0));
         }
         public bool enableKerning;
+        public float lineSpacing;
+        public float paragraphSpacing;
 
         private ushort m_fontStyleFlags;  // 6 bits unused, but Unity may add more.
-        ushort         m_alignmentWeightOrtho;  // 5 bits unused.
+        ushort         m_alignmentWeightOrtho;  // 4 bits unused.
     }
 
     /// <summary>
@@ -135,12 +138,17 @@ namespace TextMeshDOTS
     /// </summary>
     public enum VerticalAlignmentOptions : byte
     {
-        Top,
-        Middle,
-        Bottom,
-        Baseline,
-        Geometry,
-        Capline,
+        TopBase,
+        TopAscent,
+        TopDescent,
+        TopCap,
+        TopMean,
+        BottomBase,
+        BottomAscent,
+        BottomDescent,
+        BottomCap,
+        BottomMean,
+        MiddleTopAscentToBottomDescent,
     }
 
     public enum FontWeight

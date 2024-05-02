@@ -65,7 +65,7 @@ namespace TextMeshDOTS.Authoring
                 color = (Color32)Color.blue,
                 maxLineWidth = 3,
                 lineJustification = HorizontalAlignmentOptions.Left,
-                verticalAlignment = VerticalAlignmentOptions.Top,
+                verticalAlignment = VerticalAlignmentOptions.TopBase,
             };
             var layer = 1;
             var filterSettings = new RenderFilterSettings

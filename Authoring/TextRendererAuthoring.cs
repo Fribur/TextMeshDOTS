@@ -25,11 +25,13 @@ namespace TextMeshDOTS.Authoring
         public bool                       wordWrap            = true;
         public float                      maxLineWidth        = float.MaxValue;
         public HorizontalAlignmentOptions horizontalAlignment = HorizontalAlignmentOptions.Left;
-        public VerticalAlignmentOptions   verticalAlignment   = VerticalAlignmentOptions.Top;
-        public bool                       isOrthographic;
+        public VerticalAlignmentOptions   verticalAlignment   = VerticalAlignmentOptions.TopAscent;
+        public bool                       isOrthographic      = false;
         public bool                       enableKerning       = true;
-        public FontStyles                 fontStyle;
-        public FontWeight                 fontWeight;
+        public FontStyles                 fontStyle           = FontStyles.Normal;
+        public FontWeight                 fontWeight          = FontWeight.Regular;
+        public float lineSpacing = 0;
+        public float paragraphSpacing = 0;
 
         public Color32 color = Color.white;
 
@@ -87,6 +89,8 @@ namespace TextMeshDOTS.Authoring
                 enableKerning     = authoring.enableKerning,
                 fontStyle         = authoring.fontStyle,
                 fontWeight        = authoring.fontWeight,
+                lineSpacing = authoring.lineSpacing,
+                paragraphSpacing = authoring.paragraphSpacing,
             });
         }
 

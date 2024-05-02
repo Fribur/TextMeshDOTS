@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using TextMeshDOTS.Rendering;
 using TextMeshDOTS.RichText;
 using Unity.Collections;
@@ -5,8 +6,10 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
+using UnityEngine.TextCore;
 using UnityEngine.TextCore.LowLevel;
 using UnityEngine.TextCore.Text;
+using UnityEngine.UIElements;
 
 namespace TextMeshDOTS
 {
@@ -23,6 +26,7 @@ namespace TextMeshDOTS
             //initialized textConfiguration which stores all fields that are modified by RichText Tags
             var richTextTagIdentifiers = new FixedList512Bytes<RichTextTagIdentifier>();
             var textConfiguration      = new TextConfiguration(baseConfiguration);
+            ref FontBlob font          = ref fontMaterialSet[textConfiguration.m_currentFontMaterialIndex];
 
             float2                 cumulativeOffset                                = new float2();  // Tracks text progression and word wrap
             float2                 adjustmentOffset                                = new float2();  //Tracks placement adjustments
@@ -30,13 +34,28 @@ namespace TextMeshDOTS
             FixedList512Bytes<int> characterGlyphIndicesWithPreceedingSpacesInLine = default;
             int                    accumulatedSpaces                               = 0;
             int                    startOfLineGlyphIndex                           = 0;
+            int                    lastCommittedStartOfLineGlyphIndex              = -1;
             bool                   prevWasSpace                                    = false;
             int                    lineCount                                       = 0;
             bool                   isLineStart                                     = true;
-            ref FontBlob font = ref fontMaterialSet[textConfiguration.m_currentFontMaterialIndex];
+            float                  currentLineHeight                               = 0f;
+            float                  accumulatedVerticalOffset                       = 0f;
+            float                  m_maxLineAscender = float.MinValue;
+            float                  m_maxLineDescender = float.MaxValue;
+            float                  m_startOfLineAscender = font.ascentLine;
+            float                  lineGap = font.lineHeight - (font.ascentLine - font.descentLine);
+            float                  lastVisibleAscender = 0;
+            
+            // Calculate the scale of the font based on selected font size and sampling point size.
+            // baseScale is calculated using the font asset assigned to the text object.
+            float baseScale = (baseConfiguration.fontSize / font.pointSize * font.scale * (baseConfiguration.isOrthographic ? 1 : 0.1f));
+            float currentElementScale = baseScale;
+            float currentEmScale = baseConfiguration.fontSize * 0.01f * (baseConfiguration.isOrthographic ? 1 : 0.1f);
 
-            var calliString         = new CalliString(calliBytes);
-            var characterEnumerator = calliString.GetEnumerator();
+            float        topAnchor           = GetTopAnchorForConfig(ref fontMaterialSet[0], baseConfiguration.verticalAlignment, baseScale);
+            float        bottomAnchor        = GetBottomAnchorForConfig(ref fontMaterialSet[0], baseConfiguration.verticalAlignment, baseScale);            
+            var          calliString         = new CalliString(calliBytes);
+            var          characterEnumerator = calliString.GetEnumerator();
             while (characterEnumerator.MoveNext())
             {
                 var currentRune = characterEnumerator.Current;
@@ -48,7 +67,8 @@ namespace TextMeshDOTS
                 {
                     textConfiguration.m_isParsingText = true;
                     // Check if Tag is valid. If valid, skip to the end of the validated tag.
-                    if (RichTextParser.ValidateHtmlTag(in calliString, ref characterEnumerator, ref fontMaterialSet, in baseConfiguration, ref textConfiguration, ref richTextTagIdentifiers))
+                    if (RichTextParser.ValidateHtmlTag(in calliString, ref characterEnumerator, ref fontMaterialSet, in baseConfiguration, ref textConfiguration,
+                                                       ref richTextTagIdentifiers))
                     {
                         // Continue to next character
                         continue;
@@ -56,8 +76,12 @@ namespace TextMeshDOTS
                 }
                 #endregion
 
-                font = ref fontMaterialSet[textConfiguration.m_currentFontMaterialIndex];
+                font                              = ref fontMaterialSet[textConfiguration.m_currentFontMaterialIndex];
                 textConfiguration.m_isParsingText = false;
+                currentLineHeight                 = font.lineHeight * baseScale + (m_maxLineAscender - font.ascentLine * baseScale);
+                if (lineCount == 0)
+                    topAnchor = GetTopAnchorForConfig(ref font, baseConfiguration.verticalAlignment, baseScale, topAnchor);
+                bottomAnchor  = GetBottomAnchorForConfig(ref font, baseConfiguration.verticalAlignment, baseScale, bottomAnchor);
 
                 // Handle Font Styles like LowerCase, UpperCase and SmallCaps.
                 #region Handling of LowerCase, UpperCase and SmallCaps Font Styles
@@ -80,7 +104,7 @@ namespace TextMeshDOTS
                 else if ((textConfiguration.m_fontStyleInternal & FontStyles.SmallCaps) == FontStyles.SmallCaps)
                 {
                     var oldUnicode = currentRune;
-                    currentRune        = currentRune.ToUpper();
+                    currentRune    = currentRune.ToUpper();
                     if (currentRune != oldUnicode)
                     {
                         smallCapsMultiplier = 0.8f;
@@ -112,16 +136,35 @@ namespace TextMeshDOTS
                                                      ref characterGlyphIndicesWithPreceedingSpacesInLine,
                                                      baseConfiguration.maxLineWidth,
                                                      overrideMode);
-                    lineCount++;
-                    isLineStart = true;
+                    startOfLineGlyphIndex = renderGlyphs.Length;
+                    if (lineCount > 0)
+                    {
+                        accumulatedVerticalOffset += currentLineHeight;
+                        if (lastCommittedStartOfLineGlyphIndex != startOfLineGlyphIndex)
+                        {
+                            ApplyVerticalOffsetToGlyphs(ref glyphsLine, accumulatedVerticalOffset);
+                            lastCommittedStartOfLineGlyphIndex = startOfLineGlyphIndex;
+                        }
+                        accumulatedVerticalOffset += (font.descentLine * baseScale - m_maxLineDescender);
+                        //apply user configurable line and paragraph spacing
+                        accumulatedVerticalOffset += (baseConfiguration.lineSpacing + (currentRune.value == 10 || currentRune.value == 0x2029 ? baseConfiguration .paragraphSpacing : 0)) * currentEmScale;
+                    }
+                    //reset line status
+                    m_maxLineAscender = float.MinValue;
+                    m_maxLineDescender = float.MaxValue;
+                    m_startOfLineAscender = lastVisibleAscender;
 
-                    cumulativeOffset.x  = 0;
-                    cumulativeOffset.y -= font.lineHeight * font.baseScale * baseConfiguration.fontSize;
+                    lineCount++;
+                    isLineStart  = true;
+                    bottomAnchor = GetBottomAnchorForConfig(ref font, baseConfiguration.verticalAlignment, baseScale);
+
+                    cumulativeOffset.x = 0;
+                    cumulativeOffset.y = 0;
                     continue;
                 }
 
                 if (font.TryGetCharacterIndex(currentRune, out var currentCharIndex))
-                {                    
+                {
                     ref var glyphBlob   = ref font.characters[currentCharIndex];
                     var     renderGlyph = new RenderGlyph
                     {
@@ -129,30 +172,31 @@ namespace TextMeshDOTS
                         blColor = textConfiguration.m_htmlColor,
                         tlColor = textConfiguration.m_htmlColor,
                         trColor = textConfiguration.m_htmlColor,
-                        brColor = textConfiguration.m_htmlColor,                        
+                        brColor = textConfiguration.m_htmlColor,
                     };
 
                     // Set Padding based on selected font style
                     #region Handle Style Padding
                     float boldSpacingAdjustment = 0;
-                    float style_padding = 0;
+                    float style_padding         = 0;
                     if ((textConfiguration.m_fontStyleInternal & FontStyles.Bold) == FontStyles.Bold)
                     {
-                        style_padding = 0;
+                        style_padding         = 0;
                         boldSpacingAdjustment = font.boldStyleSpacing;
                     }
                     #endregion Handle Style Padding
 
-                    var adjustedScale = textConfiguration.m_currentFontSize * smallCapsMultiplier / font.pointSize * font.scale * (baseConfiguration.isOrthographic ? 1 : 0.1f);
-                    var currentElementScale = adjustedScale * textConfiguration.m_fontScaleMultiplier * glyphBlob.glyphScale; //* m_cached_TextElement.m_Scale
-                    float currentEmScale = baseConfiguration.fontSize * 0.01f * (baseConfiguration.isOrthographic? 1 : 0.1f);
+                    var adjustedScale = textConfiguration.m_currentFontSize * smallCapsMultiplier / font.pointSize * font.scale *
+                                        (baseConfiguration.isOrthographic ? 1 : 0.1f);
+                    currentElementScale = adjustedScale * textConfiguration.m_fontScaleMultiplier * glyphBlob.glyphScale;  //* m_cached_TextElement.m_Scale
 
                     // Determine the position of the vertices of the Character
                     #region Calculate Vertices Position
-                    var currentGlyphMetrics = glyphBlob.glyphMetrics;
+                    var    currentGlyphMetrics = glyphBlob.glyphMetrics;
                     float2 topLeft;
-                    topLeft.x =  (currentGlyphMetrics.horizontalBearingX * textConfiguration.m_FXScale.x - font.materialPadding - style_padding) * currentElementScale;
-                    topLeft.y =  (currentGlyphMetrics.horizontalBearingY + font.materialPadding) * currentElementScale - textConfiguration.m_lineOffset + textConfiguration.m_baselineOffset;
+                    topLeft.x = (currentGlyphMetrics.horizontalBearingX * textConfiguration.m_FXScale.x - font.materialPadding - style_padding) * currentElementScale;
+                    topLeft.y = (currentGlyphMetrics.horizontalBearingY + font.materialPadding) * currentElementScale - textConfiguration.m_lineOffset +
+                                textConfiguration.m_baselineOffset;
 
                     float2 bottomLeft;
                     bottomLeft.x = topLeft.x;
@@ -168,7 +212,7 @@ namespace TextMeshDOTS
                     #endregion
 
                     #region Setup UVA
-                    var glyphRect = glyphBlob.glyphRect;
+                    var    glyphRect = glyphBlob.glyphRect;
                     float2 blUVA, tlUVA, trUVA, brUVA;
                     blUVA.x = (glyphRect.x - font.materialPadding - style_padding) / font.atlasWidth;
                     blUVA.y = (glyphRect.y - font.materialPadding - style_padding) / font.atlasHeight;
@@ -196,9 +240,9 @@ namespace TextMeshDOTS
                     brUVC.x = 1;
 
                     //m_verticalMapping case case TextureMappingOptions.Character
-                    blUVC.y = 0;                    
-                    tlUVC.y = 1;                    
-                    trUVC.y = 1;                    
+                    blUVC.y = 0;
+                    tlUVC.y = 1;
+                    trUVC.y = 1;
                     brUVC.y = 0;
 
                     renderGlyph.blUVB = blUVC;
@@ -215,7 +259,9 @@ namespace TextMeshDOTS
                         float  shear       = textConfiguration.m_italicAngle * 0.01f;
                         float2 topShear    = new float2(shear * ((currentGlyphMetrics.horizontalBearingY + font.materialPadding + style_padding) * currentElementScale), 0);
                         float2 bottomShear =
-                            new float2(shear * (((currentGlyphMetrics.horizontalBearingY - currentGlyphMetrics.height - font.materialPadding - style_padding)) * currentElementScale), 0);
+                            new float2(
+                                shear * (((currentGlyphMetrics.horizontalBearingY - currentGlyphMetrics.height - font.materialPadding - style_padding)) * currentElementScale),
+                                0);
                         float2 shearAdjustment = (topShear - bottomShear) * 0.5f;
 
                         topShear    -= shearAdjustment;
@@ -230,15 +276,15 @@ namespace TextMeshDOTS
                     }
                     #endregion Handle Italics & Shearing
 
-
                     // Handle Character FX Rotation
                     #region Handle Character FX Rotation
                     renderGlyph.rotationCCW = textConfiguration.m_FXRotationAngle;
                     #endregion
 
                     #region handle bold
-                    var xScale = textConfiguration.m_currentFontSize;// * math.abs(lossyScale) * (1 - m_charWidthAdjDelta);
-                    if ((textConfiguration.m_fontStyleInternal & FontStyles.Bold) == FontStyles.Bold) xScale *= -1;
+                    var xScale = textConfiguration.m_currentFontSize;  // * math.abs(lossyScale) * (1 - m_charWidthAdjDelta);
+                    if ((textConfiguration.m_fontStyleInternal & FontStyles.Bold) == FontStyles.Bold)
+                        xScale *= -1;
 
                     renderGlyph.scale = xScale;
                     #endregion
@@ -277,7 +323,7 @@ namespace TextMeshDOTS
                                 var adjustmentPair         = font.adjustmentPairs[adjustmentIndex];
                                 glyphAdjustments           = adjustmentPair.firstAdjustment;
                                 characterSpacingAdjustment = (adjustmentPair.fontFeatureLookupFlags & FontFeatureLookupFlags.IgnoreSpacingAdjustments) ==
-                                                                FontFeatureLookupFlags.IgnoreSpacingAdjustments ? 0 : characterSpacingAdjustment;
+                                                             FontFeatureLookupFlags.IgnoreSpacingAdjustments ? 0 : characterSpacingAdjustment;
                             }
                             characterEnumerator.MovePrevious();  //rewind
                         }
@@ -291,7 +337,7 @@ namespace TextMeshDOTS
                                 var adjustmentPair          = font.adjustmentPairs[adjustmentIndex];
                                 glyphAdjustments           += adjustmentPair.secondAdjustment;
                                 characterSpacingAdjustment  = (adjustmentPair.fontFeatureLookupFlags & FontFeatureLookupFlags.IgnoreSpacingAdjustments) ==
-                                                                FontFeatureLookupFlags.IgnoreSpacingAdjustments ? 0 : characterSpacingAdjustment;
+                                                              FontFeatureLookupFlags.IgnoreSpacingAdjustments ? 0 : characterSpacingAdjustment;
                             }
                             characterEnumerator.MoveNext();  //undo rewind
                         }
@@ -302,7 +348,9 @@ namespace TextMeshDOTS
                     adjustmentOffset.x = glyphAdjustments.xPlacement * currentElementScale;
                     adjustmentOffset.y = glyphAdjustments.yPlacement * currentElementScale;
 
-                    cumulativeOffset.x += ((currentGlyphMetrics.horizontalAdvance * textConfiguration.m_FXScale.x + glyphAdjustments.xAdvance) * currentElementScale + (font.regularStyleSpacing + characterSpacingAdjustment + boldSpacingAdjustment) * currentEmScale + textConfiguration.m_cSpacing);// * (1 - m_charWidthAdjDelta);                   
+                    cumulativeOffset.x +=
+                        ((currentGlyphMetrics.horizontalAdvance * textConfiguration.m_FXScale.x + glyphAdjustments.xAdvance) * currentElementScale +
+                         (font.regularStyleSpacing + characterSpacingAdjustment + boldSpacingAdjustment) * currentEmScale + textConfiguration.m_cSpacing);  // * (1 - m_charWidthAdjDelta);
                     cumulativeOffset.y += glyphAdjustments.yAdvance * currentElementScale;
                     #endregion
 
@@ -333,7 +381,7 @@ namespace TextMeshDOTS
                             accumulatedSpaces--;
                         }
 
-                        var yOffsetChange = font.lineHeight * currentElementScale;
+                        var yOffsetChange = 0f;  //font.lineHeight * currentElementScale;
                         var xOffsetChange = renderGlyphs[lastWordStartCharacterGlyphIndex].blPosition.x;
                         if (xOffsetChange > 0 && !dropSpace)  // Always allow one visible character
                         {
@@ -344,13 +392,27 @@ namespace TextMeshDOTS
                                                              ref characterGlyphIndicesWithPreceedingSpacesInLine,
                                                              baseConfiguration.maxLineWidth,
                                                              textConfiguration.m_lineJustification);
+                            if (lineCount > 0)
+                            {
+                                accumulatedVerticalOffset += currentLineHeight;
+                                ApplyVerticalOffsetToGlyphs(ref glyphsLine, accumulatedVerticalOffset);
+                                lastCommittedStartOfLineGlyphIndex = startOfLineGlyphIndex;
+                            }
+                            accumulatedVerticalOffset += (font.descentLine * baseScale - m_maxLineDescender);
+                            //apply user configurable line and paragraph spacing
+                            accumulatedVerticalOffset += (baseConfiguration.lineSpacing + (currentRune.value == 10 || currentRune.value == 0x2029 ? baseConfiguration.paragraphSpacing : 0)) * currentEmScale;
+                            //reset line status
+                            m_maxLineAscender = float.MinValue;
+                            m_maxLineDescender = float.MaxValue;
+                            m_startOfLineAscender = lastVisibleAscender;
+
                             startOfLineGlyphIndex = lastWordStartCharacterGlyphIndex;
                             lineCount++;
 
                             cumulativeOffset.x -= xOffsetChange;
                             cumulativeOffset.y -= yOffsetChange;
 
-                            //Adjust the vertices of the previous render glyphs in the word
+                            // Adjust the vertices of the previous render glyphs in the word
                             var glyphPtr = (RenderGlyph*)renderGlyphs.GetUnsafePtr();
                             for (int i = lastWordStartCharacterGlyphIndex; i < renderGlyphs.Length; i++)
                             {
@@ -385,6 +447,33 @@ namespace TextMeshDOTS
                         prevWasSpace = false;
                     }
                     #endregion
+                    // Compute line metrics
+                    #region Compute Ascender & Descender values
+                    // Element Ascender in line space
+                    float elementAscentLine = font.ascentLine;
+                    float elementDescentLine = font.descentLine;
+                    float elementAscender = elementAscentLine * currentElementScale / smallCapsMultiplier + textConfiguration.m_baselineOffset;
+
+                    // Element Descender in line space
+                    float elementDescender = elementDescentLine * currentElementScale / smallCapsMultiplier + textConfiguration.m_baselineOffset;
+
+                    float adjustedAscender = elementAscender;
+                    float adjustedDescender = elementDescender;
+                    // Max line ascender and descender in line space
+                    if (isLineStart || currentRune.IsWhiteSpace() == false)
+                    {
+                        // Special handling for Superscript and Subscript where we use the unadjusted line ascender and descender
+                        if (textConfiguration.m_baselineOffset != 0)
+                        {
+                            adjustedAscender = Mathf.Max((elementAscender - textConfiguration.m_baselineOffset) / textConfiguration.m_fontScaleMultiplier, adjustedAscender);
+                            adjustedDescender = Mathf.Min((elementDescender - textConfiguration.m_baselineOffset) / textConfiguration.m_fontScaleMultiplier, adjustedDescender);
+                        }
+                        m_maxLineAscender = Mathf.Max(adjustedAscender, m_maxLineAscender);
+                        m_maxLineDescender = Mathf.Min(adjustedDescender, m_maxLineDescender);
+                    }
+                    lastVisibleAscender = adjustedAscender;
+
+                    #endregion
                 }
             }
 
@@ -397,9 +486,45 @@ namespace TextMeshDOTS
                     overrideMode = HorizontalAlignmentOptions.Left;
                 }
                 ApplyHorizontalAlignmentToGlyphs(ref finalGlyphsLine, ref characterGlyphIndicesWithPreceedingSpacesInLine, baseConfiguration.maxLineWidth, overrideMode);
+                if (lineCount > 0)
+                {
+                    accumulatedVerticalOffset += currentLineHeight;
+                    if (lastCommittedStartOfLineGlyphIndex != startOfLineGlyphIndex)
+                        ApplyVerticalOffsetToGlyphs(ref finalGlyphsLine, accumulatedVerticalOffset);
+                }
             }
             lineCount++;
-            ApplyVerticalAlignmentToGlyphs(ref renderGlyphs, lineCount, baseConfiguration.verticalAlignment, ref font, baseConfiguration.fontSize);
+            ApplyVerticalAlignmentToGlyphs(ref renderGlyphs, topAnchor, bottomAnchor, accumulatedVerticalOffset, baseConfiguration.verticalAlignment);
+        }
+
+        static float GetTopAnchorForConfig(ref FontBlob font, VerticalAlignmentOptions verticalMode, float baseScale, float oldValue = float.PositiveInfinity)
+        {
+            bool  replace = oldValue == float.PositiveInfinity;
+            switch (verticalMode)
+            {
+                case VerticalAlignmentOptions.TopBase: return 0f;
+                case VerticalAlignmentOptions.MiddleTopAscentToBottomDescent:
+                case VerticalAlignmentOptions.TopAscent: return baseScale * math.max(font.ascentLine - font.baseLine, math.select(oldValue, float.NegativeInfinity, replace));
+                case VerticalAlignmentOptions.TopDescent: return baseScale * math.min(font.descentLine - font.baseLine, oldValue);
+                case VerticalAlignmentOptions.TopCap: return baseScale * math.max(font.capLine - font.baseLine, math.select(oldValue, float.NegativeInfinity, replace));
+                case VerticalAlignmentOptions.TopMean: return baseScale * math.max(font.meanLine - font.baseLine, math.select(oldValue, float.NegativeInfinity, replace));
+                default: return 0f;
+            }
+        }
+
+        static float GetBottomAnchorForConfig(ref FontBlob font, VerticalAlignmentOptions verticalMode, float baseScale, float oldValue = float.PositiveInfinity)
+        {
+            bool  replace = oldValue == float.PositiveInfinity;
+            switch (verticalMode)
+            {
+                case VerticalAlignmentOptions.BottomBase: return 0f;
+                case VerticalAlignmentOptions.BottomAscent: return baseScale * math.max(font.ascentLine - font.baseLine, math.select(oldValue, float.NegativeInfinity, replace));
+                case VerticalAlignmentOptions.MiddleTopAscentToBottomDescent:
+                case VerticalAlignmentOptions.BottomDescent: return baseScale * math.min(font.descentLine - font.baseLine, oldValue);
+                case VerticalAlignmentOptions.BottomCap: return baseScale * math.max(font.capLine - font.baseLine, math.select(oldValue, float.NegativeInfinity, replace));
+                case VerticalAlignmentOptions.BottomMean: return baseScale * math.max(font.meanLine - font.baseLine, math.select(oldValue, float.NegativeInfinity, replace));
+                default: return 0f;
+            }
         }
 
         static unsafe void ApplyHorizontalAlignmentToGlyphs(ref NativeArray<RenderGlyph> glyphs,
@@ -453,45 +578,66 @@ namespace TextMeshDOTS
             characterGlyphIndicesWithPreceedingSpacesInLine.Clear();
         }
 
+        static unsafe void ApplyVerticalOffsetToGlyphs(ref NativeArray<RenderGlyph> glyphs, float accumulatedVerticalOffset)
+        {
+            for (int i = 0; i < glyphs.Length; i++)
+            {
+                var glyph           = glyphs[i];
+                glyph.blPosition.y -= accumulatedVerticalOffset;
+                glyph.trPosition.y -= accumulatedVerticalOffset;
+                glyphs[i]           = glyph;
+            }
+        }
+
         static unsafe void ApplyVerticalAlignmentToGlyphs(ref DynamicBuffer<RenderGlyph> glyphs,
-                                                          int fullLineCount,
-                                                          VerticalAlignmentOptions alignMode,
-                                                          ref FontBlob font,
-                                                          float fontSize)
+                                                          float topAnchor,
+                                                          float bottomAnchor,
+                                                          float accumulatedVerticalOffset,
+                                                          VerticalAlignmentOptions alignMode)
         {
             var glyphsPtr = (RenderGlyph*)glyphs.GetUnsafePtr();
-            if ((alignMode) == VerticalAlignmentOptions.Top)
+            switch (alignMode)
             {
-                // Positions were calculated relative to the baseline.
-                // Shift everything down so that y = 0 is on the ascent line.
-                var offset  = font.ascentLine - font.baseLine;
-                offset     *= font.baseScale * fontSize;
-                for (int i = 0; i < glyphs.Length; i++)
+                case VerticalAlignmentOptions.TopBase:
+                    return;
+                case VerticalAlignmentOptions.TopAscent:
+                case VerticalAlignmentOptions.TopDescent:
+                case VerticalAlignmentOptions.TopCap:
+                case VerticalAlignmentOptions.TopMean:
                 {
-                    glyphsPtr[i].blPosition.y -= offset;
-                    glyphsPtr[i].trPosition.y -= offset;
+                    // Positions were calculated relative to the baseline.
+                    // Shift everything down so that y = 0 is on the target line.
+                    for (int i = 0; i < glyphs.Length; i++)
+                    {
+                        glyphsPtr[i].blPosition.y -= topAnchor;
+                        glyphsPtr[i].trPosition.y -= topAnchor;
+                    }
+                    break;
                 }
-            }
-            else if ((alignMode) == VerticalAlignmentOptions.Middle)
-            {
-                float newlineSpace = (fullLineCount - 1) * font.lineHeight * font.baseScale * fontSize;
-                float fullHeight   = newlineSpace + (font.ascentLine - font.baseLine) * font.baseScale * fontSize;
-                var   offset       = fullHeight / 2f - font.ascentLine * font.baseScale * fontSize;
-                for (int i = 0; i < glyphs.Length; i++)
+                case VerticalAlignmentOptions.BottomBase:
+                case VerticalAlignmentOptions.BottomAscent:
+                case VerticalAlignmentOptions.BottomDescent:
+                case VerticalAlignmentOptions.BottomCap:
+                case VerticalAlignmentOptions.BottomMean:
                 {
-                    glyphsPtr[i].blPosition.y += offset;
-                    glyphsPtr[i].trPosition.y += offset;
+                    float offset = accumulatedVerticalOffset - bottomAnchor;
+                    for (int i = 0; i < glyphs.Length; i++)
+                    {
+                        glyphsPtr[i].blPosition.y += offset;
+                        glyphsPtr[i].trPosition.y += offset;
+                    }
+                    break;
                 }
-            }
-            else  // Bottom
-            {
-                // Todo: Should we just leave the y = 0 on the baseline instead of the descent line?
-                float newlineSpace = (fullLineCount - 1) * font.lineHeight * font.baseScale * fontSize;
-                var   offset       = newlineSpace + (font.baseLine - font.descentLine) * font.baseScale * fontSize;
-                for (int i = 0; i < glyphs.Length; i++)
+                case VerticalAlignmentOptions.MiddleTopAscentToBottomDescent:
                 {
-                    glyphsPtr[i].blPosition.y += offset;
-                    glyphsPtr[i].trPosition.y += offset;
+                    float fullHeight = accumulatedVerticalOffset - bottomAnchor + topAnchor;
+                    float offset     = fullHeight / 2f;
+                    for (int i = 0; i < glyphs.Length; i++)
+                    {
+                        glyphsPtr[i].blPosition.y += offset;
+                        glyphsPtr[i].trPosition.y += offset;
+                    }
+                    break;
                 }
             }
         }

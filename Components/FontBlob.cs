@@ -8,19 +8,22 @@ using UnityEngine.TextCore.LowLevel;
 
 namespace TextMeshDOTS
 {
+    //TODO: Underlay, Bold, Smallcaps
     public struct FontBlob
     {
         public FixedString128Bytes                name;
         public BlobArray<GlyphBlob>               characters;
         public BlobArray<BlobArray<GlyphLookup> > glyphLookupMap;
         public BlobArray<AdjustmentPair>          adjustmentPairs;
+        public float                              baseLine;
         public float                              ascentLine;
         public float                              descentLine;
+        public float                              capLine;
+        public float                              meanLine;
         public float                              lineHeight;
         public float                              pointSize;
         public float                              scale;
 
-        public float baseLine;
         public float atlasWidth;
         public float atlasHeight;
 
@@ -29,8 +32,6 @@ namespace TextMeshDOTS
         public float boldStyleSpacing;
         public float boldStyleWeight;
         public byte  italicsStyleSlant;
-
-        public float capLine;
 
         public float subscriptOffset;
         public float subscriptSize;
@@ -43,19 +44,14 @@ namespace TextMeshDOTS
         /// Padding that is read from material properties
         /// </summary>
         public float materialPadding;
-
-        public float baseScale => 1f / pointSize * scale * .1f;
-
-        public const float smallCapsScaleMultiplier    = .8f;
-        public const float orthographicScaleMultiplier = 10f;
     }
 
     public struct GlyphBlob
     {
-        public int               unicode;
-        public GlyphMetrics      glyphMetrics;
-        public GlyphRect         glyphRect;
-        public float             glyphScale;
+        public int          unicode;
+        public GlyphMetrics glyphMetrics;
+        public GlyphRect    glyphRect;
+        public float        glyphScale;
 
         public AdjustmentPairLookupByUnicode glyphAdjustmentsLookup;
     }
@@ -63,7 +59,7 @@ namespace TextMeshDOTS
     public struct GlyphLookup
     {
         public int unicode;
-        public int  index;
+        public int index;
     }
 
     public struct AdjustmentPair
@@ -93,9 +89,9 @@ namespace TextMeshDOTS
 
     public struct AdjustmentPairLookupByUnicode
     {
-        public BlobArray<int> beforeKeys;//unicode
+        public BlobArray<int> beforeKeys;  //unicode
         public BlobArray<int> beforeIndices;
-        public BlobArray<int> afterKeys;//unicode
+        public BlobArray<int> afterKeys;  //unicode
         public BlobArray<int> afterIndices;
 
         public unsafe bool TryGetAdjustmentPairIndexForUnicodeBefore(int otherUnicodeBefore, out int index)

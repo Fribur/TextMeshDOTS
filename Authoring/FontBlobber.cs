@@ -27,12 +27,13 @@ namespace TextMeshDOTS.Authoring
             fontBlobRoot.baseLine            = font.faceInfo.baseline;
             fontBlobRoot.ascentLine          = font.faceInfo.ascentLine;
             fontBlobRoot.descentLine         = font.faceInfo.descentLine;
+			fontBlobRoot.capLine             = font.faceInfo.capLine;
+            fontBlobRoot.meanLine            = font.faceInfo.meanLine;
             fontBlobRoot.lineHeight          = font.faceInfo.lineHeight;
             fontBlobRoot.subscriptOffset     = font.faceInfo.subscriptOffset;
             fontBlobRoot.subscriptSize       = font.faceInfo.subscriptSize;
             fontBlobRoot.superscriptOffset   = font.faceInfo.superscriptOffset;
             fontBlobRoot.superscriptSize     = font.faceInfo.superscriptSize;
-            fontBlobRoot.capLine             = font.faceInfo.capLine;
             fontBlobRoot.regularStyleSpacing = font.regularStyleSpacing;
             fontBlobRoot.regularStyleWeight  = font.regularStyleWeight;
             fontBlobRoot.boldStyleSpacing    = font.boldStyleSpacing;
@@ -55,7 +56,7 @@ namespace TextMeshDOTS.Authoring
             var characterTable = font.characterTable;            
             for (int i = 0; i < glyphPairAdjustmentsSource.Count; i++)
             {
-                var kerningPair            = glyphPairAdjustmentsSource[i];
+                var kerningPair = glyphPairAdjustmentsSource[i];
                 if (GlyphIndexToUnicode(kerningPair.firstAdjustmentRecord.glyphIndex, characterTable, out int firstUnicode) &&
                     GlyphIndexToUnicode(kerningPair.secondAdjustmentRecord.glyphIndex, characterTable, out int secondUnicode))                    
                 {
@@ -65,19 +66,19 @@ namespace TextMeshDOTS.Authoring
                         {
                             xPlacement = kerningPair.firstAdjustmentRecord.glyphValueRecord.xPlacement,
                             yPlacement = kerningPair.firstAdjustmentRecord.glyphValueRecord.yPlacement,
-                            xAdvance = kerningPair.firstAdjustmentRecord.glyphValueRecord.xAdvance,
-                            yAdvance = kerningPair.firstAdjustmentRecord.glyphValueRecord.yAdvance,
+                            xAdvance   = kerningPair.firstAdjustmentRecord.glyphValueRecord.xAdvance,
+                            yAdvance   = kerningPair.firstAdjustmentRecord.glyphValueRecord.yAdvance,
                         },
                         secondAdjustment = new GlyphAdjustment
                         {
                             xPlacement = kerningPair.secondAdjustmentRecord.glyphValueRecord.xPlacement,
                             yPlacement = kerningPair.secondAdjustmentRecord.glyphValueRecord.yPlacement,
-                            xAdvance = kerningPair.secondAdjustmentRecord.glyphValueRecord.xAdvance,
-                            yAdvance = kerningPair.secondAdjustmentRecord.glyphValueRecord.yAdvance,
+                            xAdvance   = kerningPair.secondAdjustmentRecord.glyphValueRecord.xAdvance,
+                            yAdvance   = kerningPair.secondAdjustmentRecord.glyphValueRecord.yAdvance,
                         },
                         fontFeatureLookupFlags = kerningPair.featureLookupFlags,
-                        firstUnicode = firstUnicode,
-                        secondUnicode = secondUnicode
+                        firstUnicode 		   = firstUnicode,
+                        secondUnicode 		   = secondUnicode
                     };
                 }
             }
@@ -85,7 +86,7 @@ namespace TextMeshDOTS.Authoring
             for (int i = 0; i < font.characterTable.Count; i++)
             {
                 var character = font.characterTable[i];
-                var glyph = character.glyph;
+                var glyph 	  = character.glyph;
                 if (glyph == null)
                     continue;
                 var unicode = math.asint(character.unicode);
@@ -114,7 +115,7 @@ namespace TextMeshDOTS.Authoring
                 for (int j = 0; j < bk.Length; j++)
                 {
                     var d = adjustmentCacheBefore[j];
-                    bk[j] = d.x;//unicode
+                    bk[j] = d.x; //unicode
                     bv[j] = d.y;
                 }
                 adjustmentCacheAfter.Sort(new XSorter());
@@ -123,7 +124,7 @@ namespace TextMeshDOTS.Authoring
                 for (int j = 0; j < ak.Length; j++)
                 {
                     var d = adjustmentCacheAfter[j];
-                    ak[j] = d.x;//unicode
+                    ak[j] = d.x; //unicode
                     av[j] = d.y;
                 }
 
