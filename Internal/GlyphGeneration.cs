@@ -10,6 +10,7 @@ using UnityEngine.TextCore;
 using UnityEngine.TextCore.LowLevel;
 using UnityEngine.TextCore.Text;
 using UnityEngine.UIElements;
+using static TextMeshDOTS.GlyphGeneration;
 
 namespace TextMeshDOTS
 {
@@ -56,6 +57,7 @@ namespace TextMeshDOTS
             float        bottomAnchor        = GetBottomAnchorForConfig(ref fontMaterialSet[0], baseConfiguration.verticalAlignment, baseScale);            
             var          calliString         = new CalliString(calliBytes);
             var          characterEnumerator = calliString.GetEnumerator();
+            PrevCurNext prevCurNext = new PrevCurNext { prev = Unicode.BadRune, current = Unicode.BadRune, next = Unicode.BadRune };
             while (characterEnumerator.MoveNext())
             {
                 var currentRune = characterEnumerator.Current;
@@ -76,6 +78,7 @@ namespace TextMeshDOTS
                 }
                 #endregion
 
+                UpdateCharacterWindow(ref prevCurNext, ref characterEnumerator, baseConfiguration.enableKerning);
                 font                              = ref fontMaterialSet[textConfiguration.m_currentFontMaterialIndex];
                 textConfiguration.m_isParsingText = false;
                 currentLineHeight                 = font.lineHeight * baseScale + (m_maxLineAscender - font.ascentLine * baseScale);
@@ -94,21 +97,27 @@ namespace TextMeshDOTS
                 if ((textConfiguration.m_fontStyleInternal & FontStyles.UpperCase) == FontStyles.UpperCase)
                 {
                     // If this character is lowercase, switch to uppercase.
-                    currentRune = currentRune.ToUpper();
+                    prevCurNext.current = currentRune.ToUpper();
+                    currentRune = prevCurNext.current;
+                    if (prevCurNext.next != Unicode.BadRune) prevCurNext.next = prevCurNext.next.ToUpper();
                 }
                 else if ((textConfiguration.m_fontStyleInternal & FontStyles.LowerCase) == FontStyles.LowerCase)
                 {
                     // If this character is uppercase, switch to lowercase.
-                    currentRune = currentRune.ToLower();
+                    prevCurNext.current = currentRune.ToLower();
+                    currentRune = prevCurNext.current;
+                    if (prevCurNext.next != Unicode.BadRune) prevCurNext.next = prevCurNext.next.ToLower();
                 }
                 else if ((textConfiguration.m_fontStyleInternal & FontStyles.SmallCaps) == FontStyles.SmallCaps)
                 {
                     var oldUnicode = currentRune;
-                    currentRune    = currentRune.ToUpper();
-                    if (currentRune != oldUnicode)
+                    prevCurNext.current = currentRune.ToUpper();
+                    currentRune = prevCurNext.current;
+                    if (prevCurNext.current != oldUnicode)
                     {
                         smallCapsMultiplier = 0.8f;
                     }
+                    if (prevCurNext.next != Unicode.BadRune) prevCurNext.next = prevCurNext.next.ToUpper();
                 }
                 #endregion
 
@@ -149,9 +158,16 @@ namespace TextMeshDOTS
                         //apply user configurable line and paragraph spacing
                         accumulatedVerticalOffset += (baseConfiguration.lineSpacing + (currentRune.value == 10 || currentRune.value == 0x2029 ? baseConfiguration .paragraphSpacing : 0)) * currentEmScale;
                     }
-                    //reset line status
-                    m_maxLineAscender = float.MinValue;
-                    m_maxLineDescender = float.MaxValue;
+                    else
+                    {
+                        //ensure we apply the descenderDelta also for a manual line break right after the first line
+                        accumulatedVerticalOffset += (font.descentLine * baseScale - m_maxLineDescender);
+                        //apply user configurable line and paragraph spacing
+                        accumulatedVerticalOffset += (baseConfiguration.lineSpacing + (currentRune.value == 10 || currentRune.value == 0x2029 ? baseConfiguration.paragraphSpacing : 0)) * currentEmScale;
+                    }
+                    //reset line status. As manual line feed will skip the line metrics region, mimic here what it would do
+                    m_maxLineAscender = font.ascentLine * baseScale;
+                    m_maxLineDescender = font.descentLine * baseScale;
                     m_startOfLineAscender = lastVisibleAscender;
 
                     lineCount++;
@@ -256,12 +272,10 @@ namespace TextMeshDOTS
                     if (((textConfiguration.m_fontStyleInternal & FontStyles.Italic) == FontStyles.Italic))
                     {
                         // Shift Top vertices forward by half (Shear Value * height of character) and Bottom vertices back by same amount.
-                        float  shear       = textConfiguration.m_italicAngle * 0.01f;
-                        float2 topShear    = new float2(shear * ((currentGlyphMetrics.horizontalBearingY + font.materialPadding + style_padding) * currentElementScale), 0);
-                        float2 bottomShear =
-                            new float2(
-                                shear * (((currentGlyphMetrics.horizontalBearingY - currentGlyphMetrics.height - font.materialPadding - style_padding)) * currentElementScale),
-                                0);
+                        float shear_value = textConfiguration.m_italicAngle * 0.01f;
+                        float midPoint = ((font.capLine - (font.baseLine + textConfiguration.m_baselineOffset)) / 2) * textConfiguration.m_fontScaleMultiplier * font.scale;
+                        float2 topShear = new float2(shear_value * ((currentGlyphMetrics.horizontalBearingY + font.materialPadding + style_padding - midPoint) * currentElementScale), 0);
+                        float2 bottomShear = new float2(shear_value * (((currentGlyphMetrics.horizontalBearingY - currentGlyphMetrics.height - font.materialPadding - style_padding - midPoint)) * currentElementScale), 0);
                         float2 shearAdjustment = (topShear - bottomShear) * 0.5f;
 
                         topShear    -= shearAdjustment;
@@ -315,31 +329,26 @@ namespace TextMeshDOTS
                     float           m_GlyphHorizontalAdvanceAdjustment = 0;
                     if (baseConfiguration.enableKerning)
                     {
-                        if (characterEnumerator.MoveNext())
+                        if (prevCurNext.next != Unicode.BadRune)
                         {
-                            var nextUnicodeRune = characterEnumerator.Current;
-                            if (glyphBlob.glyphAdjustmentsLookup.TryGetAdjustmentPairIndexForUnicodeAfter(nextUnicodeRune.value, out var adjustmentIndex))
+                            if (glyphBlob.glyphAdjustmentsLookup.TryGetAdjustmentPairIndexForUnicodeAfter(prevCurNext.next.value, out var adjustmentIndex))
                             {
-                                var adjustmentPair         = font.adjustmentPairs[adjustmentIndex];
-                                glyphAdjustments           = adjustmentPair.firstAdjustment;
+                                var adjustmentPair = font.adjustmentPairs[adjustmentIndex];
+                                glyphAdjustments = adjustmentPair.firstAdjustment;
                                 characterSpacingAdjustment = (adjustmentPair.fontFeatureLookupFlags & FontFeatureLookupFlags.IgnoreSpacingAdjustments) ==
                                                              FontFeatureLookupFlags.IgnoreSpacingAdjustments ? 0 : characterSpacingAdjustment;
                             }
-                            characterEnumerator.MovePrevious();  //rewind
                         }
 
                         if (textConfiguration.m_characterCount >= 1)
                         {
-                            characterEnumerator.MovePrevious();
-                            var prevUnicodeRune = characterEnumerator.Current;
-                            if (glyphBlob.glyphAdjustmentsLookup.TryGetAdjustmentPairIndexForUnicodeBefore(prevUnicodeRune.value, out var adjustmentIndex))
+                            if (glyphBlob.glyphAdjustmentsLookup.TryGetAdjustmentPairIndexForUnicodeBefore(prevCurNext.prev.value, out var adjustmentIndex))
                             {
-                                var adjustmentPair          = font.adjustmentPairs[adjustmentIndex];
-                                glyphAdjustments           += adjustmentPair.secondAdjustment;
-                                characterSpacingAdjustment  = (adjustmentPair.fontFeatureLookupFlags & FontFeatureLookupFlags.IgnoreSpacingAdjustments) ==
+                                var adjustmentPair = font.adjustmentPairs[adjustmentIndex];
+                                glyphAdjustments += adjustmentPair.secondAdjustment;
+                                characterSpacingAdjustment = (adjustmentPair.fontFeatureLookupFlags & FontFeatureLookupFlags.IgnoreSpacingAdjustments) ==
                                                               FontFeatureLookupFlags.IgnoreSpacingAdjustments ? 0 : characterSpacingAdjustment;
                             }
-                            characterEnumerator.MoveNext();  //undo rewind
                         }
                     }
 
@@ -640,6 +649,29 @@ namespace TextMeshDOTS
                     break;
                 }
             }
+        }
+        static void UpdateCharacterWindow(ref PrevCurNext prevCurNext, ref CalliString.Enumerator characterEnumerator, bool kerningEnabled)
+        {
+            prevCurNext.prev = prevCurNext.current;
+            prevCurNext.current = characterEnumerator.Current;
+            if (kerningEnabled)
+            {
+                if (characterEnumerator.MoveNext())
+                {
+                    //could return rich text opening tag `<` but only in
+                    //the very unlikly case of having exactly 1 valid text char between 2 tags
+                    prevCurNext.next = characterEnumerator.Current;
+                    characterEnumerator.MovePrevious();
+                }
+                else
+                    prevCurNext.next = Unicode.BadRune;
+            }
+        }
+        public struct PrevCurNext
+        {
+            public Unicode.Rune prev;
+            public Unicode.Rune current;
+            public Unicode.Rune next;
         }
     }
 }
