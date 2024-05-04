@@ -60,6 +60,7 @@ namespace TextMeshDOTS.Rendering
                        .WithAll<TextShaderIndex>()
                        .Build();
             m_changedGlyphsQuery.SetChangedVersionFilter(ComponentType.ReadWrite<RenderGlyph>());
+            m_changedGlyphsQuery.AddChangedVersionFilter(ComponentType.ReadWrite<TextRenderControl>());
 
             //query all entities having a mask, regardless if they are parent (= have AdditionalFontMaterialEntity) or child 
             m_masksQuery = SystemAPI.QueryBuilder()
@@ -102,7 +103,7 @@ namespace TextMeshDOTS.Rendering
         }
 
         protected override void OnUpdate()
-        {
+        {            
             Entity textStats = SystemAPI.GetSingletonEntity<TextStatisticsTag>();
 
             if (m_glyphsQuery.IsEmpty)

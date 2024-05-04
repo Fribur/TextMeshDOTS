@@ -100,11 +100,11 @@ namespace TextMeshDOTS
                     m_glyphMappingWriter.StartWriter(glyphMappingMasks.Length > 0 ? glyphMappingMasks[indexInChunk].mask : default);
                     if (hasMultipleFonts)
                     {
-                        fontMaterialSet.Initialize(fontBlobReference.blob, selectorBuffers[indexInChunk], additionalEntitiesBuffers[indexInChunk], ref fontBlobReferenceLookup);
+                        fontMaterialSet.Initialize(fontBlobReference.fontBlob, selectorBuffers[indexInChunk], additionalEntitiesBuffers[indexInChunk], ref fontBlobReferenceLookup);
                     }
                     else
                     {
-                        fontMaterialSet.Initialize(fontBlobReference.blob);
+                        fontMaterialSet.Initialize(fontBlobReference.fontBlob);
                     }
 
                     GlyphGeneration.CreateRenderGlyphs(ref renderGlyphs,

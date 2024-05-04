@@ -5,6 +5,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Rendering;
 using TextMeshDOTS.Rendering.Authoring;
+using UnityEngine;
 
 namespace TextMeshDOTS.Rendering
 {
@@ -112,7 +113,7 @@ namespace TextMeshDOTS.Rendering
                         quadCount = math.countbits(instance.masks[0] & 0xffff0000);
 
                     var count = quadCount <= 8 ? quadCount : glyphBuffer.Length;
-                    LatiosTextBackendBakingUtility.SetSubMesh(count, ref mmi);
+                    TextBackendBakingUtility.SetSubMesh(count, ref mmi);
                 }
             }
         }

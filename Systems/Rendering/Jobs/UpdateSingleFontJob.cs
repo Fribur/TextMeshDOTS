@@ -1,10 +1,9 @@
-using Unity.Burst.Intrinsics;
 using Unity.Burst;
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Rendering;
 using TextMeshDOTS.Rendering.Authoring;
+using UnityEngine;
 
 namespace TextMeshDOTS.Rendering
 {
@@ -34,7 +33,7 @@ namespace TextMeshDOTS.Rendering
                 aabb.Max = 0f;
             }
             renderBounds = new RenderBounds { Value = new AABB { Center = aabb.Center, Extents = aabb.Extents } };
-            LatiosTextBackendBakingUtility.SetSubMesh(renderGlyphCount, ref materialMeshInfo);
+            TextBackendBakingUtility.SetSubMesh(renderGlyphCount, ref materialMeshInfo);
         }
     }
 }

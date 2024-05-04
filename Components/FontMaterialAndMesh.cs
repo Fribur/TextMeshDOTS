@@ -1,4 +1,3 @@
-using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
 
@@ -6,13 +5,16 @@ namespace TextMeshDOTS
 {
     public struct FontMaterial : IComponentData
     {
-        public UnityObjectRef<Material> fontMaterial;
-        public UnityObjectRef<Mesh> backendMesh;
+        public UnityObjectRef<Material> value;
     }
 
-    public struct MulitFontMaterials : IComponentData
+    [InternalBufferCapacity(2)]
+    public struct MultiFontMaterials : IBufferElementData
     {
-        public FixedList128Bytes<UnityObjectRef<Material>> fontMaterials;
-        public UnityObjectRef<Mesh> backendMesh;
+        public UnityObjectRef<Material> value;
+    }
+    public struct BackEndMesh : IComponentData
+    {
+        public UnityObjectRef<Mesh> value;
     }
 }

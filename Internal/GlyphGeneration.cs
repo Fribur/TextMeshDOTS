@@ -99,14 +99,16 @@ namespace TextMeshDOTS
                     // If this character is lowercase, switch to uppercase.
                     prevCurNext.current = currentRune.ToUpper();
                     currentRune = prevCurNext.current;
-                    if (prevCurNext.next != Unicode.BadRune) prevCurNext.next = prevCurNext.next.ToUpper();
+                    if (prevCurNext.next != Unicode.BadRune) 
+                        prevCurNext.next = prevCurNext.next.ToUpper();
                 }
                 else if ((textConfiguration.m_fontStyleInternal & FontStyles.LowerCase) == FontStyles.LowerCase)
                 {
                     // If this character is uppercase, switch to lowercase.
                     prevCurNext.current = currentRune.ToLower();
                     currentRune = prevCurNext.current;
-                    if (prevCurNext.next != Unicode.BadRune) prevCurNext.next = prevCurNext.next.ToLower();
+                    if (prevCurNext.next != Unicode.BadRune)
+                        prevCurNext.next = prevCurNext.next.ToLower();
                 }
                 else if ((textConfiguration.m_fontStyleInternal & FontStyles.SmallCaps) == FontStyles.SmallCaps)
                 {
@@ -117,7 +119,8 @@ namespace TextMeshDOTS
                     {
                         smallCapsMultiplier = 0.8f;
                     }
-                    if (prevCurNext.next != Unicode.BadRune) prevCurNext.next = prevCurNext.next.ToUpper();
+                    if (prevCurNext.next != Unicode.BadRune)
+                        prevCurNext.next = prevCurNext.next.ToUpper();
                 }
                 #endregion
 
@@ -661,10 +664,11 @@ namespace TextMeshDOTS
                     //could return rich text opening tag `<` but only in
                     //the very unlikly case of having exactly 1 valid text char between 2 tags
                     prevCurNext.next = characterEnumerator.Current;
-                    characterEnumerator.MovePrevious();
                 }
                 else
                     prevCurNext.next = Unicode.BadRune;
+
+                characterEnumerator.MovePrevious();
             }
         }
         public struct PrevCurNext

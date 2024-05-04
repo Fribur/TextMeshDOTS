@@ -41,9 +41,9 @@ namespace TextMeshDOTS
             {
                 if (blobLookup.TryGetComponent(entities[i].entity, out var blobRef))
                 {
-                    if (blobRef.blob.IsCreated)
+                    if (blobRef.fontBlob.IsCreated)
                     {
-                        m_fontMaterialArray.Add(new FontMaterial(blobRef.blob));
+                        m_fontMaterialArray.Add(new FontMaterial(blobRef.fontBlob));
                         m_fontToEntityIndexArray.Add((byte)(i + 1));//ensure to substract 1 when accessing AdditionalFontMaterialEntity buffer!
                     }
                 }

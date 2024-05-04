@@ -13,7 +13,7 @@ using UnityEngine.Rendering;
 namespace TextMeshDOTS.Authoring
 {
     [BurstCompile]
-    public partial class RuntimeTextRendererSpawner : SystemBase
+    public partial class RuntimeSingleTextRendererSpawner : SystemBase
     {
         bool initialized;
         int frameCount = 0;
@@ -22,9 +22,9 @@ namespace TextMeshDOTS.Authoring
         protected override void OnCreate()
         {
             initialized = false;
-            textRenderArchetype = TextMeshDOTSArchetypes.GetTextRenderArchetype(ref CheckedStateRef);
+            textRenderArchetype = TextMeshDOTSArchetypes.GetSingleFontTextArchetype(ref CheckedStateRef);
             fontEntityQ = new EntityQueryBuilder(Allocator.Temp)
-                    .WithAll<FontBlobReference, FontMaterial>()
+                    .WithAll<FontBlobReference, FontMaterial, BackEndMesh>()
                     .Build(EntityManager);
             RequireForUpdate(fontEntityQ);
         }
@@ -38,8 +38,14 @@ namespace TextMeshDOTS.Authoring
         {
             if (initialized)
                 return;
-            if (!SystemAPI.TryGetSingleton(out FontMaterial fontMaterial))
+            if (fontEntityQ.IsEmptyIgnoreFilter)
                 return;
+
+            var fontBlobReferenceEntities = fontEntityQ.ToEntityArray(Allocator.Temp);
+            var fontBlobReferenceEntity = fontBlobReferenceEntities[0];
+            var backEndMesh = SystemAPI.GetComponent<BackEndMesh>(fontBlobReferenceEntity);
+            var fontMaterial = SystemAPI.GetComponent<FontMaterial>(fontBlobReferenceEntity);
+            var fontBlobReference = SystemAPI.GetComponent<FontBlobReference>(fontBlobReferenceEntity);
 
             if (!(frameCount == 0 ^ frameCount == 100))
             //if (frameCount != 0)
@@ -49,15 +55,10 @@ namespace TextMeshDOTS.Authoring
             }
 
             var entitiesGraphicsSystem = World.GetExistingSystemManaged<EntitiesGraphicsSystem>();
-            var brgMaterialID = entitiesGraphicsSystem.RegisterMaterial(fontMaterial.fontMaterial);
-            var brgMeshID = entitiesGraphicsSystem.RegisterMesh(fontMaterial.backendMesh);
+            var brgMaterialID = entitiesGraphicsSystem.RegisterMaterial(fontMaterial.value);
+            var brgMeshID = entitiesGraphicsSystem.RegisterMesh(backEndMesh.value);
             var materialMeshInfo = new MaterialMeshInfo { MaterialID = brgMaterialID, MeshID = brgMeshID };
             var textRenderControl = new TextRenderControl { flags = TextRenderControl.Flags.Dirty };
-
-            var fontBlobReferenceEntities = fontEntityQ.ToEntityArray(Allocator.Temp);
-            var fontBlobReferenceEntity = fontBlobReferenceEntities[0];
-            var fontBlobReference = SystemAPI.GetComponent<FontBlobReference>(fontBlobReferenceEntity);
-            fontBlobReferenceEntities.Dispose();
 
             var textBaseConfiguration = new TextBaseConfiguration
             {
@@ -83,13 +84,13 @@ namespace TextMeshDOTS.Authoring
             var text3 = "ZYX";
 
 
-            
+
             if (frameCount == 0)
             {
                 int count = 100;
                 int half = count / 2;
                 var factor = 3.0f;
-                LatiosTextBackendBakingUtility.SetSubMesh(text2.Length, ref materialMeshInfo);
+                TextBackendBakingUtility.SetSubMesh(text2.Length, ref materialMeshInfo);
                 var entities = EntityManager.CreateEntity(textRenderArchetype, count * count, Allocator.Temp);
                 for (int x = 0; x < count; x++)
                 {
@@ -111,14 +112,14 @@ namespace TextMeshDOTS.Authoring
                 }
                 //Debug.Log("Text spawned");
             }
-            
+
             if (frameCount == 100)
             {
                 int count = 50;
                 int half = count / 2;
                 var factor = 2.0f;
                 textBaseConfiguration.color = Color.red;
-                LatiosTextBackendBakingUtility.SetSubMesh(text3.Length, ref materialMeshInfo);
+                TextBackendBakingUtility.SetSubMesh(text3.Length, ref materialMeshInfo);
                 var entities = EntityManager.CreateEntity(textRenderArchetype, count * count, Allocator.Temp);
                 for (int x = 0; x < count; x++)
                 {
@@ -143,7 +144,7 @@ namespace TextMeshDOTS.Authoring
             frameCount++;
 
             //initialized = true;
-            
+
         }
     }
 }

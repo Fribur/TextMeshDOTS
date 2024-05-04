@@ -6,8 +6,6 @@ using Unity.Entities;
 using Unity.Entities.Graphics;
 using Unity.Mathematics;
 using Unity.Rendering;
-using Unity.Transforms;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.TextCore.Text;
@@ -47,14 +45,26 @@ namespace TextMeshDOTS.Authoring
         public override void Bake(TextRendererAuthoring authoring)
         {
             if (authoring.fonts == null)
-                return;            
+                return;
 
-            var entity = GetEntity(TransformUsageFlags.Renderable);
+            var backEndMesh = Resources.Load<Mesh>(TextBackendBakingUtility.kTextBackendMeshResource);
+
+            //add MeshFilter and MeshRender on main entity to ensure it correctly converted 
+            var meshRenderer = GetComponent<MeshRenderer>();
+            if (meshRenderer == null)
+                meshRenderer = authoring.gameObject.AddComponent<MeshRenderer>();
+            var meshFilter = GetComponent<MeshFilter>();
+            if (meshFilter == null)
+                meshFilter = authoring.gameObject.AddComponent<MeshFilter>();
+            meshFilter.sharedMesh = backEndMesh;
+            meshRenderer.material = authoring.fonts[0].material;
+
+            var entity = GetEntity(TransformUsageFlags.Renderable);            
 
             //Fonts
             var font = authoring.fonts[0];
             font.ReadFontAssetDefinition();
-            AddFontRendering(entity, font);
+            BakeFontAsset(entity, font);
             AddBuffer<RenderGlyph>(entity);
 
             if (authoring.fonts.Count > 1)
@@ -70,10 +80,16 @@ namespace TextMeshDOTS.Authoring
                     if (font == null)
                         continue;
                     font.ReadFontAssetDefinition();
-                    AddFontRendering(newEntity, font);
+                    BakeFontAsset(newEntity, font);
                     AddComponent<TextMaterialMaskShaderIndex>(newEntity);
                     AddBuffer<RenderGlyphMask>(newEntity);
                     additionalEntities.Add(newEntity);
+                   
+                    //add all components MeshRendererBaker would add to a single rendered entity 
+                    AddEntityGraphicsComponents(newEntity, font, backEndMesh);
+                    //add MeshRendererBakingData to trick RenderMeshPostProcessSystem to process this entity
+                    //important for incremental baking to update MaterialMeshInfo
+                    this.AddMeshRendererBakingData(newEntity, meshRenderer);
                 }
             }
 
@@ -96,11 +112,27 @@ namespace TextMeshDOTS.Authoring
             });
         }
 
-        void AddFontRendering(Entity entity, FontAsset fontAsset)
+        void BakeFontAsset(Entity entity, FontAsset fontAsset)
+        {
+            DependsOn(fontAsset);
+            
+            AddComponent(entity, new TextRenderControl { flags = TextRenderControl.Flags.Dirty });
+            AddComponent<TextShaderIndex>(entity);
+
+            var customHash = new Unity.Entities.Hash128((uint)fontAsset.GetHashCode(), 0, 0, 0);
+            if (!TryGetBlobAssetReference(customHash, out BlobAssetReference<FontBlob> blobReference))
+            {
+                blobReference = FontBlobber.BakeFont(fontAsset);
+
+                // Register the Blob Asset to the Baker for de-duplication and reverting.
+                AddBlobAssetWithCustomHash<FontBlob>(ref blobReference, customHash);
+            }
+            AddComponent(entity, new FontBlobReference { fontBlob = blobReference });            
+        }
+        void AddEntityGraphicsComponents(Entity entity, FontAsset fontAsset, Mesh backEndMesh)
         {
             DependsOn(fontAsset);
             var layer = GetLayer();
-
             var renderMeshDescription = new RenderMeshDescription
             {
                 FilterSettings = new RenderFilterSettings
@@ -114,17 +146,7 @@ namespace TextMeshDOTS.Authoring
                 },
                 LightProbeUsage = LightProbeUsage.Off,
             };
-            this.BakeTextBackendMeshAndMaterial(entity, renderMeshDescription, fontAsset.material);
-
-            var customHash = new Unity.Entities.Hash128((uint)fontAsset.GetHashCode(), 0, 0, 0);
-            if (!TryGetBlobAssetReference(customHash, out BlobAssetReference<FontBlob> blobReference))
-            {
-                blobReference = FontBlobber.BakeFont(fontAsset);
-
-                // Register the Blob Asset to the Baker for de-duplication and reverting.
-                AddBlobAssetWithCustomHash<FontBlob>(ref blobReference, customHash);
-            }
-            AddComponent(entity, new FontBlobReference { blob = blobReference });            
+            this.BakeMeshAndMaterial(entity, renderMeshDescription, backEndMesh, fontAsset.material);            
         }
     }
 }

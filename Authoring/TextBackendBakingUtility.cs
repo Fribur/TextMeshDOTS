@@ -1,31 +1,19 @@
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Rendering;
-using UnityEditor.PackageManager;
 using UnityEngine;
 
 namespace TextMeshDOTS.Rendering.Authoring
 {
     [BurstCompile]
-    public static class LatiosTextBackendBakingUtility
+    public static class TextBackendBakingUtility
     {        
         public const string kResourcePath = "Assets/Resources";
         //public const string kTextBackendMeshPath     = "Packages/com.textmeshdots/Resources/TextBackendMesh.mesh";
         public const string kTextBackendMeshPath = "Assets/Resources/TextBackendMesh.mesh";
         public const string kTextBackendMeshResource = "TextBackendMesh";
-
-        public static void BakeTextBackendMeshAndMaterial(this IBaker baker, Entity entity, RenderMeshDescription renderMeshDescription, Material material)
-        {
-            var mesh = Resources.Load<Mesh>(kTextBackendMeshResource);
-
-            baker.BakeMeshAndMaterial(entity, renderMeshDescription, mesh, material);
-
-            baker.AddComponent(entity, new TextRenderControl { flags = TextRenderControl.Flags.Dirty });            
-            baker.AddComponent<TextShaderIndex>(entity);
-        }
 
         #region Mesh Building
 #if UNITY_EDITOR

@@ -13,11 +13,12 @@ namespace TextMeshDOTS
     /// </summary>
     public struct FontBlobReference : IComponentData
     {
-        public BlobAssetReference<FontBlob> blob;
+        public BlobAssetReference<FontBlob> fontBlob;
     }
-	public struct MultiFontBlobReferences : IComponentData
+    [InternalBufferCapacity(2)]
+	public struct MultiFontBlobReferences : IBufferElementData
     {
-        public FixedList128Bytes<BlobAssetReference<FontBlob>> blobs;
+        public BlobAssetReference<FontBlob> fontBlob;
     }
 
 

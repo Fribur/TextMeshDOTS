@@ -23,6 +23,11 @@ public static class EntityGraphicsInternals
     {
         return heapAllocator.OnePastHighestUsedAddress;
     }
+    /// <summary> Helper to trick RenderMeshPostProcessSystem to correctly run on entity having MeshRendererBakingData component</summary>
+    public static void AddMeshRendererBakingData(this IBaker baker, Entity entity, MeshRenderer meshRenderer)
+    {
+        baker.AddComponent(entity, new MeshRendererBakingData { MeshRenderer = meshRenderer });
+    }
 }
 
 
