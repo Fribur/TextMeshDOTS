@@ -1,6 +1,6 @@
 # TextMeshDOTS
 
-TextMeshDOTS is standalone text package for DOTS, forked from [Latios Framework/Calligraphics](https://github.com/Dreaming381/Latios-Framework/tree/master/Calligraphics). 
+TextMeshDOTS is a standalone text package for DOTS, forked from [Latios Framework/Calligraphics](https://github.com/Dreaming381/Latios-Framework/tree/master/Calligraphics). 
 Utilizing TextCore font assets, TextMeshDOTS renders world space text similar to TextMeshPro. It leverages the [Unity Entities](https://docs.unity3d.com/Packages/com.unity.entities@1.2/manual/index.html) 
 package to generate the vertex data required for rendering, and uses native [Unity Entities Graphics](https://docs.unity3d.com/Packages/com.unity.entities.graphics@1.2/manual/index.html) for rendering. The HDRP and URP shader are 
 wrapper around the TextMeshPro 4.0 SRP shader. TextMeshDOTS supports almost all rich text tags of [TextMeshPro](https://docs.unity3d.com/Packages/com.unity.textmeshpro@4.0/manual/RichText.html) and TextCore:
@@ -11,7 +11,8 @@ wrapper around the TextMeshPro 4.0 SRP shader. TextMeshDOTS supports almost all 
 # How to use
 
 (1) Autoring workflow
-  -	Generate backend mesh: `Menue-->TextMeshDOTS-->Text Backend mesh`
+  -	Generate backend mesh: `Menue-->TextMeshDOTS-->Text BackendMesh`
+    - this only needs to be done once in a given project
   -	Create a `SubScene`
   -	Add empty `GameObject`, and `TextRenderer` component on it
   - Create a Font Asset. You can use `TextMeshDOTS/Fonts/LiberationSans SDF`. If you create one yourself, 
@@ -25,7 +26,8 @@ populate the atlas in `static` mode, and ensure the material shader is set to
   -	You should now see the text    
 
 (2) Runtime instantiation workflow
-  -	Generate backend mesh: `Menue-->TextMeshDOTS-->Text Backend mesh`
+  -	Generate backend mesh: `Menue-->TextMeshDOTS-->Text BackendMesh`
+    - this only needs to be done once in a given project
   -	Create a `SubScene`
   -	Add empty `GameObject`, add `FontBlobAuthoring` component on it
   -	Add font asset `TextMeshDOTS/Fonts/LiberationSans SDF` to the list of fonts (and any additional fonts you like to access during runtim)
@@ -35,7 +37,7 @@ populate the atlas in `static` mode, and ensure the material shader is set to
 
 
 # Known issues
--   `RuntimeMultiFontTextRendererSpawner.cs` does not work correctly
+-   None at this time
 
 
 ## Special Thanks To the original authors and contributors

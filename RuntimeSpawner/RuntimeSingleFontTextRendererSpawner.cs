@@ -41,11 +41,11 @@ namespace TextMeshDOTS.Authoring
             if (fontEntityQ.IsEmptyIgnoreFilter)
                 return;
 
-            var fontBlobReferenceEntities = fontEntityQ.ToEntityArray(Allocator.Temp);
+            var fontBlobReferenceEntities = fontEntityQ.ToEntityArray(WorldUpdateAllocator);
             var fontBlobReferenceEntity = fontBlobReferenceEntities[0];
-            var backEndMesh = SystemAPI.GetComponent<BackEndMesh>(fontBlobReferenceEntity);
-            var fontMaterial = SystemAPI.GetComponent<FontMaterial>(fontBlobReferenceEntity);
+            var fontMaterial = SystemAPI.GetComponent<FontMaterial>(fontBlobReferenceEntity);            
             var fontBlobReference = SystemAPI.GetComponent<FontBlobReference>(fontBlobReferenceEntity);
+            var backEndMesh = SystemAPI.GetComponent<BackEndMesh>(fontBlobReferenceEntity);
 
             if (!(frameCount == 0 ^ frameCount == 100))
             //if (frameCount != 0)
@@ -91,7 +91,7 @@ namespace TextMeshDOTS.Authoring
                 int half = count / 2;
                 var factor = 3.0f;
                 TextBackendBakingUtility.SetSubMesh(text2.Length, ref materialMeshInfo);
-                var entities = EntityManager.CreateEntity(textRenderArchetype, count * count, Allocator.Temp);
+                var entities = EntityManager.CreateEntity(textRenderArchetype, count * count, WorldUpdateAllocator);
                 for (int x = 0; x < count; x++)
                 {
                     for (int y = 0; y < count; y++)
@@ -120,7 +120,7 @@ namespace TextMeshDOTS.Authoring
                 var factor = 2.0f;
                 textBaseConfiguration.color = Color.red;
                 TextBackendBakingUtility.SetSubMesh(text3.Length, ref materialMeshInfo);
-                var entities = EntityManager.CreateEntity(textRenderArchetype, count * count, Allocator.Temp);
+                var entities = EntityManager.CreateEntity(textRenderArchetype, count * count, WorldUpdateAllocator);
                 for (int x = 0; x < count; x++)
                 {
                     for (int y = 0; y < count; y++)

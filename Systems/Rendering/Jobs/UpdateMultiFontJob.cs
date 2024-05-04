@@ -5,7 +5,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Rendering;
 using TextMeshDOTS.Rendering.Authoring;
-using UnityEngine;
 
 namespace TextMeshDOTS.Rendering
 {
@@ -115,6 +114,7 @@ namespace TextMeshDOTS.Rendering
                     var count = quadCount <= 8 ? quadCount : glyphBuffer.Length;
                     TextBackendBakingUtility.SetSubMesh(count, ref mmi);
                 }
+                instances.Clear();
             }
         }
     }

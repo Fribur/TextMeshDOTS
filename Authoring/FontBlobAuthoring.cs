@@ -52,6 +52,8 @@ namespace TextMeshDOTS.Authoring
 
                 var multiFontBlobReferencesBuffer = AddBuffer<MultiFontBlobReferences>(entity);
                 multiFontBlobReferencesBuffer.AddRange(multiFontBlobReferences);
+                multiFontMaterials.Dispose();
+                multiFontBlobReferences.Dispose();
             }
         }
     }
