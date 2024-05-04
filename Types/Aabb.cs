@@ -160,39 +160,4 @@ namespace TextMeshDOTS
             return math.min(Max, math.max(Min, position));
         }
     }
-
-    /// <summary>   Helper functions. </summary>
-    public static partial class Math
-    {
-        /// <summary>   Transform an AABB into another space, expanding it as needed. </summary>
-        ///
-        /// <param name="aabb">         The aabb. </param>
-        /// <param name="transform">    The transform. </param>
-        /// <param name="uniformScale"> (Optional) The uniform scale. </param>
-        ///
-        /// <returns>   An Aabb. </returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal static Aabb TransformAabb(Aabb aabb, RigidTransform transform, float uniformScale = 1.0f)
-        {
-            // Transforming an empty AABB results in NaNs!
-            if (!aabb.IsValid)
-            {
-                return aabb;
-            }
-
-            float3 halfExtentsInA = aabb.Extents * 0.5f * uniformScale;
-            float3 x = math.rotate(transform.rot, new float3(halfExtentsInA.x, 0, 0));
-            float3 y = math.rotate(transform.rot, new float3(0, halfExtentsInA.y, 0));
-            float3 z = math.rotate(transform.rot, new float3(0, 0, halfExtentsInA.z));
-
-            float3 halfExtentsInB = math.abs(x) + math.abs(y) + math.abs(z);
-            float3 centerInB = math.transform(transform, aabb.Center * uniformScale);
-
-            return new Aabb
-            {
-                Min = centerInB - halfExtentsInB,
-                Max = centerInB + halfExtentsInB
-            };
-        }        
-    }
 }

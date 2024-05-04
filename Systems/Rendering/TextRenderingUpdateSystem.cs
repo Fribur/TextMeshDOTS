@@ -8,6 +8,7 @@ namespace TextMeshDOTS.Rendering.Systems
     [RequireMatchingQueriesForUpdate]
     [BurstCompile]
     [UpdateBefore(typeof(TextRenderingDispatchSystem))]
+    //[DisableAutoCreation]
     public partial struct TextRenderingUpdateSystem : ISystem
     {
         EntityQuery m_singleFontQuery;

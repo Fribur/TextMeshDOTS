@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using TextMeshDOTS.Rendering;
 using TextMeshDOTS.RichText;
 using Unity.Collections;
@@ -6,11 +5,8 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.TextCore;
 using UnityEngine.TextCore.LowLevel;
 using UnityEngine.TextCore.Text;
-using UnityEngine.UIElements;
-using static TextMeshDOTS.GlyphGeneration;
 
 namespace TextMeshDOTS
 {
@@ -664,11 +660,10 @@ namespace TextMeshDOTS
                     //could return rich text opening tag `<` but only in
                     //the very unlikly case of having exactly 1 valid text char between 2 tags
                     prevCurNext.next = characterEnumerator.Current;
+                    characterEnumerator.MovePrevious();
                 }
                 else
                     prevCurNext.next = Unicode.BadRune;
-
-                characterEnumerator.MovePrevious();
             }
         }
         public struct PrevCurNext

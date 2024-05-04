@@ -1,5 +1,4 @@
 using TextMeshDOTS.Rendering;
-using TextMeshDOTS.Rendering.Authoring;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -9,11 +8,11 @@ using Unity.Rendering;
 using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.Rendering;
-using UnityEngine.UIElements;
 
 namespace TextMeshDOTS.Authoring
 {
     [BurstCompile]
+    //[DisableAutoCreation]
     public partial class RuntimeMultiFontTextRendererSpawner : SystemBase
     {
         bool initialized;
@@ -43,8 +42,7 @@ namespace TextMeshDOTS.Authoring
             if (fontEntityQ.IsEmptyIgnoreFilter)
                 return;
 
-            var fontBlobReferenceEntities = fontEntityQ.ToEntityArray(WorldUpdateAllocator);
-            var fontBlobReferenceEntity = fontBlobReferenceEntities[0];
+            var fontBlobReferenceEntity = fontEntityQ.GetSingletonEntity();
             var multiFontMaterials = SystemAPI.GetBuffer<MultiFontMaterials>(fontBlobReferenceEntity).ToNativeArray(WorldUpdateAllocator);
             var multiFontBlobReferences = SystemAPI.GetBuffer<MultiFontBlobReferences>(fontBlobReferenceEntity).ToNativeArray(WorldUpdateAllocator);
             var backEndMesh = SystemAPI.GetComponent<BackEndMesh>(fontBlobReferenceEntity);

@@ -14,6 +14,7 @@ namespace TextMeshDOTS.Rendering
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]
+    //[DisableAutoCreation]
     public partial class TextRenderingDispatchSystem : SystemBase
     {
         EntityQuery m_glyphsQuery, m_changedGlyphsQuery, m_glyphsAndMasksQuery, m_masksQuery;

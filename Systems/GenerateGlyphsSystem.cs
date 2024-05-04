@@ -9,6 +9,7 @@ namespace TextMeshDOTS
 {
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]
+    //[DisableAutoCreation]
     public partial struct GenerateGlyphsSystem : ISystem
     {
         EntityQuery m_query;

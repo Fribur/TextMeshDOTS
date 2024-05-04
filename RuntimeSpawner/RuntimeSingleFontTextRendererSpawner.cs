@@ -13,6 +13,7 @@ using UnityEngine.Rendering;
 namespace TextMeshDOTS.Authoring
 {
     [BurstCompile]
+    //[DisableAutoCreation]
     public partial class RuntimeSingleTextRendererSpawner : SystemBase
     {
         bool initialized;
@@ -41,8 +42,7 @@ namespace TextMeshDOTS.Authoring
             if (fontEntityQ.IsEmptyIgnoreFilter)
                 return;
 
-            var fontBlobReferenceEntities = fontEntityQ.ToEntityArray(WorldUpdateAllocator);
-            var fontBlobReferenceEntity = fontBlobReferenceEntities[0];
+            var fontBlobReferenceEntity = fontEntityQ.GetSingletonEntity();
             var fontMaterial = SystemAPI.GetComponent<FontMaterial>(fontBlobReferenceEntity);            
             var fontBlobReference = SystemAPI.GetComponent<FontBlobReference>(fontBlobReferenceEntity);
             var backEndMesh = SystemAPI.GetComponent<BackEndMesh>(fontBlobReferenceEntity);
