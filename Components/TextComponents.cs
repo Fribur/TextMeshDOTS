@@ -1,4 +1,3 @@
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
@@ -72,6 +71,7 @@ namespace TextMeshDOTS
             set => m_alignmentWeightOrtho = (ushort)((m_alignmentWeightOrtho & 0x7fff) | (value ? 0x8000 : 0));
         }
         public bool enableKerning;
+        public float wordSpacing;
         public float lineSpacing;
         public float paragraphSpacing;
 

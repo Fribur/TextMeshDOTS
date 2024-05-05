@@ -1,4 +1,3 @@
-using UnityEngine;
 using TextMeshDOTS.Rendering;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;

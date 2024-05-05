@@ -3,10 +3,6 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
-using UnityEditor.PackageManager;
-using UnityEngine;
-using UnityEngine.TextCore;
-using UnityEngine.TextCore.LowLevel;
 using UnityEngine.TextCore.Text;
 
 namespace TextMeshDOTS.Authoring
@@ -34,6 +30,8 @@ namespace TextMeshDOTS.Authoring
             fontBlobRoot.subscriptSize       = font.faceInfo.subscriptSize;
             fontBlobRoot.superscriptOffset   = font.faceInfo.superscriptOffset;
             fontBlobRoot.superscriptSize     = font.faceInfo.superscriptSize;
+            fontBlobRoot.tabWidth            = font.faceInfo.tabWidth;
+            fontBlobRoot.tabMultiple         = font.tabMultiple;
             fontBlobRoot.regularStyleSpacing = font.regularStyleSpacing;
             fontBlobRoot.regularStyleWeight  = font.regularStyleWeight;
             fontBlobRoot.boldStyleSpacing    = font.boldStyleSpacing;

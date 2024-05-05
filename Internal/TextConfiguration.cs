@@ -67,7 +67,7 @@ namespace TextMeshDOTS
 
         public bool m_isParsingText;
 
-        public float m_FXRotationAngle;
+        public float m_FXRotationAngleCCW;
         public float3 m_FXScale;
 
         public FixedStack512Bytes<HighlightState> m_highlightStateStack;
@@ -136,7 +136,7 @@ namespace TextMeshDOTS
             m_isNonBreakingSpace = false;
 
             m_isParsingText = false;
-            m_FXRotationAngle = 0;
+            m_FXRotationAngleCCW = 0;
             m_FXScale = 1;
 
             m_highlightStateStack = new FixedStack512Bytes<HighlightState>();

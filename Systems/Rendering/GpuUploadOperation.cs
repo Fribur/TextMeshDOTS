@@ -4,7 +4,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Rendering;
-using UnityEngine;
 
 namespace TextMeshDOTS.Rendering
 {

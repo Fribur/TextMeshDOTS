@@ -2,7 +2,6 @@ using Unity.Burst;
 using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
 using UnityEngine.TextCore;
 using UnityEngine.TextCore.LowLevel;
 
@@ -37,6 +36,9 @@ namespace TextMeshDOTS
         public float subscriptSize;
         public float superscriptOffset;
         public float superscriptSize;
+
+        public float tabWidth;
+        public float tabMultiple;
 
         //public float underlineOffset;
 

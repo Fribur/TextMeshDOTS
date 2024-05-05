@@ -1,4 +1,3 @@
-
 using Unity.Entities;
 
 namespace TextMeshDOTS

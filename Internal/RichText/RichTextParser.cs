@@ -1479,12 +1479,12 @@ namespace TextMeshDOTS.RichText
                         if (ConvertToFloat(ref textConfiguration.m_htmlTag, out value) != ParseError.None)
                             return false;
 
-                        textConfiguration.m_FXRotationAngle = math.radians(value);
+                        textConfiguration.m_FXRotationAngleCCW = -math.radians(value);
 
                         return true;
                     case 7757466:  // </rotate>
                     case 7130010:  // </ROTATE>
-                        textConfiguration.m_FXRotationAngle = 0;
+                        textConfiguration.m_FXRotationAngleCCW = 0;
                         return true;
                     case 317446:  // <table>
                     case 227814:  // <TABLE>

@@ -1,4 +1,3 @@
-using UnityEngine;
 using TextMeshDOTS.Rendering;
 using Unity.Collections;
 using Unity.Entities;

@@ -291,7 +291,7 @@ namespace TextMeshDOTS
 
                     // Handle Character FX Rotation
                     #region Handle Character FX Rotation
-                    renderGlyph.rotationCCW = textConfiguration.m_FXRotationAngle;
+                    renderGlyph.rotationCCW = textConfiguration.m_FXRotationAngleCCW;
                     #endregion
 
                     #region handle bold
@@ -355,10 +355,39 @@ namespace TextMeshDOTS
 
                     adjustmentOffset.x = glyphAdjustments.xPlacement * currentElementScale;
                     adjustmentOffset.y = glyphAdjustments.yPlacement * currentElementScale;
+                    #endregion
 
-                    cumulativeOffset.x +=
-                        ((currentGlyphMetrics.horizontalAdvance * textConfiguration.m_FXScale.x + glyphAdjustments.xAdvance) * currentElementScale +
-                         (font.regularStyleSpacing + characterSpacingAdjustment + boldSpacingAdjustment) * currentEmScale + textConfiguration.m_cSpacing);  // * (1 - m_charWidthAdjDelta);
+                    // Handle Mono Spacing
+                    #region Handle Mono Spacing
+                    float monoAdvance = 0;
+                    if (textConfiguration.m_monoSpacing != 0)
+                    {
+                        monoAdvance = (textConfiguration.m_monoSpacing / 2 - (currentGlyphMetrics.width / 2 + currentGlyphMetrics.horizontalBearingX) * currentElementScale);// * (1 - m_charWidthAdjDelta);
+                        cumulativeOffset.x += monoAdvance;
+                    }
+                    #endregion
+
+                    // Handle xAdvance & Tabulation Stops. Tab stops at every 25% of Font Size.
+                    #region XAdvance, Tabulation & Stops
+                    if (currentRune.value == 9)
+                    {
+                        float tabSize = font.tabWidth * font.tabMultiple * currentElementScale;
+                        float tabs = Mathf.Ceil(cumulativeOffset.x / tabSize) * tabSize;
+                        cumulativeOffset.x = tabs > cumulativeOffset.x ? tabs : cumulativeOffset.x + tabSize;
+                    }
+                    else if (textConfiguration.m_monoSpacing != 0)
+                    {
+                        float monoAdjustment = textConfiguration.m_monoSpacing - monoAdvance;
+                        cumulativeOffset.x += (monoAdjustment + ((font.regularStyleSpacing + characterSpacingAdjustment) * currentEmScale) + textConfiguration.m_cSpacing);// * (1 - m_charWidthAdjDelta);
+                        if (currentRune.IsWhiteSpace() || currentRune.value == 0x200B)
+                            cumulativeOffset.x += baseConfiguration.wordSpacing * currentEmScale;
+                    }
+                    else
+                    {
+                        cumulativeOffset.x += ((currentGlyphMetrics.horizontalAdvance * textConfiguration.m_FXScale.x + glyphAdjustments.xAdvance) * currentElementScale + (font.regularStyleSpacing + characterSpacingAdjustment + boldSpacingAdjustment) * currentEmScale + textConfiguration.m_cSpacing);// * (1 - m_charWidthAdjDelta);
+                        if (currentRune.IsWhiteSpace() || currentRune.value == 0x200B)
+                            cumulativeOffset.x += baseConfiguration.wordSpacing * currentEmScale;
+                    }
                     cumulativeOffset.y += glyphAdjustments.yAdvance * currentElementScale;
                     #endregion
 
@@ -497,8 +526,7 @@ namespace TextMeshDOTS
                 if (lineCount > 0)
                 {
                     accumulatedVerticalOffset += currentLineHeight;
-                    if (lastCommittedStartOfLineGlyphIndex != startOfLineGlyphIndex)
-                        ApplyVerticalOffsetToGlyphs(ref finalGlyphsLine, accumulatedVerticalOffset);
+                    ApplyVerticalOffsetToGlyphs(ref finalGlyphsLine, accumulatedVerticalOffset);
                 }
             }
             lineCount++;
