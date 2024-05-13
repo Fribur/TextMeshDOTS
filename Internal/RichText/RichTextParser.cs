@@ -19,26 +19,26 @@ namespace TextMeshDOTS.RichText
             ref CalliString.Enumerator enumerator,
             ref FontMaterialSet fontMaterialSet,
             in TextBaseConfiguration baseConfiguration,
-            ref TextConfiguration textConfiguration,
-            ref FixedList512Bytes<RichTextTagIdentifier> richTextTagIndentifiers)  //this is just a cache to avoid allocation
+            ref TextConfiguration textConfiguration)  //this is just a cache to avoid allocation
         {
+            ref var richTextTagIndentifiers = ref textConfiguration.richTextTagIndentifiers;
             richTextTagIndentifiers.Clear();
-            int         tagCharCount       = 0;
-            int         tagByteCount       = 0;
-            int         startByteIndex     = enumerator.CurrentByteIndex;
+            int tagCharCount = 0;
+            int tagByteCount = 0;
+            int startByteIndex = enumerator.CurrentByteIndex;
             ParserState tagIndentifierFlag = ParserState.Zero;
 
             int tagIndentifierIndex = richTextTagIndentifiers.Length;
             richTextTagIndentifiers.Add(RichTextTagIdentifier.Empty);
-            ref var      currentTagIndentifier = ref richTextTagIndentifiers.ElementAt(tagIndentifierIndex);
-            TagValueType tagValueType          = currentTagIndentifier.valueType = TagValueType.None;
-            TagUnitType  tagUnitType           = currentTagIndentifier.unitType = TagUnitType.Pixels;
+            ref var currentTagIndentifier = ref richTextTagIndentifiers.ElementAt(tagIndentifierIndex);
+            TagValueType tagValueType = currentTagIndentifier.valueType = TagValueType.None;
+            TagUnitType tagUnitType = currentTagIndentifier.unitType = TagUnitType.Pixels;
 
-            bool isTagSet       = false;
+            bool isTagSet = false;
             bool isValidHtmlTag = false;
 
-            Unicode.Rune unicode                     = Unicode.BadRune;
-            int          charCount                   = 0;
+            Unicode.Rune unicode = Unicode.BadRune;
+            int charCount = 0;
             while (enumerator.MoveNext() && (unicode = enumerator.Current) != Unicode.BadRune && unicode != '<')
             {
                 if (unicode == '>')  // ASCII Code of End HTML tag '>'
@@ -47,9 +47,9 @@ namespace TextMeshDOTS.RichText
                     break;
                 }
 
-                int byteCount  = unicode.LengthInUtf8Bytes();
-                tagCharCount  += 1;
-                tagByteCount  += byteCount;
+                int byteCount = unicode.LengthInUtf8Bytes();
+                tagCharCount += 1;
+                tagByteCount += byteCount;
 
                 if (tagIndentifierFlag == ParserState.One)
                 {
@@ -58,31 +58,31 @@ namespace TextMeshDOTS.RichText
                         // Check for tagIndentifier type
                         if (unicode == '+' || unicode == '-' || unicode == '.' || Unicode.Rune.IsDigit(unicode))
                         {
-                            tagUnitType                            = TagUnitType.Pixels;
-                            tagValueType                           = currentTagIndentifier.valueType = TagValueType.NumericalValue;
-                            currentTagIndentifier.valueStartIndex  = enumerator.CurrentByteIndex - unicode.LengthInUtf8Bytes();
-                            currentTagIndentifier.valueLength     += byteCount;
+                            tagUnitType = TagUnitType.Pixels;
+                            tagValueType = currentTagIndentifier.valueType = TagValueType.NumericalValue;
+                            currentTagIndentifier.valueStartIndex = enumerator.CurrentByteIndex - unicode.LengthInUtf8Bytes();
+                            currentTagIndentifier.valueLength += byteCount;
                         }
                         else if (unicode == '#')
                         {
-                            tagUnitType                            = TagUnitType.Pixels;
-                            tagValueType                           = currentTagIndentifier.valueType = TagValueType.ColorValue;
-                            currentTagIndentifier.valueStartIndex  = enumerator.CurrentByteIndex - unicode.LengthInUtf8Bytes();
-                            currentTagIndentifier.valueLength     += byteCount;
+                            tagUnitType = TagUnitType.Pixels;
+                            tagValueType = currentTagIndentifier.valueType = TagValueType.ColorValue;
+                            currentTagIndentifier.valueStartIndex = enumerator.CurrentByteIndex - unicode.LengthInUtf8Bytes();
+                            currentTagIndentifier.valueLength += byteCount;
                         }
                         else if (unicode == '"')
                         {
-                            tagUnitType                           = TagUnitType.Pixels;
-                            tagValueType                          = currentTagIndentifier.valueType = TagValueType.StringValue;
+                            tagUnitType = TagUnitType.Pixels;
+                            tagValueType = currentTagIndentifier.valueType = TagValueType.StringValue;
                             currentTagIndentifier.valueStartIndex = enumerator.CurrentByteIndex;
                         }
                         else
                         {
-                            tagUnitType                            = TagUnitType.Pixels;
-                            tagValueType                           = currentTagIndentifier.valueType = TagValueType.StringValue;
-                            currentTagIndentifier.valueStartIndex  = enumerator.CurrentByteIndex - unicode.LengthInUtf8Bytes();
-                            currentTagIndentifier.valueHashCode    = (currentTagIndentifier.valueHashCode << 5) + currentTagIndentifier.valueHashCode ^ unicode.value;
-                            currentTagIndentifier.valueLength     += byteCount;
+                            tagUnitType = TagUnitType.Pixels;
+                            tagValueType = currentTagIndentifier.valueType = TagValueType.StringValue;
+                            currentTagIndentifier.valueStartIndex = enumerator.CurrentByteIndex - unicode.LengthInUtf8Bytes();
+                            currentTagIndentifier.valueHashCode = (currentTagIndentifier.valueHashCode << 5) + currentTagIndentifier.valueHashCode ^ unicode.value;
+                            currentTagIndentifier.valueLength += byteCount;
                         }
                     }
                     else
@@ -93,7 +93,7 @@ namespace TextMeshDOTS.RichText
                             if (unicode == 'p' || unicode == 'e' || unicode == '%' || unicode == ' ')
                             {
                                 tagIndentifierFlag = ParserState.Two;
-                                tagValueType       = TagValueType.None;
+                                tagValueType = TagValueType.None;
 
                                 switch (unicode.value)
                                 {
@@ -125,9 +125,9 @@ namespace TextMeshDOTS.RichText
                             }
                             else
                             {
-                                tagIndentifierFlag   = ParserState.Two;
-                                tagValueType         = TagValueType.None;
-                                tagUnitType          = TagUnitType.Pixels;
+                                tagIndentifierFlag = ParserState.Two;
+                                tagValueType = TagValueType.None;
+                                tagUnitType = TagUnitType.Pixels;
                                 tagIndentifierIndex += 1;
                                 richTextTagIndentifiers.Add(RichTextTagIdentifier.Empty);
                                 currentTagIndentifier = ref richTextTagIndentifiers.ElementAt(tagIndentifierIndex);
@@ -138,14 +138,14 @@ namespace TextMeshDOTS.RichText
                             // Compute HashCode value for the named tag.
                             if (unicode != '"')
                             {
-                                currentTagIndentifier.valueHashCode  = (currentTagIndentifier.valueHashCode << 5) + currentTagIndentifier.valueHashCode ^ unicode.value;
-                                currentTagIndentifier.valueLength   += byteCount;
+                                currentTagIndentifier.valueHashCode = (currentTagIndentifier.valueHashCode << 5) + currentTagIndentifier.valueHashCode ^ unicode.value;
+                                currentTagIndentifier.valueLength += byteCount;
                             }
                             else
                             {
-                                tagIndentifierFlag   = ParserState.Two;
-                                tagValueType         = TagValueType.None;
-                                tagUnitType          = TagUnitType.Pixels;
+                                tagIndentifierFlag = ParserState.Two;
+                                tagValueType = TagValueType.None;
+                                tagUnitType = TagUnitType.Pixels;
                                 tagIndentifierIndex += 1;
                                 richTextTagIndentifiers.Add(RichTextTagIdentifier.Empty);
                                 currentTagIndentifier = ref richTextTagIndentifiers.ElementAt(tagIndentifierIndex);
@@ -163,11 +163,11 @@ namespace TextMeshDOTS.RichText
                     if (isTagSet)
                         return false;
 
-                    isTagSet           = true;
+                    isTagSet = true;
                     tagIndentifierFlag = ParserState.Two;
 
-                    tagValueType         = TagValueType.None;
-                    tagUnitType          = TagUnitType.Pixels;
+                    tagValueType = TagValueType.None;
+                    tagUnitType = TagUnitType.Pixels;
                     tagIndentifierIndex += 1;
                     richTextTagIndentifiers.Add(RichTextTagIdentifier.Empty);
                     currentTagIndentifier = ref richTextTagIndentifiers.ElementAt(tagIndentifierIndex);
@@ -235,8 +235,8 @@ namespace TextMeshDOTS.RichText
                         {
                             if (textConfiguration.m_fontStyleStack.Remove(FontStyles.Bold) == 0)
                             {
-                                textConfiguration.m_fontStyleInternal  &= ~FontStyles.Bold;
-                                textConfiguration.m_fontWeightInternal  = textConfiguration.m_fontWeightStack.Peek();
+                                textConfiguration.m_fontStyleInternal &= ~FontStyles.Bold;
+                                textConfiguration.m_fontWeightInternal = textConfiguration.m_fontWeightStack.Peek();
                             }
                         }
                         return true;
@@ -282,13 +282,14 @@ namespace TextMeshDOTS.RichText
                         if (richTextTagIndentifiers.Length > 1 && (richTextTagIndentifiers[1].nameHashCode == 281955 || richTextTagIndentifiers[1].nameHashCode == 192323))
                         {
                             calliString.GetSubString(ref textConfiguration.m_htmlTag, richTextTagIndentifiers[1].valueStartIndex, richTextTagIndentifiers[1].valueLength);
-                            charCount                                = richTextTagIndentifiers[1].valueLength - richTextTagIndentifiers[1].valueStartIndex;
-                            textConfiguration.m_strikethroughColor   = HexCharsToColor(textConfiguration.m_htmlTag, charCount);
+                            charCount = richTextTagIndentifiers[1].valueLength - richTextTagIndentifiers[1].valueStartIndex;
+                            textConfiguration.m_strikethroughColor = HexCharsToColor(textConfiguration.m_htmlTag, charCount);
                             textConfiguration.m_strikethroughColor.a = textConfiguration.m_htmlColor.a <
-                                                                       textConfiguration.m_strikethroughColor.a ? (byte)(textConfiguration.m_htmlColor.a) : (byte)(textConfiguration
-                                                                                                                                                                   .
-                                                                                                                                                                   m_strikethroughColor
-                                                                                                                                                                   .a);
+                                                                            textConfiguration.m_strikethroughColor.a ? (byte)(textConfiguration.m_htmlColor.a) : (byte)(
+                                textConfiguration
+                                .
+                                m_strikethroughColor
+                                .a);
                         }
                         else
                             textConfiguration.m_strikethroughColor = textConfiguration.m_htmlColor;
@@ -313,11 +314,13 @@ namespace TextMeshDOTS.RichText
                         if (richTextTagIndentifiers.Length > 1 && (richTextTagIndentifiers[1].nameHashCode == 281955 || richTextTagIndentifiers[1].nameHashCode == 192323))
                         {
                             calliString.GetSubString(ref textConfiguration.m_htmlTag, richTextTagIndentifiers[1].valueStartIndex, richTextTagIndentifiers[1].valueLength);
-                            charCount                            = richTextTagIndentifiers[1].valueLength - richTextTagIndentifiers[1].valueStartIndex;
-                            textConfiguration.m_underlineColor   = HexCharsToColor(textConfiguration.m_htmlTag, charCount);
+                            charCount = richTextTagIndentifiers[1].valueLength - richTextTagIndentifiers[1].valueStartIndex;
+                            textConfiguration.m_underlineColor = HexCharsToColor(textConfiguration.m_htmlTag, charCount);
                             textConfiguration.m_underlineColor.a = textConfiguration.m_htmlColor.a <
-                                                                   textConfiguration.m_underlineColor.a ? (byte)(textConfiguration.m_htmlColor.a) : (byte)(textConfiguration.
-                                                                                                                                                           m_underlineColor.a);
+                                                                        textConfiguration.m_underlineColor.a ? (byte)(textConfiguration.m_htmlColor.a) : (byte)(
+                                textConfiguration.
+                                m_underlineColor
+                                .a);
                         }
                         else
                             textConfiguration.m_underlineColor = textConfiguration.m_htmlColor;
@@ -342,7 +345,7 @@ namespace TextMeshDOTS.RichText
                         textConfiguration.m_fontStyleInternal |= FontStyles.Highlight;
                         textConfiguration.m_fontStyleStack.Add(FontStyles.Highlight);
 
-                        Color32     highlightColor   = new Color32(255, 255, 0, 64);
+                        Color32 highlightColor = new Color32(255, 255, 0, 64);
                         RectOffsets highlightPadding = RectOffsets.zero;
 
                         // Handle Mark Tag and potential tagIndentifiers
@@ -359,15 +362,17 @@ namespace TextMeshDOTS.RichText
                                     {
                                         //is this a bug in TMP Pro? -->should be richTextTagIndentifiers[i] and not firstTagIndentifier
                                         calliString.GetSubString(ref textConfiguration.m_htmlTag, firstTagIndentifier.valueStartIndex, firstTagIndentifier.valueLength);
-                                        charCount      = firstTagIndentifier.valueLength - firstTagIndentifier.valueStartIndex;
+                                        charCount = firstTagIndentifier.valueLength - firstTagIndentifier.valueStartIndex;
                                         highlightColor = HexCharsToColor(textConfiguration.m_htmlTag, charCount);
                                     }
                                     break;
 
                                 // Color tagIndentifier
                                 case 281955:
-                                    calliString.GetSubString(ref textConfiguration.m_htmlTag, richTextTagIndentifiers[i].valueStartIndex, richTextTagIndentifiers[i].valueLength);
-                                    charCount      = richTextTagIndentifiers[i].valueLength - richTextTagIndentifiers[i].valueStartIndex;
+                                    calliString.GetSubString(ref textConfiguration.m_htmlTag,
+                                                             richTextTagIndentifiers[i].valueStartIndex,
+                                                             richTextTagIndentifiers[i].valueLength);
+                                    charCount = richTextTagIndentifiers[i].valueLength - richTextTagIndentifiers[i].valueStartIndex;
                                     highlightColor = HexCharsToColor(textConfiguration.m_htmlTag, charCount);
                                     break;
 
@@ -415,7 +420,7 @@ namespace TextMeshDOTS.RichText
                         {
                             if (textConfiguration.m_fontScaleMultiplier < 1)
                             {
-                                textConfiguration.m_baselineOffset       = textConfiguration.m_baselineOffsetStack.Pop();
+                                textConfiguration.m_baselineOffset = textConfiguration.m_baselineOffsetStack.RemoveExceptRoot();
                                 textConfiguration.m_fontScaleMultiplier /= currentFont.subscriptSize > 0 ? currentFont.subscriptSize : 1;
                             }
 
@@ -440,7 +445,7 @@ namespace TextMeshDOTS.RichText
                         {
                             if (textConfiguration.m_fontScaleMultiplier < 1)
                             {
-                                textConfiguration.m_baselineOffset       = textConfiguration.m_baselineOffsetStack.Pop();
+                                textConfiguration.m_baselineOffset = textConfiguration.m_baselineOffsetStack.RemoveExceptRoot();
                                 textConfiguration.m_fontScaleMultiplier /= currentFont.superscriptSize > 0 ? currentFont.superscriptSize : 1;
                             }
 
@@ -733,7 +738,8 @@ namespace TextMeshDOTS.RichText
                             return false;
 
                         calliString.GetSubString(ref textConfiguration.m_htmlTag, firstTagIndentifier.valueStartIndex, firstTagIndentifier.valueLength);
-                        textConfiguration.m_htmlColor.a = (byte)(HexToInt((char)textConfiguration.m_htmlTag[1]) * 16 + HexToInt((char)textConfiguration.m_htmlTag[2]));
+                        textConfiguration.m_htmlColor.a =
+                            (byte)(HexToInt((char)textConfiguration.m_htmlTag[1]) * 16 + HexToInt((char)textConfiguration.m_htmlTag[2]));
                         return true;
 
                     //case 1750458: // <a name=" ">
@@ -1292,7 +1298,7 @@ namespace TextMeshDOTS.RichText
                                             (textConfiguration.m_marginWidth - (textConfiguration.m_width != -1 ? textConfiguration.m_width : 0)) * value / 100;
                                         break;
                                 }
-                                textConfiguration.m_marginLeft  = textConfiguration.m_marginLeft >= 0 ? textConfiguration.m_marginLeft : 0;
+                                textConfiguration.m_marginLeft = textConfiguration.m_marginLeft >= 0 ? textConfiguration.m_marginLeft : 0;
                                 textConfiguration.m_marginRight = textConfiguration.m_marginLeft;
                                 return true;
 
@@ -1306,7 +1312,8 @@ namespace TextMeshDOTS.RichText
                                     switch (nameHashCode)
                                     {
                                         case 42823:  // <margin left=value>
-                                            calliString.GetSubString(ref textConfiguration.m_htmlTag, currentTagIndentifier.valueStartIndex, currentTagIndentifier.valueLength);
+                                            calliString.GetSubString(ref textConfiguration.m_htmlTag, currentTagIndentifier.valueStartIndex,
+                                                                     currentTagIndentifier.valueLength);
                                             // Reject tag if value is invalid.
                                             if (ConvertToFloat(ref textConfiguration.m_htmlTag, out value) != ParseError.None)
                                                 return false;
@@ -1317,18 +1324,21 @@ namespace TextMeshDOTS.RichText
                                                     textConfiguration.m_marginLeft = value * (baseConfiguration.isOrthographic ? 1 : 0.1f);
                                                     break;
                                                 case TagUnitType.FontUnits:
-                                                    textConfiguration.m_marginLeft = value * (baseConfiguration.isOrthographic ? 1 : 0.1f) * textConfiguration.m_currentFontSize;
+                                                    textConfiguration.m_marginLeft = value * (baseConfiguration.isOrthographic ? 1 : 0.1f) *
+                                                                                          textConfiguration.m_currentFontSize;
                                                     break;
                                                 case TagUnitType.Percentage:
                                                     textConfiguration.m_marginLeft =
-                                                        (textConfiguration.m_marginWidth - (textConfiguration.m_width != -1 ? textConfiguration.m_width : 0)) * value / 100;
+                                                        (textConfiguration.m_marginWidth -
+                                                         (textConfiguration.m_width != -1 ? textConfiguration.m_width : 0)) * value / 100;
                                                     break;
                                             }
                                             textConfiguration.m_marginLeft = textConfiguration.m_marginLeft >= 0 ? textConfiguration.m_marginLeft : 0;
                                             break;
 
                                         case 315620:  // <margin right=value>
-                                            calliString.GetSubString(ref textConfiguration.m_htmlTag, currentTagIndentifier.valueStartIndex, currentTagIndentifier.valueLength);
+                                            calliString.GetSubString(ref textConfiguration.m_htmlTag, currentTagIndentifier.valueStartIndex,
+                                                                     currentTagIndentifier.valueLength);
                                             // Reject tag if value is invalid.
                                             if (ConvertToFloat(ref textConfiguration.m_htmlTag, out value) != ParseError.None)
                                                 return false;
@@ -1339,11 +1349,13 @@ namespace TextMeshDOTS.RichText
                                                     textConfiguration.m_marginRight = value * (baseConfiguration.isOrthographic ? 1 : 0.1f);
                                                     break;
                                                 case TagUnitType.FontUnits:
-                                                    textConfiguration.m_marginRight = value * (baseConfiguration.isOrthographic ? 1 : 0.1f) * textConfiguration.m_currentFontSize;
+                                                    textConfiguration.m_marginRight = value * (baseConfiguration.isOrthographic ? 1 : 0.1f) *
+                                                                                           textConfiguration.m_currentFontSize;
                                                     break;
                                                 case TagUnitType.Percentage:
                                                     textConfiguration.m_marginRight =
-                                                        (textConfiguration.m_marginWidth - (textConfiguration.m_width != -1 ? textConfiguration.m_width : 0)) * value / 100;
+                                                        (textConfiguration.m_marginWidth -
+                                                         (textConfiguration.m_width != -1 ? textConfiguration.m_width : 0)) * value / 100;
                                                     break;
                                             }
                                             textConfiguration.m_marginRight = textConfiguration.m_marginRight >= 0 ? textConfiguration.m_marginRight : 0;
@@ -1356,7 +1368,7 @@ namespace TextMeshDOTS.RichText
                         return false;
                     case 7639357:  // </margin>
                     case 7011901:  // </MARGIN>
-                        textConfiguration.m_marginLeft  = 0;
+                        textConfiguration.m_marginLeft = 0;
                         textConfiguration.m_marginRight = 0;
                         return true;
                     case 1100728678:  // <margin-left=xx.x>
@@ -1589,7 +1601,7 @@ namespace TextMeshDOTS.RichText
         /// <returns></returns>
         static ParseError ConvertToFloat(ref FixedString128Bytes htmlTag, out float value)
         {
-            value         = 0;
+            value = 0;
             int subOffset = 0;
             return htmlTag.Parse(ref subOffset, ref value);
         }

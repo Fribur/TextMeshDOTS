@@ -130,7 +130,7 @@ namespace TextMeshDOTS.Authoring
                 // Register the Blob Asset to the Baker for de-duplication and reverting.
                 AddBlobAssetWithCustomHash<FontBlob>(ref blobReference, customHash);
             }
-            AddComponent(entity, new FontBlobReference { fontBlob = blobReference });            
+            AddComponent(entity, new FontBlobReference { blob = blobReference });            
         }
         void AddEntityGraphicsComponents(Entity entity, FontAsset fontAsset, Mesh backEndMesh)
         {

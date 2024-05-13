@@ -110,7 +110,7 @@ namespace TextMeshDOTS.Authoring
                         var localTransform = LocalTransform.FromPosition(new float3((x - half) * factor, (y - half) * factor, 0));
                         EntityManager.SetComponentData(entity, textBaseConfiguration);                        
                         EntityManager.SetComponentData(entity, textRenderControl);
-                        EntityManager.SetComponentData(entity, new FontBlobReference { fontBlob = multiFontBlobReferences[0].fontBlob });
+                        EntityManager.SetComponentData(entity, new FontBlobReference { blob = multiFontBlobReferences[0].blob });
                         EntityManager.SetComponentData(entity, localTransform);
                         EntityManager.SetComponentData(entity, materialMeshInfos[0]);
                         EntityManager.SetSharedComponent(entity, filterSettings);
@@ -120,7 +120,7 @@ namespace TextMeshDOTS.Authoring
                             var child = EntityManager.CreateEntity(textRenderChildArchetype);
                             additionalEntitiesArray[m - 1] = child; 
                             EntityManager.SetComponentData(child, textRenderControl);
-                            EntityManager.SetComponentData(child, new FontBlobReference { fontBlob = multiFontBlobReferences[m].fontBlob });
+                            EntityManager.SetComponentData(child, new FontBlobReference { blob = multiFontBlobReferences[m].blob });
                             EntityManager.SetComponentData(child, localTransform);
                             EntityManager.SetComponentData(child, materialMeshInfos[m]);
                             EntityManager.SetSharedComponent(child, filterSettings);

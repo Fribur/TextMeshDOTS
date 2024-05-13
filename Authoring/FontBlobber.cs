@@ -49,14 +49,15 @@ namespace TextMeshDOTS.Authoring
             hashCounts.Clear();
             // Todo: Currently, we allocate a glyph per character and leave characters with null glyphs uninitialized.
             // We should rework that to only allocate glyphs to save memory.
-            BlobBuilderArray<GlyphBlob>      glyphBuilder    = builder.Allocate(ref fontBlobRoot.characters, font.characterTable.Count);
+            var characterLookupTable = font.characterLookupTable;
+            BlobBuilderArray<GlyphBlob>      glyphBuilder    = builder.Allocate(ref fontBlobRoot.characters, characterLookupTable.Count);
             BlobBuilderArray<AdjustmentPair> adjustmentPairs = builder.Allocate(ref fontBlobRoot.adjustmentPairs, glyphPairAdjustmentsSource.Count);
-            var characterTable = font.characterTable;            
+      
             for (int i = 0; i < glyphPairAdjustmentsSource.Count; i++)
             {
                 var kerningPair = glyphPairAdjustmentsSource[i];
-                if (GlyphIndexToUnicode(kerningPair.firstAdjustmentRecord.glyphIndex, characterTable, out int firstUnicode) &&
-                    GlyphIndexToUnicode(kerningPair.secondAdjustmentRecord.glyphIndex, characterTable, out int secondUnicode))                    
+                if (GlyphIndexToUnicode(kerningPair.firstAdjustmentRecord.glyphIndex, characterLookupTable, out int firstUnicode) &&
+                    GlyphIndexToUnicode(kerningPair.secondAdjustmentRecord.glyphIndex, characterLookupTable, out int secondUnicode))                    
                 {
                     adjustmentPairs[i] = new AdjustmentPair
                     {
@@ -81,15 +82,15 @@ namespace TextMeshDOTS.Authoring
                 }
             }
 
-            for (int i = 0; i < font.characterTable.Count; i++)
-            {
-                var character = font.characterTable[i];
+            int characterCount = 0;
+            foreach (var character in characterLookupTable.Values)
+            { 
                 var glyph 	  = character.glyph;
                 if (glyph == null)
                     continue;
                 var unicode = math.asint(character.unicode);
 
-                ref GlyphBlob glyphBlob = ref glyphBuilder[i];
+                ref GlyphBlob glyphBlob = ref glyphBuilder[characterCount++];
 
                 glyphBlob.unicode            = unicode;
                 glyphBlob.glyphScale         = glyph.scale;
@@ -158,15 +159,14 @@ namespace TextMeshDOTS.Authoring
 
             return result;
         }
-        static bool GlyphIndexToUnicode(uint glyphIndex, List<Character> characterTable, out int unicode)
+        static bool GlyphIndexToUnicode(uint glyphIndex, Dictionary<uint, Character> characterLookupTable, out int unicode)
         {
             unicode = default;
-            for (int i = 0, end = characterTable.Count; i < end; i++)
+            foreach (var character in characterLookupTable.Values)
             {
-                var currentGlyphIndex = characterTable[i].glyphIndex;
-                if (currentGlyphIndex == glyphIndex)
+                if (character.glyphIndex == glyphIndex)
                 {
-                    unicode = math.asint(characterTable[i].unicode);
+                    unicode = math.asint(character.unicode);
                     return true;
                 }
             }

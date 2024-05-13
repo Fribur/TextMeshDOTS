@@ -1,3 +1,4 @@
+using UnityEngine;
 using TextMeshDOTS.Rendering;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
@@ -89,6 +90,7 @@ namespace TextMeshDOTS
                 bool hasMultipleFonts          = selectorBuffers.Length > 0 && additionalEntitiesBuffers.Length > 0;
 
                 FontMaterialSet fontMaterialSet = default;
+                TextConfiguration textConfigurationStack = default;
 
                 for (int indexInChunk = 0; indexInChunk < chunk.Count; indexInChunk++)
                 {
@@ -101,16 +103,17 @@ namespace TextMeshDOTS
                     m_glyphMappingWriter.StartWriter(glyphMappingMasks.Length > 0 ? glyphMappingMasks[indexInChunk].mask : default);
                     if (hasMultipleFonts)
                     {
-                        fontMaterialSet.Initialize(fontBlobReference.fontBlob, selectorBuffers[indexInChunk], additionalEntitiesBuffers[indexInChunk], ref fontBlobReferenceLookup);
+                        fontMaterialSet.Initialize(fontBlobReference.blob, selectorBuffers[indexInChunk], additionalEntitiesBuffers[indexInChunk], ref fontBlobReferenceLookup);
                     }
                     else
                     {
-                        fontMaterialSet.Initialize(fontBlobReference.fontBlob);
+                        fontMaterialSet.Initialize(fontBlobReference.blob);
                     }
 
                     GlyphGeneration.CreateRenderGlyphs(ref renderGlyphs,
                                                        ref m_glyphMappingWriter,
                                                        ref fontMaterialSet,
+                                                       ref textConfigurationStack,
                                                        in calliBytes,
                                                        in textBaseConfiguration);
 

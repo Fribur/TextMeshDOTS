@@ -29,7 +29,7 @@ namespace TextMeshDOTS.Authoring
                 AddComponent(entity, new FontMaterial { value = font.material });
                 font.ReadFontAssetDefinition();
                 var fontBlob = FontBlobber.BakeFont(font);
-                AddComponent(entity, new FontBlobReference { fontBlob = fontBlob });
+                AddComponent(entity, new FontBlobReference { blob = fontBlob });
                 AddBlobAsset(ref fontBlob, out Unity.Entities.Hash128 hash);
             }
             else if (authoring.fonts.Count > 1)
@@ -45,7 +45,7 @@ namespace TextMeshDOTS.Authoring
                     var fontBlob = FontBlobber.BakeFont(font);
                     AddBlobAsset(ref fontBlob, out Unity.Entities.Hash128 hash);
                     multiFontMaterials[i] = new MultiFontMaterials { value = font.material };                    
-                    multiFontBlobReferences[i] = new MultiFontBlobReferences { fontBlob = fontBlob };                    
+                    multiFontBlobReferences[i] = new MultiFontBlobReferences { blob = fontBlob };                    
                 }
 
                 AddComponent(entity, new BackEndMesh { value = mesh });

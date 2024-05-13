@@ -25,6 +25,7 @@ namespace TextMeshDOTS
                 Pop();
             return Peek();
         }
+        public void Clear() => m_buffer.Clear();
     }
 }
 
