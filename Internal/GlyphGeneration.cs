@@ -29,7 +29,6 @@ namespace TextMeshDOTS
 
             ref FontBlob font = ref fontMaterialSet[textConfiguration.m_currentFontMaterialIndex];
 
-            float yAdvance = default;
             int lastWordStartCharacterGlyphIndex = 0;
             FixedList512Bytes<int> characterGlyphIndicesWithPreceedingSpacesInLine = default;
             int accumulatedSpaces = 0;
@@ -98,7 +97,8 @@ namespace TextMeshDOTS
 
                 #region Handling of LowerCase, UpperCase and SmallCaps Font Styles
                 // Handle Font Styles like LowerCase, UpperCase and SmallCaps.
-                SwapRune(ref currentRune, ref textConfiguration, out float smallCapsMultiplier);
+                SwapRune(ref prevCurNext.current, ref textConfiguration, out float smallCapsMultiplier);
+                currentRune = prevCurNext.current;
                 #endregion
 
                 // Look up Character Data. TMP uses a backing array,
@@ -137,6 +137,7 @@ namespace TextMeshDOTS
                 {
                     if (prevCurNext.next != Unicode.BadRune)
                     {
+                        SwapRune(ref prevCurNext.next, ref textConfiguration, out _);
                         if (glyphBlob.glyphAdjustmentsLookup.TryGetAdjustmentPairIndexForUnicodeAfter(prevCurNext.next.value, out var adjustmentIndex))
                         {
                             var adjustmentPair = font.adjustmentPairs[adjustmentIndex];
@@ -259,13 +260,14 @@ namespace TextMeshDOTS
 
                 // Check if we need to Shear the rectangles for Italic styles
                 #region Handle Italic & Shearing
+                float2 bottomShear = 0;
                 if ((textConfiguration.m_fontStyleInternal & FontStyles.Italic) == FontStyles.Italic)
                 {
                     // Shift Top vertices forward by half (Shear Value * height of character) and Bottom vertices back by same amount.
                     float shear_value = textConfiguration.m_italicAngle * 0.01f;
                     float midPoint = ((font.capLine - (font.baseLine + baselineOffset)) / 2) * textConfiguration.m_fontScaleMultiplier * font.scale;
                     float2 topShear = new float2(shear_value * ((currentGlyphMetrics.horizontalBearingY + font.materialPadding + style_padding - midPoint) * currentElementScale), 0);
-                    float2 bottomShear = new float2(shear_value * (((currentGlyphMetrics.horizontalBearingY - currentGlyphMetrics.height - font.materialPadding - style_padding - midPoint)) * currentElementScale), 0);
+                    bottomShear = new float2(shear_value * (((currentGlyphMetrics.horizontalBearingY - currentGlyphMetrics.height - font.materialPadding - style_padding - midPoint)) * currentElementScale), 0);
 
                     topLeft += topShear;
                     bottomLeft += bottomShear;
@@ -335,7 +337,6 @@ namespace TextMeshDOTS
                     if (isWhiteSpace || currentRune.value == 0x200B)
                         textConfiguration.m_xAdvance += baseConfiguration.wordSpacing * currentEmScale;
                 }
-                yAdvance += glyphAdjustments.yAdvance * currentElementScale;
                 #endregion XAdvance, Tabulation & Stops
 
                 #region Check for Line Feed and Last Character
@@ -391,7 +392,6 @@ namespace TextMeshDOTS
                     bottomAnchor = GetBottomAnchorForConfig(ref font, baseConfiguration.verticalAlignment, baseScale);
 
                     textConfiguration.m_xAdvance = 0;
-                    yAdvance = 0;
                     continue;
                 }
                 #endregion
@@ -432,7 +432,7 @@ namespace TextMeshDOTS
                     }
 
                     var yOffsetChange = 0f;  //font.lineHeight * currentElementScale;
-                    var xOffsetChange = renderGlyphs[lastWordStartCharacterGlyphIndex].blPosition.x;
+                    var xOffsetChange = renderGlyphs[lastWordStartCharacterGlyphIndex].blPosition.x - bottomShear.x;
                     if (xOffsetChange > 0 && !dropSpace)  // Always allow one visible character
                     {
                         // Finish line based on alignment
@@ -464,7 +464,6 @@ namespace TextMeshDOTS
                         lineCount++;
 
                         textConfiguration.m_xAdvance -= xOffsetChange;
-                        yAdvance -= yOffsetChange;
 
                         // Adjust the vertices of the previous render glyphs in the word
                         var glyphPtr = (RenderGlyph*)renderGlyphs.GetUnsafePtr();
