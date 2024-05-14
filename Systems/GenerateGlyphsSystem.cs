@@ -90,7 +90,7 @@ namespace TextMeshDOTS
                 bool hasMultipleFonts          = selectorBuffers.Length > 0 && additionalEntitiesBuffers.Length > 0;
 
                 FontMaterialSet fontMaterialSet = default;
-                TextConfiguration textConfigurationStack = default;
+                TextConfigurationStack textConfigurationStack = default;
 
                 for (int indexInChunk = 0; indexInChunk < chunk.Count; indexInChunk++)
                 {

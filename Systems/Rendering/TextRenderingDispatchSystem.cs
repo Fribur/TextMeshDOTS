@@ -97,10 +97,13 @@ namespace TextMeshDOTS.Rendering
         }
         protected override void OnDestroy()
         {
-            m_TextGPUUploader.Dispose();
-            m_GPUTextBuffer.Dispose();
             m_TextGPUAllocator.Dispose();
+            m_GPUTextBuffer.Dispose();
+            m_TextGPUUploader.Dispose();
+
             m_MaskGPUAllocator.Dispose();
+            m_GPUMaskBuffer.Dispose();
+            m_MaskGPUUploader.Dispose();
         }
 
         protected override void OnUpdate()

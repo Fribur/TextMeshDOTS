@@ -6,7 +6,57 @@ using UnityEngine.TextCore.Text;
 
 namespace TextMeshDOTS
 {
-    internal struct TextConfiguration
+    internal struct TextGenerationStateCommands
+    {
+        public float xAdvanceChange;
+        public bool xAdvanceIsOverwrite;  // False is additive
+
+        public void Reset()
+        {
+            xAdvanceChange = 0f;
+            xAdvanceIsOverwrite = false;
+        }
+    }
+
+    internal struct ActiveTextConfiguration
+    {
+        public float m_fontScaleMultiplier;  // Used for handling of superscript and subscript.
+        public float m_currentFontSize;
+        public FontStyles m_fontStyleInternal;
+        //public FontWeight                 m_fontWeightInternal;
+        public int m_currentFontMaterialIndex;
+        public HorizontalAlignmentOptions m_lineJustification;
+        public float m_baselineOffset;
+        public Color32 m_htmlColor;
+        //public Color32                    m_underlineColor;
+        //public Color32                    m_strikethroughColor;
+        public short m_italicAngle;
+        public float m_lineOffset;
+        //public float                      m_lineHeight;
+        public float m_cSpacing;
+        public float m_monoSpacing;
+        //public float                      m_xAdvance;
+        //public float                      m_tagLineIndent;
+        //public float                      m_tagIndent;
+        //public float                      m_marginWidth;
+        //public float                      m_marginHeight;
+        //public float                      m_marginLeft;
+        //public float                      m_marginRight;
+        //public float                      m_width;
+        //public bool                       m_isNonBreakingSpace;
+        public float m_fxRotationAngleCCW;
+        public float3 m_fxScale;
+
+        //// The following are derived values
+        //public float baseScale;
+        //
+        //public void CalculateDerived(in TextBaseConfiguration baseConfiguration, ref FontBlob font)
+        //{
+        //    baseScale = m_currentFontSize / font.pointSize * font.scale * (baseConfiguration.isOrthographic ? 1 : 0.1f);
+        //}
+    }
+
+    internal struct TextConfigurationStack
     {
         // These top two are scratchpads for RichTextParser.
         public FixedString128Bytes m_htmlTag;
@@ -47,12 +97,11 @@ namespace TextMeshDOTS
 
         public float m_cSpacing;
         public float m_monoSpacing;
-        public float m_xAdvance;
 
-        public float tag_LineIndent;
-        public float tag_Indent;
+        public float m_tagLineIndent;
+        public float m_tagIndent;
         public FixedStack512Bytes<float> m_indentStack;
-        public bool tag_NoParsing;
+        public bool m_tagNoParsing;
 
         public float m_marginWidth;
         public float m_marginHeight;
@@ -64,11 +113,10 @@ namespace TextMeshDOTS
 
         public bool m_isParsingText;
 
-        public float m_FXRotationAngleCCW;
-        public float3 m_FXScale;
+        public float m_fxRotationAngleCCW;
+        public float3 m_fxScale;
 
         public FixedStack512Bytes<HighlightState> m_highlightStateStack;
-        public int m_characterCount;
 
         public void Reset(TextBaseConfiguration textBaseConfiguration)
         {
@@ -116,13 +164,12 @@ namespace TextMeshDOTS
 
             m_cSpacing = 0;  // Amount of space added between characters as a result of the use of the <cspace> tag.
             m_monoSpacing = 0;
-            m_xAdvance = 0;  // Used to track the position of each character.
 
-            tag_LineIndent = 0;  // Used for indentation of text.
-            tag_Indent = 0;
+            m_tagLineIndent = 0;  // Used for indentation of text.
+            m_tagIndent = 0;
             m_indentStack.Clear();
-            m_indentStack.Add(tag_Indent);
-            tag_NoParsing = false;
+            m_indentStack.Add(m_tagIndent);
+            m_tagNoParsing = false;
 
             m_marginWidth = 0;
             m_marginHeight = 0;
@@ -133,13 +180,44 @@ namespace TextMeshDOTS
             m_isNonBreakingSpace = false;
 
             m_isParsingText = false;
-            m_FXRotationAngleCCW = 0;
-            m_FXScale = 1;
+            m_fxRotationAngleCCW = 0;
+            m_fxScale = 1;
 
             m_highlightStateStack.Clear();
+        }
 
-            m_characterCount = 0;  // Total characters in the CalliString
-        }        
+        public ActiveTextConfiguration GetActiveConfiguration()
+        {
+            return new ActiveTextConfiguration
+            {
+                m_baselineOffset = m_baselineOffset,
+                m_cSpacing = m_cSpacing,
+                m_currentFontMaterialIndex = m_currentFontMaterialIndex,
+                m_currentFontSize = m_currentFontSize,
+                m_fontScaleMultiplier = m_fontScaleMultiplier,
+                m_fontStyleInternal = m_fontStyleInternal,
+                //m_fontWeightInternal       = m_fontWeightInternal,
+                m_fxRotationAngleCCW = m_fxRotationAngleCCW,
+                m_fxScale = m_fxScale,
+                m_htmlColor = m_htmlColor,
+                //m_isNonBreakingSpace       = m_isNonBreakingSpace,
+                m_italicAngle = m_italicAngle,
+                //m_lineHeight               = m_lineHeight,
+                m_lineJustification = m_lineJustification,
+                m_lineOffset = m_lineOffset,
+                //m_marginHeight             = m_marginHeight,
+                //m_marginLeft               = m_marginLeft,
+                //m_marginRight              = m_marginRight,
+                //m_marginWidth              = m_marginWidth,
+                m_monoSpacing = m_monoSpacing,
+                //m_strikethroughColor       = m_strikethroughColor,
+                //m_underlineColor           = m_underlineColor,
+                //m_width                    = m_width,
+                //m_xAdvance                 = m_xAdvance,
+                //m_tagIndent                 = m_tagIndent,
+                //m_tagLineIndent             = m_tagLineIndent,
+            };
+        }
     }
 }
 
