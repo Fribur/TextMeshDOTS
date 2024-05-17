@@ -47,8 +47,8 @@ namespace TextMeshDOTS.Authoring
             var fontBlobReference = SystemAPI.GetComponent<FontBlobReference>(fontBlobReferenceEntity);
             var backEndMesh = SystemAPI.GetComponent<BackEndMesh>(fontBlobReferenceEntity);
 
-            if (!(frameCount == 0 ^ frameCount == 100))
-            //if (frameCount != 0)
+            //if (!(frameCount == 0 ^ frameCount == 100))
+            if (frameCount != 0)
             {
                 frameCount++;
                 return;
@@ -79,9 +79,11 @@ namespace TextMeshDOTS.Authoring
                 StaticShadowCaster = false,
             };
 
+
             //var text1 = "the quick brown fox jumps over the lazy dog the quick brown fox jumps over the lazy dog";
             var text2 = "Test 123";
             var text3 = "ZYX";
+            //var kerningTest = "WAVES in my Yard YAWN AT MY LAWN Toyota AWAY PALM";
 
 
 

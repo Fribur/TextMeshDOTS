@@ -26,7 +26,7 @@ namespace TextMeshDOTS
             textConfigurationStack.Reset(baseConfiguration);
             var calliString = new CalliString(calliBytes);
 
-            var textConfiguration = textConfigurationStack.GetActiveConfiguration();
+            var textConfiguration = new ActiveTextConfiguration(ref textConfigurationStack);
             ref FontBlob font = ref fontMaterialSet[textConfiguration.m_currentFontMaterialIndex];
 
             int characterCount = 0;
@@ -77,7 +77,7 @@ namespace TextMeshDOTS
                 if (needsActiveConfigurationUpdate)
                 {
                     needsActiveConfigurationUpdate = false;
-                    textConfiguration = textConfigurationStack.GetActiveConfiguration();
+                    textConfiguration = new ActiveTextConfiguration(ref textConfigurationStack);
                     if (textGenerationStateCommands.xAdvanceIsOverwrite)
                         xAdvance = textGenerationStateCommands.xAdvanceChange;
                     else
@@ -122,10 +122,9 @@ namespace TextMeshDOTS
                 // Look up Character Data. TMP uses a backing array,
                 // we pull character directly from FontBlob and continue when not found
                 #region Look up Character Data
-                if (!font.TryGetCharacterIndex(currentRune, out var currentCharIndex))
+                if (!font.characters.TryGetValue(currentRune.value, out var glyphBlob))
                     continue;
 
-                ref var glyphBlob = ref font.characters[currentCharIndex];
 
                 float adjustedScale = textConfiguration.m_currentFontSize * smallCapsMultiplier / font.pointSize * font.scale * (baseConfiguration.isOrthographic ? 1 : 0.1f);
                 float elementAscentLine = font.ascentLine;
@@ -159,9 +158,9 @@ namespace TextMeshDOTS
                     {
                         var nextRune = prevCurNext.next.Current;
                         SwapRune(ref nextRune, ref textConfiguration, out _);
-                        if (glyphBlob.glyphAdjustmentsLookup.TryGetAdjustmentPairIndexForUnicodeAfter(nextRune.value, out var adjustmentIndex))
+                        long key = ((long)nextRune.value << 32) | (long)currentRune.value;
+                        if (font.adjustmentPairs.TryGetValue(key, out var adjustmentPair))
                         {
-                            var adjustmentPair = font.adjustmentPairs[adjustmentIndex];
                             glyphAdjustments = adjustmentPair.firstAdjustment;
                             characterSpacingAdjustment = (adjustmentPair.fontFeatureLookupFlags & FontFeatureLookupFlags.IgnoreSpacingAdjustments) ==
                                                          FontFeatureLookupFlags.IgnoreSpacingAdjustments ? 0 : characterSpacingAdjustment;
@@ -172,9 +171,9 @@ namespace TextMeshDOTS
                     {
                         var prevRune = prevCurNext.prev.Current;
                         SwapRune(ref prevRune, ref textConfiguration, out _);
-                        if (glyphBlob.glyphAdjustmentsLookup.TryGetAdjustmentPairIndexForUnicodeBefore(prevRune.value, out var adjustmentIndex))
+                        long key = ((long)currentRune.value << 32) | (long)prevRune.value;
+                        if (font.adjustmentPairs.TryGetValue(key, out var adjustmentPair))
                         {
-                            var adjustmentPair = font.adjustmentPairs[adjustmentIndex];
                             glyphAdjustments += adjustmentPair.secondAdjustment;
                             characterSpacingAdjustment = (adjustmentPair.fontFeatureLookupFlags & FontFeatureLookupFlags.IgnoreSpacingAdjustments) ==
                                                           FontFeatureLookupFlags.IgnoreSpacingAdjustments ? 0 : characterSpacingAdjustment;

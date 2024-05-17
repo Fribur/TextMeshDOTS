@@ -1,5 +1,6 @@
-using System;
 using System.Collections.Generic;
+using UnityEngine;
+using TextMeshDOTS.Collections;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -40,123 +41,38 @@ namespace TextMeshDOTS.Authoring
             fontBlobRoot.atlasWidth          = font.atlasWidth;
             fontBlobRoot.atlasHeight         = font.atlasHeight;
             fontBlobRoot.materialPadding     = materialPadding;
-
-
-            var       adjustmentCacheBefore      = new NativeList<int2>(Allocator.TempJob);
-            var       adjustmentCacheAfter       = new NativeList<int2>(Allocator.TempJob);
-            var       glyphPairAdjustmentsSource = font.GetGlyphPairAdjustmentRecords();
-            Span<int> hashCounts                 = stackalloc int[64];
-            hashCounts.Clear();
-            // Todo: Currently, we allocate a glyph per character and leave characters with null glyphs uninitialized.
-            // We should rework that to only allocate glyphs to save memory.
-            var characterLookupTable = font.characterLookupTable;
-            BlobBuilderArray<GlyphBlob>      glyphBuilder    = builder.Allocate(ref fontBlobRoot.characters, characterLookupTable.Count);
-            BlobBuilderArray<AdjustmentPair> adjustmentPairs = builder.Allocate(ref fontBlobRoot.adjustmentPairs, glyphPairAdjustmentsSource.Count);
       
-            for (int i = 0; i < glyphPairAdjustmentsSource.Count; i++)
+            var characterLookupTable = font.characterLookupTable;
+            var characterHashMapBuilder = builder.AllocateHashMap(ref fontBlobRoot.characters, characterLookupTable.Count);
+            foreach (var character in characterLookupTable)
             {
-                var kerningPair = glyphPairAdjustmentsSource[i];
+                var glyph = character.Value.glyph;
+                characterHashMapBuilder.Add((int)character.Key, new GlyphBlob { glyphMetrics = glyph.metrics, glyphRect = glyph.glyphRect, glyphScale = glyph.scale });
+            }
+
+            var glyphPairAdjustments = font.GetGlyphPairAdjustmentRecords();
+            var adjustementPairHashMap = new NativeParallelHashMap<long, AdjustmentPair>(characterLookupTable.Count, Allocator.Temp);            
+            foreach (var kerningPair in glyphPairAdjustments)
+            {
                 if (GlyphIndexToUnicode(kerningPair.firstAdjustmentRecord.glyphIndex, characterLookupTable, out int firstUnicode) &&
-                    GlyphIndexToUnicode(kerningPair.secondAdjustmentRecord.glyphIndex, characterLookupTable, out int secondUnicode))                    
+                    GlyphIndexToUnicode(kerningPair.secondAdjustmentRecord.glyphIndex, characterLookupTable, out int secondUnicode))
                 {
-                    adjustmentPairs[i] = new AdjustmentPair
-                    {
-                        firstAdjustment = new GlyphAdjustment
-                        {
-                            xPlacement = kerningPair.firstAdjustmentRecord.glyphValueRecord.xPlacement,
-                            yPlacement = kerningPair.firstAdjustmentRecord.glyphValueRecord.yPlacement,
-                            xAdvance   = kerningPair.firstAdjustmentRecord.glyphValueRecord.xAdvance,
-                            yAdvance   = kerningPair.firstAdjustmentRecord.glyphValueRecord.yAdvance,
-                        },
-                        secondAdjustment = new GlyphAdjustment
-                        {
-                            xPlacement = kerningPair.secondAdjustmentRecord.glyphValueRecord.xPlacement,
-                            yPlacement = kerningPair.secondAdjustmentRecord.glyphValueRecord.yPlacement,
-                            xAdvance   = kerningPair.secondAdjustmentRecord.glyphValueRecord.xAdvance,
-                            yAdvance   = kerningPair.secondAdjustmentRecord.glyphValueRecord.yAdvance,
-                        },
-                        fontFeatureLookupFlags = kerningPair.featureLookupFlags,
-                        firstUnicode 		   = firstUnicode,
-                        secondUnicode 		   = secondUnicode
-                    };
+                    long key = ((long)secondUnicode << 32) | (long)firstUnicode;
+                    var adj1 = kerningPair.firstAdjustmentRecord.glyphValueRecord;
+                    var firstAdjustment = new GlyphAdjustment { xPlacement = adj1.xPlacement, yPlacement = adj1.yPlacement, xAdvance = adj1.xAdvance, yAdvance = adj1.yAdvance, };
+                    var adj2 = kerningPair.secondAdjustmentRecord.glyphValueRecord;
+                    var secondAdjustment = new GlyphAdjustment { xPlacement = adj2.xPlacement, yPlacement = adj2.yPlacement, xAdvance = adj2.xAdvance, yAdvance = adj2.yAdvance, };
+                    var adjustmentPair = new AdjustmentPair { firstAdjustment = firstAdjustment, secondAdjustment = secondAdjustment, fontFeatureLookupFlags = kerningPair.featureLookupFlags};
+                    if(!adjustementPairHashMap.ContainsKey(key))
+                        adjustementPairHashMap.Add(key, adjustmentPair);
                 }
             }
-
-            int characterCount = 0;
-            foreach (var character in characterLookupTable.Values)
-            { 
-                var glyph 	  = character.glyph;
-                if (glyph == null)
-                    continue;
-                var unicode = math.asint(character.unicode);
-
-                ref GlyphBlob glyphBlob = ref glyphBuilder[characterCount++];
-
-                glyphBlob.unicode            = unicode;
-                glyphBlob.glyphScale         = glyph.scale;
-                glyphBlob.glyphMetrics       = glyph.metrics;
-                glyphBlob.glyphRect          = glyph.glyphRect;
-
-                //Add kerning adjustments
-                adjustmentCacheBefore.Clear();
-                adjustmentCacheAfter.Clear();
-                for (int j = 0; j < adjustmentPairs.Length; j++)
-                {
-                    ref var adj = ref adjustmentPairs[j];
-                    if (adj.firstUnicode == unicode)
-                        adjustmentCacheAfter.Add(new int2(adj.secondUnicode, j));
-                    if (adj.secondUnicode == unicode)
-                        adjustmentCacheBefore.Add(new int2(adj.firstUnicode, j));
-                }
-                adjustmentCacheBefore.Sort(new XSorter());
-                var bk = builder.Allocate(ref glyphBlob.glyphAdjustmentsLookup.beforeKeys, adjustmentCacheBefore.Length);
-                var bv = builder.Allocate(ref glyphBlob.glyphAdjustmentsLookup.beforeIndices, adjustmentCacheBefore.Length);
-                for (int j = 0; j < bk.Length; j++)
-                {
-                    var d = adjustmentCacheBefore[j];
-                    bk[j] = d.x; //unicode
-                    bv[j] = d.y;
-                }
-                adjustmentCacheAfter.Sort(new XSorter());
-                var ak = builder.Allocate(ref glyphBlob.glyphAdjustmentsLookup.afterKeys, adjustmentCacheAfter.Length);
-                var av = builder.Allocate(ref glyphBlob.glyphAdjustmentsLookup.afterIndices, adjustmentCacheAfter.Length);
-                for (int j = 0; j < ak.Length; j++)
-                {
-                    var d = adjustmentCacheAfter[j];
-                    ak[j] = d.x; //unicode
-                    av[j] = d.y;
-                }
-
-                hashCounts[BlobTextMeshGlyphExtensions.GetGlyphHash(glyphBlob.unicode)]++;
-            }
-
-            var             hashes     = builder.Allocate(ref fontBlobRoot.glyphLookupMap, 64);
-            Span<HashArray> hashArrays = stackalloc HashArray[64];
-            for (int i = 0; i < hashes.Length; i++)
-            {
-                hashArrays[i] = new HashArray
-                {
-                    hashArray = (GlyphLookup*)builder.Allocate(ref hashes[i], hashCounts[i]).GetUnsafePtr()
-                };
-                hashCounts[i] = 0;
-            }
-
-            for (int i = 0; i < glyphBuilder.Length; i++)
-            {
-                if (glyphBuilder[i].unicode == 0) // Is this the right way to rule out null glyphs?
-                    continue;
-                var hash                                     = BlobTextMeshGlyphExtensions.GetGlyphHash(glyphBuilder[i].unicode);
-                hashArrays[hash].hashArray[hashCounts[hash]] = new GlyphLookup { unicode = glyphBuilder[i].unicode, index = i };
-                hashCounts[hash]++;
-            }
+            if(adjustementPairHashMap.Count() > 0)
+                BlobBuilderExtensions.ConstructHashMap(ref builder, ref fontBlobRoot.adjustmentPairs, ref adjustementPairHashMap);
 
             var result = builder.CreateBlobAssetReference<FontBlob>(Allocator.Persistent);
             builder.Dispose();
-            adjustmentCacheBefore.Dispose();
-            adjustmentCacheAfter.Dispose();
-
             fontBlobRoot = result.Value;
-
             return result;
         }
         static bool GlyphIndexToUnicode(uint glyphIndex, Dictionary<uint, Character> characterLookupTable, out int unicode)
@@ -171,15 +87,6 @@ namespace TextMeshDOTS.Authoring
                 }
             }
             return false;
-        }
-        unsafe struct HashArray
-        {
-            public GlyphLookup* hashArray;
-        }
-        struct XSorter : IComparer<int2>
-        {
-            public int Compare(int2 x, int2 y) => x.x.CompareTo(y.x);
-        }
+        }        
     }
 }
-

@@ -20,32 +20,32 @@ namespace TextMeshDOTS
 
     internal struct ActiveTextConfiguration
     {
-        public float m_fontScaleMultiplier;  // Used for handling of superscript and subscript.
-        public float m_currentFontSize;
-        public FontStyles m_fontStyleInternal;
-        //public FontWeight                 m_fontWeightInternal;
-        public int m_currentFontMaterialIndex;
-        public HorizontalAlignmentOptions m_lineJustification;
-        public float m_baselineOffset;
-        public Color32 m_htmlColor;
-        //public Color32                    m_underlineColor;
-        //public Color32                    m_strikethroughColor;
-        public short m_italicAngle;
-        public float m_lineOffset;
-        //public float                      m_lineHeight;
-        public float m_cSpacing;
-        public float m_monoSpacing;
-        //public float                      m_xAdvance;
-        //public float                      m_tagLineIndent;
-        //public float                      m_tagIndent;
-        //public float                      m_marginWidth;
-        //public float                      m_marginHeight;
-        //public float                      m_marginLeft;
-        //public float                      m_marginRight;
-        //public float                      m_width;
-        //public bool                       m_isNonBreakingSpace;
-        public float m_fxRotationAngleCCW;
-        public float3 m_fxScale;
+        public readonly float m_fontScaleMultiplier;  // Used for handling of superscript and subscript.
+        public readonly float m_currentFontSize;
+        public readonly FontStyles m_fontStyleInternal;
+        //public readonly FontWeight                 m_fontWeightInternal;
+        public readonly int m_currentFontMaterialIndex;
+        public readonly HorizontalAlignmentOptions m_lineJustification;
+        public readonly float m_baselineOffset;
+        public readonly Color32 m_htmlColor;
+        //public readonly Color32                    m_underlineColor;
+        //public readonly Color32                    m_strikethroughColor;
+        public readonly short m_italicAngle;
+        public readonly float m_lineOffset;
+        //public readonly float                      m_lineHeight;
+        public readonly float m_cSpacing;
+        public readonly float m_monoSpacing;
+        //public readonly float                      m_xAdvance;
+        //public readonly float                      m_tagLineIndent;
+        //public readonly float                      m_tagIndent;
+        //public readonly float                      m_marginWidth;
+        //public readonly float                      m_marginHeight;
+        //public readonly float                      m_marginLeft;
+        //public readonly float                      m_marginRight;
+        //public readonly float                      m_width;
+        //public readonly bool                       m_isNonBreakingSpace;
+        public readonly float m_fxRotationAngleCCW;
+        public readonly float3 m_fxScale;
 
         //// The following are derived values
         //public float baseScale;
@@ -54,6 +54,35 @@ namespace TextMeshDOTS
         //{
         //    baseScale = m_currentFontSize / font.pointSize * font.scale * (baseConfiguration.isOrthographic ? 1 : 0.1f);
         //}
+        public ActiveTextConfiguration(ref TextConfigurationStack textConfigurationStack)
+        {
+            m_baselineOffset = textConfigurationStack.m_baselineOffset;
+            m_cSpacing = textConfigurationStack.m_cSpacing;
+            m_currentFontMaterialIndex = textConfigurationStack.m_currentFontMaterialIndex;
+            m_currentFontSize = textConfigurationStack.m_currentFontSize;
+            m_fontScaleMultiplier = textConfigurationStack.m_fontScaleMultiplier;
+            m_fontStyleInternal = textConfigurationStack.m_fontStyleInternal;
+            //m_fontWeightInternal       = textConfigurationStack.m_fontWeightInternal,
+            m_fxRotationAngleCCW = textConfigurationStack.m_fxRotationAngleCCW;
+            m_fxScale = textConfigurationStack.m_fxScale;
+            m_htmlColor = textConfigurationStack.m_htmlColor;
+            //m_isNonBreakingSpace       = textConfigurationStack.m_isNonBreakingSpace,
+            m_italicAngle = textConfigurationStack.m_italicAngle;
+            //m_lineHeight               = textConfigurationStack.m_lineHeight,
+            m_lineJustification = textConfigurationStack.m_lineJustification;
+            m_lineOffset = textConfigurationStack.m_lineOffset;
+            //m_marginHeight             = textConfigurationStack.m_marginHeight,
+            //m_marginLeft               = textConfigurationStack.m_marginLeft,
+            //m_marginRight              = textConfigurationStack.m_marginRight,
+            //m_marginWidth              = textConfigurationStack.m_marginWidth,
+            m_monoSpacing = textConfigurationStack.m_monoSpacing;
+            //m_strikethroughColor       = textConfigurationStack.m_strikethroughColor,
+            //m_underlineColor           = textConfigurationStack.m_underlineColor,
+            //m_width                    = textConfigurationStack.m_width,
+            //m_xAdvance                 = textConfigurationStack.m_xAdvance,
+            //m_tagIndent                 = textConfigurationStack.m_tagIndent,
+            //m_tagLineIndent             = textConfigurationStack.m_tagLineIndent,
+        }
     }
 
     internal struct TextConfigurationStack
@@ -184,39 +213,6 @@ namespace TextMeshDOTS
             m_fxScale = 1;
 
             m_highlightStateStack.Clear();
-        }
-
-        public ActiveTextConfiguration GetActiveConfiguration()
-        {
-            return new ActiveTextConfiguration
-            {
-                m_baselineOffset = m_baselineOffset,
-                m_cSpacing = m_cSpacing,
-                m_currentFontMaterialIndex = m_currentFontMaterialIndex,
-                m_currentFontSize = m_currentFontSize,
-                m_fontScaleMultiplier = m_fontScaleMultiplier,
-                m_fontStyleInternal = m_fontStyleInternal,
-                //m_fontWeightInternal       = m_fontWeightInternal,
-                m_fxRotationAngleCCW = m_fxRotationAngleCCW,
-                m_fxScale = m_fxScale,
-                m_htmlColor = m_htmlColor,
-                //m_isNonBreakingSpace       = m_isNonBreakingSpace,
-                m_italicAngle = m_italicAngle,
-                //m_lineHeight               = m_lineHeight,
-                m_lineJustification = m_lineJustification,
-                m_lineOffset = m_lineOffset,
-                //m_marginHeight             = m_marginHeight,
-                //m_marginLeft               = m_marginLeft,
-                //m_marginRight              = m_marginRight,
-                //m_marginWidth              = m_marginWidth,
-                m_monoSpacing = m_monoSpacing,
-                //m_strikethroughColor       = m_strikethroughColor,
-                //m_underlineColor           = m_underlineColor,
-                //m_width                    = m_width,
-                //m_xAdvance                 = m_xAdvance,
-                //m_tagIndent                 = m_tagIndent,
-                //m_tagLineIndent             = m_tagLineIndent,
-            };
         }
     }
 }
