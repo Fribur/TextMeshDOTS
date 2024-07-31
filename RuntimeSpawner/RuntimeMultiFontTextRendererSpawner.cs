@@ -12,7 +12,7 @@ using UnityEngine.Rendering;
 namespace TextMeshDOTS.Authoring
 {
     [BurstCompile]
-    //[DisableAutoCreation]
+    [DisableAutoCreation]
     public partial class RuntimeMultiFontTextRendererSpawner : SystemBase
     {
         bool initialized;

@@ -4,7 +4,7 @@ TextMeshDOTS is a standalone text package for DOTS, forked from [Latios Framewor
 Utilizing TextCore font assets, TextMeshDOTS renders world space text similar to TextMeshPro. It leverages the [Unity Entities](https://docs.unity3d.com/Packages/com.unity.entities@1.2/manual/index.html) 
 package to generate the vertex data required for rendering, and uses native [Unity Entities Graphics](https://docs.unity3d.com/Packages/com.unity.entities.graphics@1.2/manual/index.html) for rendering. The HDRP and URP shader are 
 wrapper around the TextMeshPro 4.0 SRP shader. TextMeshDOTS supports almost all rich text tags of [TextMeshPro](https://docs.unity3d.com/Packages/com.unity.textmeshpro@4.0/manual/RichText.html) and TextCore:
-\<allcaps\>, \<alpha\>, \<b\>, \<color\>, \<cspace\>, \<font\>, <\i>, \<lowercase\>, \<sub\>, 
+\<allcaps\>, \<alpha\>, \<b\>, \<color\>, \<cspace\>, \<font\>, <i>, \<lowercase\>, \<sub\>, 
 \<sup\>, \<pos\>, \<voffset\>, \<size\>, \<space=000.00\>, \<mspace=xx.x\>, \<smallcaps\>, 
 <scale=xx.x>, \<rotate\>. Other tags are recognized but not yet rendered. 
 
@@ -32,7 +32,7 @@ populate the atlas in `static` mode, and ensure the material shader is set to
   -	Add empty `GameObject`, add `FontBlobAuthoring` component on it
   -	Add font asset `TextMeshDOTS/Fonts/LiberationSans SDF` to the list of fonts (and any additional fonts you like to access during runtim)
   -	Close the `SubScene`
-  -	Modify `TextMeshDOTS/RuntimeSpawner/RuntimeSingleFontTextRendererSpawner.cs` or `RuntimeMultiFontTextRendererSpawner.cs` to spawn any number of `TextRenderer` entities. Which spawner runs depends on how many fonts are added to `FontBlobAuthoring`
+  -	Enable auto creation and modify `TextMeshDOTS/RuntimeSpawner/RuntimeSingleFontTextRendererSpawner.cs` or `RuntimeMultiFontTextRendererSpawner.cs` to spawn any number of `TextRenderer` entities. Per default, auto creation of both systems is disabled. When auto creation is enabled, which spawner system runs depends on how many fonts are added to `FontBlobAuthoring`
   -	Hit play
 
 

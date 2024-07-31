@@ -13,7 +13,7 @@ using UnityEngine.Rendering;
 namespace TextMeshDOTS.Authoring
 {
     [BurstCompile]
-    //[DisableAutoCreation]
+    [DisableAutoCreation]
     public partial class RuntimeSingleTextRendererSpawner : SystemBase
     {
         bool initialized;

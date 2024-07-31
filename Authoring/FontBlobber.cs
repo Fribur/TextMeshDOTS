@@ -69,6 +69,8 @@ namespace TextMeshDOTS.Authoring
             }
             if(adjustementPairHashMap.Count() > 0)
                 BlobBuilderExtensions.ConstructHashMap(ref builder, ref fontBlobRoot.adjustmentPairs, ref adjustementPairHashMap);
+            else
+                builder.AllocateHashMap(ref fontBlobRoot.adjustmentPairs, 1, 1);//allocate empty dummy hashmap to ensure kerning lookup function does not break
 
             var result = builder.CreateBlobAssetReference<FontBlob>(Allocator.Persistent);
             builder.Dispose();
