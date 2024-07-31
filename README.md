@@ -4,7 +4,7 @@ TextMeshDOTS is a standalone text package for DOTS, forked from [Latios Framewor
 Utilizing TextCore font assets, TextMeshDOTS renders world space text similar to TextMeshPro. It leverages the [Unity Entities](https://docs.unity3d.com/Packages/com.unity.entities@1.2/manual/index.html) 
 package to generate the vertex data required for rendering, and uses native [Unity Entities Graphics](https://docs.unity3d.com/Packages/com.unity.entities.graphics@1.2/manual/index.html) for rendering. The HDRP and URP shader are 
 wrapper around the TextMeshPro 4.0 SRP shader. TextMeshDOTS supports almost all rich text tags of [TextMeshPro](https://docs.unity3d.com/Packages/com.unity.textmeshpro@4.0/manual/RichText.html) and TextCore:
-\<allcaps\>, \<alpha\>, \<b\>, \<color\>, \<cspace\>, \<font\>, <i>, \<lowercase\>, \<sub\>, 
+\<allcaps\>, \<alpha\>, \<b\>, \<color\>, \<cspace\>, \<font\>, \<i>, \<lowercase\>, \<sub\>, 
 \<sup\>, \<pos\>, \<voffset\>, \<size\>, \<space=000.00\>, \<mspace=xx.x\>, \<smallcaps\>, 
 <scale=xx.x>, \<rotate\>. Other tags are recognized but not yet rendered. 
 
