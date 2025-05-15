@@ -16,7 +16,7 @@ namespace TextMeshDOTS.Rendering
     /// </summary>
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]
-    [UpdateAfter(typeof(TextRenderingUpdateSystem))]
+    [UpdateAfter(typeof(UpdateFontAtlasSystem))]
     //[DisableAutoCreation]
     public partial class TextRenderingDispatchSystem : SystemBase
     {

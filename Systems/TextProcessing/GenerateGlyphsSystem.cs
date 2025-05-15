@@ -8,7 +8,7 @@ namespace TextMeshDOTS.TextProcessing
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]
     //[UpdateAfter(typeof(UpdateAtlasSystem))]
-    [UpdateAfter(typeof(UpdateFontAtlasSystem))]
+    [UpdateAfter(typeof(ShapeSystem))]
     public partial struct GenerateGlyphsSystem : ISystem
     {
         EntityQuery m_query, fontstateQ;

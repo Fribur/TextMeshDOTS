@@ -5,13 +5,14 @@ using Unity.Profiling;
 using Unity.Jobs;
 using TextMeshDOTS.HarfBuzz;
 using Unity.Burst;
+using TextMeshDOTS.Rendering;
 
 namespace TextMeshDOTS.TextProcessing
 {
     //[DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]
-    [UpdateAfter(typeof(ShapeSystem))]
+    [UpdateAfter(typeof(TextRenderingUpdateSystem))]
     partial struct UpdateFontAtlasSystem : ISystem
     {
         EntityQuery fontEntityQ;

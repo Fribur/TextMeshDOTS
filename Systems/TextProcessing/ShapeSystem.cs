@@ -200,6 +200,13 @@ namespace TextMeshDOTS.TextProcessing
                 // from font acceleration structures populated with each hb_font_get_glyph_extents call
                 font.GetGlyphExtents(missingGlyph.glyphIndex, out var extents);
 
+                var padding = missingGlyph.format switch
+                {
+                RenderFormat.SDF8 => missingGlyph.textureSize.GetSamplingSize() / 6,
+                RenderFormat.SDF16 => missingGlyph.textureSize.GetSamplingSize() / 6,
+                RenderFormat.Bitmap8888 => 8,
+                _ => 0,
+                };
                 var newEntry = new GlyphTable.Entry
                 {
                     key = missingGlyph,
@@ -210,7 +217,8 @@ namespace TextMeshDOTS.TextProcessing
                     width = (short)extents.width,
                     height = (short)(extents.height),  
                     xBearing = (short)extents.x_bearing,
-                    yBearing = (short)extents.y_bearing  // Harfbuzz is y-up
+                    yBearing = (short)extents.y_bearing,  // Harfbuzz is y-up
+                    padding = (short)padding,
                 };
                 var baseIndex = glyphEntries.Length - missingGlyphs.Length;
                 glyphEntries[baseIndex + i] = newEntry;
