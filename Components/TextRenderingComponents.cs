@@ -70,11 +70,51 @@ namespace TextMeshDOTS.Rendering
         public uint reserved;
     }
 
+    /// <summary>
+    /// When this buffer is present, it overrides the RenderGlyph buffer for rendering purposes.
+    /// Copy the RenderGlyph buffer into this buffer and then modify the glyphs for animation purposes
+    /// within AnimateGlyphsSuperSystem.
+    /// </summary>
+    [InternalBufferCapacity(0)]
+    public struct AnimatedRenderGlyph : IBufferElementData
+    {
+        public RenderGlyph glyph;
+    }
+
     [MaterialProperty("_TextShaderIndex")]
     public struct TextShaderIndex : IComponentData
     {
         public uint firstGlyphIndex;
         public uint glyphCount;
+    }
+
+    /// <summary>
+    /// You must add this component in order for the glyphs to be rendered.
+    /// This component and its enabled state serves internal purposes and should not be interacted
+    /// with directly other than to ensure its existence.
+    /// </summary>
+    public struct GpuState : IComponentData, IEnableableComponent  // Enabled to request dispatch
+    {
+        internal enum State : byte
+        {
+            Uncommitted,
+            Dynamic,
+            DynamicPromoteToResident,
+            Resident
+        }
+        internal State state;
+    }
+
+    [InternalBufferCapacity(0)]
+    internal struct PreviousRenderGlyph : ICleanupBufferElementData
+    {
+        public RenderGlyph glyph;
+    }
+
+    internal struct ResidentRange : ICleanupComponentData
+    {
+        public uint start;
+        public uint count;
     }
 
     // Only present if there are child fonts
