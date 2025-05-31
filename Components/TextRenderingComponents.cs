@@ -1,4 +1,6 @@
+using Unity.Collections;
 using Unity.Entities;
+using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Rendering;
 
@@ -88,12 +90,7 @@ namespace TextMeshDOTS.Rendering
         public uint glyphCount;
     }
 
-    /// <summary>
-    /// You must add this component in order for the glyphs to be rendered.
-    /// This component and its enabled state serves internal purposes and should not be interacted
-    /// with directly other than to ensure its existence.
-    /// </summary>
-    public struct GpuState : IComponentData, IEnableableComponent  // Enabled to request dispatch
+    internal struct GpuState : IComponentData, IEnableableComponent  // Enabled to request dispatch
     {
         internal enum State : byte
         {
@@ -115,6 +112,14 @@ namespace TextMeshDOTS.Rendering
     {
         public uint start;
         public uint count;
+    }
+
+    internal partial struct NewEntitiesArrays : ICollectionComponent
+    {
+        public NativeArray<Entity> newGlyphEntities;
+        public uint lastTouchedGlobalSystemVersion;
+
+        public JobHandle TryDispose(JobHandle inputDeps) => inputDeps;
     }
 
     // Only present if there are child fonts

@@ -27,32 +27,19 @@ namespace TextMeshDOTS.Rendering
     public unsafe partial struct UpdateGlyphsRenderersSystem : ISystem
     {
         EntityQuery                             m_query;
-        EntityQuery                             m_newQuery;
         EntityQuery                             m_deadQuery;
-        DoubleRewindableAllocators              newPreviousRenderGlyphsAllocator;
-        NativeList<PreviousRenderGlyphsToApply> toApply;
 
         public void OnCreate(ref SystemState state)
         {
-            newPreviousRenderGlyphsAllocator = new DoubleRewindableAllocators(Allocator.Persistent, 256 * 256);
             m_query = QueryBuilder().WithAny<RenderGlyph, AnimatedRenderGlyph>().WithPresentRW<GpuState, MaterialMeshInfo>().WithPresentRW<RenderBounds>().Build();
             m_query.AddChangedVersionFilter(ComponentType.ReadOnly<RenderGlyph>());
             m_query.AddChangedVersionFilter(ComponentType.ReadOnly<AnimatedRenderGlyph>());
-            m_newQuery = QueryBuilder().WithAny<RenderGlyph, AnimatedRenderGlyph>().WithPresentRW<GpuState, MaterialMeshInfo>().WithPresentRW<RenderBounds>().WithAbsent<PreviousRenderGlyph>().Build();
             m_deadQuery = QueryBuilder().WithPresent<PreviousRenderGlyph>().WithAbsent<RenderGlyph, AnimatedRenderGlyph>().Build();
-        }
-
-        public void OnDestroy(ref SystemState state)
-        {
-            state.CompleteDependency();
-            newPreviousRenderGlyphsAllocator.Dispose();
         }
 
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            newPreviousRenderGlyphsAllocator.Update();
-
             //var refCountChangeBlocklist       = new UnsafeParallelBlockList(UnsafeUtility.SizeOf<RefCountChange>(), 256, state.WorldUpdateAllocator);
             //var residentDeallocationBlocklist = new UnsafeParallelBlockList(UnsafeUtility.SizeOf<ResidentRange>(), 256, state.WorldUpdateAllocator);
 
@@ -60,9 +47,19 @@ namespace TextMeshDOTS.Rendering
             var chunkCount = m_query.CalculateChunkCountWithoutFiltering();
             var refCountChangeBlocklistA = new NativeStream(deadChunkCount, state.WorldUpdateAllocator);
             var residentDeallocationBlocklistA = new NativeStream(deadChunkCount, state.WorldUpdateAllocator);
-            var refCountChangeBlocklistB = new NativeStream(toApply.Length, state.WorldUpdateAllocator);
-            var refCountChangeBlocklistC = new NativeStream(chunkCount, state.WorldUpdateAllocator);
+            var refCountChangeBlocklistB = new NativeStream(chunkCount, state.WorldUpdateAllocator);
             var residentDeallocationBlocklistB = new NativeStream(chunkCount, state.WorldUpdateAllocator);
+
+            var newEntitiesArrays = GetSingleton<NewEntitiesArrays>();
+            if (newEntitiesArrays.newGlyphEntities.Length > 0 && ChangeVersionUtility.DidChange(newEntitiesArrays.lastTouchedGlobalSystemVersion, state.LastSystemVersion))
+            {
+                state.Dependency = new DirtyNewJob
+                {
+                    newEntities = newEntitiesArrays.newGlyphEntities,
+                    animatedGlyphLookup = GetBufferLookup<AnimatedRenderGlyph>(false),
+                    glyphLookup = GetBufferLookup<RenderGlyph>(false)
+                }.ScheduleParallel(newEntitiesArrays.newGlyphEntities.Length, 128, state.Dependency);
+            }
 
             if (!m_deadQuery.IsEmptyIgnoreFilter)
             {
@@ -75,20 +72,6 @@ namespace TextMeshDOTS.Rendering
                 }.ScheduleParallel(m_deadQuery, state.Dependency);
             }
 
-            if (toApply.IsCreated && !toApply.IsEmpty)
-            {
-                state.Dependency = new PatchPreviousJob
-                {
-                    toApply                 = toApply.AsArray(),
-                    previousLookup          = GetBufferLookup<PreviousRenderGlyph>(false),
-                    refCountChangeBlocklist = refCountChangeBlocklistB.AsWriter(),
-                }.ScheduleParallel(toApply.Length, 1, state.Dependency);
-            }
-
-            var allocator = newPreviousRenderGlyphsAllocator.Allocator.Handle;
-            var newCount  = m_newQuery.CalculateChunkCountWithoutFiltering();
-            toApply       = new NativeList<PreviousRenderGlyphsToApply>(newCount, allocator);
-
             state.Dependency = new UpdateChangedGlyphsJob
             {
                 animatedRenderGlyphHandle     = GetBufferTypeHandle<AnimatedRenderGlyph>(true),
@@ -96,10 +79,8 @@ namespace TextMeshDOTS.Rendering
                 gpuStateHandle                = GetComponentTypeHandle<GpuState>(false),
                 lastSystemVersion             = state.LastSystemVersion,
                 materialMeshInfoHandle        = GetComponentTypeHandle<MaterialMeshInfo>(false),
-                newBufferAllocator            = allocator,
-                newBuffersList                = toApply.AsParallelWriter(),
                 previousRenderGlyphHandle     = GetBufferTypeHandle<PreviousRenderGlyph>(false),
-                refCountChangeBlocklist       = refCountChangeBlocklistC.AsWriter(),
+                refCountChangeBlocklist       = refCountChangeBlocklistB.AsWriter(),
                 renderBoundsHandle            = GetComponentTypeHandle<RenderBounds>(false),
                 renderGlyphHandle             = GetBufferTypeHandle<RenderGlyph>(true),
                 residentDeallocationBlocklist = residentDeallocationBlocklistB.AsWriter(),
@@ -116,7 +97,6 @@ namespace TextMeshDOTS.Rendering
                 glyphTable              = glyphTable,
                 refCountChangeBlocklistA = refCountChangeBlocklistA.AsReader(),
                 refCountChangeBlocklistB = refCountChangeBlocklistB.AsReader(),
-                refCountChangeBlocklistC = refCountChangeBlocklistC.AsReader(),
             }.Schedule(state.Dependency);
 
             var jhB = new DeallocateResidentsJob
@@ -129,13 +109,6 @@ namespace TextMeshDOTS.Rendering
             state.Dependency = JobHandle.CombineDependencies(jhA, jhB);
         }
 
-        struct PreviousRenderGlyphsToApply
-        {
-            public RenderGlyph* ptr;
-            public Entity       target;
-            public int          glyphCount;
-        }
-
         struct RefCountChange
         {
             public uint glyphEntryId;
@@ -145,6 +118,21 @@ namespace TextMeshDOTS.Rendering
         struct RefCountChangePtr
         {
             public RefCountChange* ptr;
+        }
+
+        [BurstCompile]
+        struct DirtyNewJob : IJobFor
+        {
+            [ReadOnly] public NativeArray<Entity> newEntities;
+            [NativeDisableParallelForRestriction] public BufferLookup<RenderGlyph> glyphLookup;
+            [NativeDisableParallelForRestriction] public BufferLookup<AnimatedRenderGlyph> animatedGlyphLookup;
+
+            public void Execute(int i)
+            {
+                var entity = newEntities[i];
+                if (!glyphLookup.TryGetBuffer(entity, out _))
+                    animatedGlyphLookup.TryGetBuffer(entity, out _);
+            }
         }
 
         [BurstCompile]
@@ -199,54 +187,6 @@ namespace TextMeshDOTS.Rendering
         }
 
         [BurstCompile]
-        struct PatchPreviousJob : IJobFor
-        {
-            public NativeArray<PreviousRenderGlyphsToApply>                                toApply;
-            [NativeDisableParallelForRestriction] public BufferLookup<PreviousRenderGlyph> previousLookup;
-            public NativeStream.Writer                                                 refCountChangeBlocklist;
-
-            [NativeSetThreadIndex] int             threadIndex;
-            UnsafeHashMap<uint, RefCountChangePtr> threadRefCountChangeMap;
-
-            public void Execute(int index)
-            {
-                refCountChangeBlocklist.BeginForEachIndex(index);
-
-                var element = toApply[index];
-                if (previousLookup.TryGetBuffer(element.target, out var buffer))
-                {
-                    buffer.ResizeUninitialized(element.glyphCount);
-                    UnsafeUtility.MemCpy(buffer.GetUnsafePtr(), element.ptr, element.glyphCount * UnsafeUtility.SizeOf<RenderGlyph>());
-                }
-                else
-                {
-                    // The entity died after one frame. That wasn't enough time for it to become resident,
-                    // so we only care about glyph ref counts.
-                    var glyphs = element.ptr;
-                    for (int i = 0; i < element.glyphCount; i++)
-                    {
-                        var id = glyphs[i].glyphEntryId;
-                        if (threadRefCountChangeMap.TryGetValue(id, out var ptr))
-                        {
-                            ptr.ptr->refCountDelta--;
-                        }
-                        else
-                        {
-                            var newPtr = new RefCountChangePtr { ptr = (RefCountChange*)refCountChangeBlocklist.Allocate(UnsafeUtility.SizeOf<RefCountChange>()) };
-                            newPtr.ptr->glyphEntryId                 = id;
-                            newPtr.ptr->refCountDelta                = -1;
-                            threadRefCountChangeMap.Add(id, newPtr);
-                        }
-                    }
-
-                    if (!threadRefCountChangeMap.IsCreated)
-                        threadRefCountChangeMap = new UnsafeHashMap<uint, RefCountChangePtr>(1024, Allocator.Temp);
-                }
-                refCountChangeBlocklist.EndForEachIndex();
-            }
-        }
-
-        [BurstCompile]
         struct UpdateChangedGlyphsJob : IJobChunk
         {
             [ReadOnly] public EntityTypeHandle                            entityHandle;
@@ -259,9 +199,7 @@ namespace TextMeshDOTS.Rendering
             public ComponentTypeHandle<RenderBounds>                      renderBoundsHandle;
             public NativeStream.Writer                                refCountChangeBlocklist;
             public NativeStream.Writer                                residentDeallocationBlocklist;
-            public NativeList<PreviousRenderGlyphsToApply>.ParallelWriter newBuffersList;
 
-            public AllocatorManager.AllocatorHandle newBufferAllocator;
             public uint                             lastSystemVersion;
 
             [NativeSetThreadIndex] int             threadIndex;
@@ -281,36 +219,6 @@ namespace TextMeshDOTS.Rendering
 
                 var gpuStates = (GpuState*)chunk.GetRequiredComponentDataPtrRW(ref gpuStateHandle);
 
-                if (previousRenderGlyphBuffers.Length == 0)
-                {
-                    // These are new glyphs
-                    chunk.SetComponentEnabledForAll(ref gpuStateHandle, true);
-                    var entities     = chunk.GetEntityDataPtrRO(entityHandle);
-                    var mmis         = (MaterialMeshInfo*)chunk.GetRequiredComponentDataPtrRW(ref materialMeshInfoHandle);
-                    var renderBounds = (RenderBounds*)chunk.GetRequiredComponentDataPtrRW(ref renderBoundsHandle);
-                    for (int i = 0; i < chunk.Count; i++)
-                    {
-                        var glyphs = animatedGlyphBuffers.Length > 0 ? animatedGlyphBuffers[i].Reinterpret<RenderGlyph>() : glyphBuffers[i];
-                        if (!glyphs.IsEmpty)
-                        {
-                            var newToAdd = new PreviousRenderGlyphsToApply
-                            {
-                                glyphCount = glyphs.Length,
-                                target     = entities[i],
-                                ptr        = AllocatorManager.Allocate<RenderGlyph>(newBufferAllocator, glyphs.Length)
-                            };
-                            UnsafeUtility.MemCpy(newToAdd.ptr, glyphs.GetUnsafeReadOnlyPtr(), glyphs.Length * UnsafeUtility.SizeOf<RenderGlyph>());
-                            newBuffersList.AddNoResize(newToAdd);
-                        }
-                        gpuStates[i].state = GpuState.State.Uncommitted;
-                        UpdateRefCounts(glyphs.AsNativeArray().AsReadOnlySpan(), 1);
-                        UpdateBaseRenderingData(ref renderBounds[i], ref mmis[i], glyphs.AsNativeArray().AsReadOnlySpan());
-                    }
-
-                    return;
-                }
-
-                // These entities were encountered last frame
                 chunk.SetComponentEnabledForAll(ref gpuStateHandle, false);
                 var gpuStateMask = chunk.GetEnabledMask(ref gpuStateHandle);
 
@@ -330,7 +238,7 @@ namespace TextMeshDOTS.Rendering
                     return;
                 }
 
-                // At this point, we are dealing with potentially changed glyphs on entities we have seen before.
+                // Something got flagged as changed. These could be new glyphs, or the text was altered on one of the entities.
                 var residentRanges = previousRenderGlyphBuffers.Length > 0 ? chunk.GetComponentDataPtrRW(ref residentRangeHandle) : null;
 
                 {
@@ -346,7 +254,7 @@ namespace TextMeshDOTS.Rendering
                              UnsafeUtility.MemCmp(glyphs.GetUnsafeReadOnlyPtr(), previousGlyphs.GetUnsafeReadOnlyPtr(), glyphs.Length * UnsafeUtility.SizeOf<RenderGlyph>()) == 0))
                         {
                             // Nothing changed. Promote dynamic to resident if necessary.
-                            if (gpuStates[i].state == GpuState.State.Dynamic)
+                            if (gpuStates[i].state == GpuState.State.Dynamic && glyphs.Length != 0)
                             {
                                 gpuStates[i].state = GpuState.State.DynamicPromoteToResident;
                                 gpuStateMask[i]    = true;
@@ -417,14 +325,6 @@ namespace TextMeshDOTS.Rendering
                 }
                 bounds = new RenderBounds { Value = new AABB { Center = center, Extents = extents } };;
 
-                // Todo: Need to discuss what we want to do here. Every unique mesh/material/submesh combination
-                // must be drawn separately. Calligraphics was designed to maximize the number of entities that
-                // could be packed into a single draw call (maximize instancing). But TextMeshDOTS has historically
-                // optimized towards minimizing vertex shader processing. Also, more submeshes increase the minimum
-                // application build size. Calligraphics version alone I think adds 4 MB to the build, which isn't
-                // great on mobile.
-                // Current conclusion: (1) reduce number of submeshes from 16 to 10 (2) build size is determined by
-                // largest submesh (16k glyphs ~11MB), consider reducing size of mesh attributes, or remove mesh attributes
                 TextBackendBakingUtility.SetSubMesh(glyphs.Length, ref mmi);
             }
         }
@@ -434,13 +334,12 @@ namespace TextMeshDOTS.Rendering
         {
             [ReadOnly] public NativeStream.Reader refCountChangeBlocklistA;
             [ReadOnly] public NativeStream.Reader refCountChangeBlocklistB;
-            [ReadOnly] public NativeStream.Reader refCountChangeBlocklistC;
             public GlyphTable              glyphTable;
             public AtlasTable              atlasTable;
 
             public void Execute()
             {
-                var count                  = refCountChangeBlocklistA.Count() + refCountChangeBlocklistB.Count() + refCountChangeBlocklistC.Count();
+                var count                  = refCountChangeBlocklistA.Count() + refCountChangeBlocklistB.Count();
                 var atlasRemovalCandidates = new UnsafeHashSet<uint>(count, Allocator.Temp);
 
                 for (int streamSource = 0; streamSource < 3; streamSource++)
@@ -448,8 +347,6 @@ namespace TextMeshDOTS.Rendering
                     ref var stream = ref refCountChangeBlocklistA;
                     if (streamSource == 1)
                         stream = ref refCountChangeBlocklistB;
-                    if (streamSource == 2)
-                        stream = refCountChangeBlocklistC;
                     int streamIndices = stream.ForEachCount;
                     for (int streamIndex = 0; streamIndex < streamIndices; streamIndex++)
                     {
