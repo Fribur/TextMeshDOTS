@@ -26,8 +26,8 @@ namespace TextMeshDOTS.Rendering
     [BurstCompile]
     public unsafe partial struct UpdateGlyphsRenderersSystem : ISystem
     {
-        EntityQuery                             m_query;
-        EntityQuery                             m_deadQuery;
+        EntityQuery m_query;
+        EntityQuery m_deadQuery;
 
         public void OnCreate(ref SystemState state)
         {
@@ -43,11 +43,11 @@ namespace TextMeshDOTS.Rendering
             //var refCountChangeBlocklist       = new UnsafeParallelBlockList(UnsafeUtility.SizeOf<RefCountChange>(), 256, state.WorldUpdateAllocator);
             //var residentDeallocationBlocklist = new UnsafeParallelBlockList(UnsafeUtility.SizeOf<ResidentRange>(), 256, state.WorldUpdateAllocator);
 
-            var deadChunkCount = m_deadQuery.CalculateChunkCountWithoutFiltering();
-            var chunkCount = m_query.CalculateChunkCountWithoutFiltering();
-            var refCountChangeBlocklistA = new NativeStream(deadChunkCount, state.WorldUpdateAllocator);
+            var deadChunkCount                 = m_deadQuery.CalculateChunkCountWithoutFiltering();
+            var chunkCount                     = m_query.CalculateChunkCountWithoutFiltering();
+            var refCountChangeBlocklistA       = new NativeStream(deadChunkCount, state.WorldUpdateAllocator);
             var residentDeallocationBlocklistA = new NativeStream(deadChunkCount, state.WorldUpdateAllocator);
-            var refCountChangeBlocklistB = new NativeStream(chunkCount, state.WorldUpdateAllocator);
+            var refCountChangeBlocklistB       = new NativeStream(chunkCount, state.WorldUpdateAllocator);
             var residentDeallocationBlocklistB = new NativeStream(chunkCount, state.WorldUpdateAllocator);
 
             var newEntitiesArrays = GetSingleton<NewEntitiesArrays>();
@@ -55,9 +55,9 @@ namespace TextMeshDOTS.Rendering
             {
                 state.Dependency = new DirtyNewJob
                 {
-                    newEntities = newEntitiesArrays.newGlyphEntities,
+                    newEntities         = newEntitiesArrays.newGlyphEntities,
                     animatedGlyphLookup = GetBufferLookup<AnimatedRenderGlyph>(false),
-                    glyphLookup = GetBufferLookup<RenderGlyph>(false)
+                    glyphLookup         = GetBufferLookup<RenderGlyph>(false)
                 }.ScheduleParallel(newEntitiesArrays.newGlyphEntities.Length, 128, state.Dependency);
             }
 
@@ -93,15 +93,15 @@ namespace TextMeshDOTS.Rendering
 
             var jhA = new ApplyRefCountDeltasToGlyphTableJob
             {
-                atlasTable              = atlasTable,
-                glyphTable              = glyphTable,
+                atlasTable               = atlasTable,
+                glyphTable               = glyphTable,
                 refCountChangeBlocklistA = refCountChangeBlocklistA.AsReader(),
                 refCountChangeBlocklistB = refCountChangeBlocklistB.AsReader(),
             }.Schedule(state.Dependency);
 
             var jhB = new DeallocateResidentsJob
             {
-                gpuTable                      = gpuTable,
+                gpuTable                       = gpuTable,
                 residentDeallocationBlocklistA = residentDeallocationBlocklistA.AsReader(),
                 residentDeallocationBlocklistB = residentDeallocationBlocklistB.AsReader()
             }.Schedule(state.Dependency);
@@ -123,8 +123,8 @@ namespace TextMeshDOTS.Rendering
         [BurstCompile]
         struct DirtyNewJob : IJobFor
         {
-            [ReadOnly] public NativeArray<Entity> newEntities;
-            [NativeDisableParallelForRestriction] public BufferLookup<RenderGlyph> glyphLookup;
+            [ReadOnly] public NativeArray<Entity>                                          newEntities;
+            [NativeDisableParallelForRestriction] public BufferLookup<RenderGlyph>         glyphLookup;
             [NativeDisableParallelForRestriction] public BufferLookup<AnimatedRenderGlyph> animatedGlyphLookup;
 
             public void Execute(int i)
@@ -140,8 +140,8 @@ namespace TextMeshDOTS.Rendering
         {
             [ReadOnly] public ComponentTypeHandle<ResidentRange>    rangeHandle;
             [ReadOnly] public BufferTypeHandle<PreviousRenderGlyph> previousRenderGlyphsHandle;
-            public NativeStream.Writer                          residentDeallocationBlocklist;
-            public NativeStream.Writer                          refCountChangeBlocklist;
+            public NativeStream.Writer                              residentDeallocationBlocklist;
+            public NativeStream.Writer                              refCountChangeBlocklist;
 
             [NativeSetThreadIndex] int             threadIndex;
             UnsafeHashMap<uint, RefCountChangePtr> threadRefCountChangeMap;
@@ -189,18 +189,18 @@ namespace TextMeshDOTS.Rendering
         [BurstCompile]
         struct UpdateChangedGlyphsJob : IJobChunk
         {
-            [ReadOnly] public EntityTypeHandle                            entityHandle;
-            [ReadOnly] public BufferTypeHandle<RenderGlyph>               renderGlyphHandle;
-            [ReadOnly] public BufferTypeHandle<AnimatedRenderGlyph>       animatedRenderGlyphHandle;
-            public BufferTypeHandle<PreviousRenderGlyph>                  previousRenderGlyphHandle;
-            public ComponentTypeHandle<GpuState>                          gpuStateHandle;
-            public ComponentTypeHandle<ResidentRange>                     residentRangeHandle;
-            public ComponentTypeHandle<MaterialMeshInfo>                  materialMeshInfoHandle;
-            public ComponentTypeHandle<RenderBounds>                      renderBoundsHandle;
-            public NativeStream.Writer                                refCountChangeBlocklist;
-            public NativeStream.Writer                                residentDeallocationBlocklist;
+            [ReadOnly] public EntityTypeHandle                      entityHandle;
+            [ReadOnly] public BufferTypeHandle<RenderGlyph>         renderGlyphHandle;
+            [ReadOnly] public BufferTypeHandle<AnimatedRenderGlyph> animatedRenderGlyphHandle;
+            public BufferTypeHandle<PreviousRenderGlyph>            previousRenderGlyphHandle;
+            public ComponentTypeHandle<GpuState>                    gpuStateHandle;
+            public ComponentTypeHandle<ResidentRange>               residentRangeHandle;
+            public ComponentTypeHandle<MaterialMeshInfo>            materialMeshInfoHandle;
+            public ComponentTypeHandle<RenderBounds>                renderBoundsHandle;
+            public NativeStream.Writer                              refCountChangeBlocklist;
+            public NativeStream.Writer                              residentDeallocationBlocklist;
 
-            public uint                             lastSystemVersion;
+            public uint lastSystemVersion;
 
             [NativeSetThreadIndex] int             threadIndex;
             UnsafeHashMap<uint, RefCountChangePtr> threadRefCountChangeMap;
@@ -316,7 +316,7 @@ namespace TextMeshDOTS.Rendering
                 }
                 var aabb = new Aabb { Min = new float3(math.min(min.xy, min.zw), 0f), Max = new float3(math.max(max.xy, max.zw), 0f) };
 
-                var center = aabb.Center;
+                var center  = aabb.Center;
                 var extents = aabb.Extents;
                 if (glyphs.Length == 0)
                 {
@@ -334,8 +334,8 @@ namespace TextMeshDOTS.Rendering
         {
             [ReadOnly] public NativeStream.Reader refCountChangeBlocklistA;
             [ReadOnly] public NativeStream.Reader refCountChangeBlocklistB;
-            public GlyphTable              glyphTable;
-            public AtlasTable              atlasTable;
+            public GlyphTable                     glyphTable;
+            public AtlasTable                     atlasTable;
 
             public void Execute()
             {
@@ -346,24 +346,24 @@ namespace TextMeshDOTS.Rendering
                 {
                     ref var stream = ref refCountChangeBlocklistA;
                     if (streamSource == 1)
-                        stream = ref refCountChangeBlocklistB;
+                        stream        = ref refCountChangeBlocklistB;
                     int streamIndices = stream.ForEachCount;
                     for (int streamIndex = 0; streamIndex < streamIndices; streamIndex++)
                     {
                         int elementsInIndex = stream.BeginForEachIndex(streamIndex);
                         for (int i = 0; i < elementsInIndex; i++)
                         {
-                            var delta = stream.Read<RefCountChange>();
-                            ref var entry = ref glyphTable.GetEntryRW(delta.glyphEntryId);
-                            var oldCount = delta.refCountDelta;
-                            entry.refCount += delta.refCountDelta;
+                            var     delta     = stream.Read<RefCountChange>();
+                            ref var entry     = ref glyphTable.GetEntryRW(delta.glyphEntryId);
+                            var     oldCount  = delta.refCountDelta;
+                            entry.refCount   += delta.refCountDelta;
                             if (entry.isInAtlas)
                             {
                                 // There can be duplicate entry IDs. So it is possible we decrease the ref count to 0, only to increase it again.
                                 // Rather than preduplicate them, we add and remove from a hashset. We only consider entries in the atlas that
                                 // had a zero-nonzero change, which makes the set smaller and requires far fewer random accesses.
                                 bool wasEmpty = oldCount <= 0;
-                                bool isEmpty = entry.refCount <= 0;
+                                bool isEmpty  = entry.refCount <= 0;
                                 if (wasEmpty && !isEmpty)
                                     atlasRemovalCandidates.Remove(delta.glyphEntryId);
                                 else if (!wasEmpty && isEmpty)
@@ -393,7 +393,7 @@ namespace TextMeshDOTS.Rendering
         {
             [ReadOnly] public NativeStream.Reader residentDeallocationBlocklistA;
             [ReadOnly] public NativeStream.Reader residentDeallocationBlocklistB;
-            public GlyphGpuTable           gpuTable;
+            public GlyphGpuTable                  gpuTable;
 
             public void Execute()
             {
@@ -404,7 +404,7 @@ namespace TextMeshDOTS.Rendering
                 {
                     ref var stream = ref residentDeallocationBlocklistA;
                     if (streamSource == 1)
-                        stream = ref residentDeallocationBlocklistB;
+                        stream        = ref residentDeallocationBlocklistB;
                     int streamIndices = stream.ForEachCount;
                     for (int streamIndex = 0; streamIndex < streamIndices; streamIndex++)
                     {
