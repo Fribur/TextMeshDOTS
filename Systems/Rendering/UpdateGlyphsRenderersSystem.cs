@@ -234,6 +234,10 @@ namespace TextMeshDOTS.Rendering
                             gpuStates[i].state = GpuState.State.DynamicPromoteToResident;
                             gpuStateMask[i]    = true;
                         }
+                        else if (gpuStates[i].state == GpuState.State.Uncommitted)
+                        {
+                            gpuStateMask[i] = true;
+                        }
                     }
                     return;
                 }
@@ -417,9 +421,9 @@ namespace TextMeshDOTS.Rendering
                     }
                 }
 
-                var totals            = gpuTable.totals.Value;
-                totals.resident       = GapAllocator.CoellesceGaps(gpuTable.residentGaps, totals.resident);
-                gpuTable.totals.Value = totals;
+                var totals                = gpuTable.bufferSize.Value;
+                totals                    = GapAllocator.CoellesceGaps(gpuTable.residentGaps, totals);
+                gpuTable.bufferSize.Value = totals;
             }
         }
     }

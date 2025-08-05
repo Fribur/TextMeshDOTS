@@ -162,21 +162,15 @@ namespace TextMeshDOTS.HarfBuzz
 
     internal partial struct GlyphGpuTable : ICollectionComponent
     {
-        public struct Totals
-        {
-            public uint resident;
-            public uint dynamic;
-        }
-
-        public NativeReference<Totals> totals;
-        public NativeList<uint2>       residentGaps;
-        public NativeList<uint2>       dispatchDynamicGaps;  // Deferred gaps when multiple dispatches need to skip over previous dynamic regions
+        public NativeReference<uint> bufferSize;
+        public NativeList<uint2>     residentGaps;
+        public NativeList<uint2>     dispatchDynamicGaps;  // Deferred gaps when multiple dispatches need to skip over previous dynamic regions
 
         public JobHandle TryDispose(JobHandle inputDeps)
         {
-            if (totals.IsCreated)
+            if (bufferSize.IsCreated)
             {
-                return JobHandle.CombineDependencies(totals.Dispose(inputDeps), residentGaps.Dispose(inputDeps), dispatchDynamicGaps.Dispose(inputDeps));
+                return JobHandle.CombineDependencies(bufferSize.Dispose(inputDeps), residentGaps.Dispose(inputDeps), dispatchDynamicGaps.Dispose(inputDeps));
             }
             return inputDeps;
         }

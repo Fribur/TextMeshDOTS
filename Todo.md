@@ -10,22 +10,22 @@ Phase 2 is currently in progress.
 
 ### Glyph Generation
 
-[ ] Add new RenderGlyph type to entities alongside RenderGlyphOld
-[ ] Populate RenderGlyph inside GlyphGeneration alongside RenderGlyphOld
+- [ ] Add new RenderGlyph type to entities alongside RenderGlyphOld
+- [ ] Populate RenderGlyph inside GlyphGeneration alongside RenderGlyphOld
 
 ### Glyph Generation Optional
 
-[ ] Move glyph line wrapping logic to ShapeJob
-[ ] Internalize/privatize types
-[ ] Clean up namespaces and directory structure
+- [ ] Move glyph line wrapping logic to ShapeJob
+- [ ] Internalize/privatize types
+- [ ] Clean up namespaces and directory structure
 
 ### Dispatch (DreamingImLatios owns this)
 
-[ ] Identify RenderGlyphs to upload and advance residence state machine and material properties
-[ ] Identify glyphs to generate in atlas and create list of atlas array indices to modify
-[ ] Resize atlas arrays and acquire array indices native buffers
-[ ] Generate glyph textures and populate RenderGlyph upload buffers
-[ ] Commit textures and buffers to GPU
+- [x] Identify RenderGlyphs to upload and advance residence state machine and material properties
+- [x] Identify glyphs to generate in atlas and create list of atlas array indices to modify
+- [ ] Resize atlas arrays and acquire array indices native buffers
+- [ ] Generate glyph textures and populate RenderGlyph upload buffers
+- [ ] Commit textures and buffers to GPU
 
 ### Shaders
 
