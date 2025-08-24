@@ -34,16 +34,14 @@ for rendering. The included HDRP and URP shader are wrapper around the TextMeshP
 
   -	Create a `SubScene`
   -	Add empty `GameObject`, and `TextRenderer` component on it
-  - As for font usage, you need to drop all fonts you intend to use in a given TextRender into the `Fonts` list. You got two options for doing so
-    1. `System Fonts`: you want to use fonts that you know can be found on the target device
-    2. you want to include the font files into your build
-  - To use `System Fonts`, you can drop the `ttf` and `otf` files anywhere in your project. Unity cannot be stopped converting this 
-    to a `font` asset, but this font asset is actually not needed and all information in it will be ignored. Drop the
-    `Font` assets you wish to use in a given TextRender into the `Fonts` list. Utilizing harfbuzz, the backer will fetch requiered data 
-    directly from the native `ttf` or `otf`file to be able to find the font at runtime on the device.
-  - To include the font files into your build, create under `Assets` a subfolder called `StreamingAssets`. Drag and drop all 
-    `ttf` and `otf` files you intend to use there. You can organize fonts in further subfolders as you wish. Drag and drop 
-    all font files you wish to use in a given TextRender into the `Fonts` list.
+  - As for font usage, you need to first decide if you like to use "System Fonts", which are fonts you know are present on your target
+    device (PS5, PC, Android, iOS etc), or if you want to embed the font files into your build. Watchout: fonts can be large!
+    1. To use `System Fonts`, drop the `ttf` and `otf` files wherever you like into your project. 
+    2. To use `Embedded Fonts`, create under `Assets` a subfolder called `StreamingAssets`. Drag and drop all 
+    `ttf` and `otf` files you intend to use there. You can organize fonts in further subfolders as you wish.
+  - To use these fonts in a given TextRenderer, drag & drop your desired fonts to the `Fonts` list:
+     1. For `System Fonts`: drag and drop the font assets to the `Fonts` list, and check the "Use System Fonts" checkbox.
+     2. For `Embedded Fonts`: drag and drop the generic assets from `StreamingAssets` to the `Fonts` list.   
   - Please note, that pretty much any font such as "Arial" in Windows actually constists of multiple font files (e.g. one for `regular`,
     one for `bold`, one for `italic`, one for `bold italic`. There can be many more to provide variations of font width 
     (regular, condensed etc) and weigth (Sembibold, Black etc). You need all of these files to enable TextMeshDOTS to 

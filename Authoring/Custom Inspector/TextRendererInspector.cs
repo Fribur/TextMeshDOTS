@@ -17,6 +17,8 @@ namespace TextMeshDOTS
         public override VisualElement CreateInspectorGUI()
         {
             VisualElement myInspector = new VisualElement();
+            if (visualTreeAsset == null)
+                return myInspector;
             var container = visualTreeAsset.Instantiate();
 
             fontCollectionAssetProperty = container.Q<PropertyField>("fontCollectionAsset");

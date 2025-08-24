@@ -89,16 +89,16 @@ namespace TextMeshDOTS
             }
 
         }
-        public void SetGlobalFeatures(in TextBaseConfiguration textBaseConfiguration, uint textLendth)
+        public void SetGlobalFeatures(in TextBaseConfiguration textBaseConfiguration, uint textLength)
         {
             if ((textBaseConfiguration.fontStyles & FontStyles.SmallCaps) == FontStyles.SmallCaps)
-                values.Add(new Feature(Harfbuzz.HB_TAG('s', 'm', 'c', 'p'), 1, 0, textLendth));
+                values.Add(new Feature(Harfbuzz.HB_TAG('s', 'm', 'c', 'p'), 1, 0, textLength));
             if ((textBaseConfiguration.fontStyles & FontStyles.Subscript) == FontStyles.Subscript)
-                values.Add(new Feature(Harfbuzz.HB_TAG('s', 'u', 'b', 's'), 1, 0, textLendth));
+                values.Add(new Feature(Harfbuzz.HB_TAG('s', 'u', 'b', 's'), 1, 0, textLength));
             if ((textBaseConfiguration.fontStyles & FontStyles.Superscript) == FontStyles.Superscript)
-                values.Add(new Feature(Harfbuzz.HB_TAG('s', 'u', 'p', 's'), 1, 0, textLendth));
+                values.Add(new Feature(Harfbuzz.HB_TAG('s', 'u', 'p', 's'), 1, 0, textLength));
             if ((textBaseConfiguration.fontStyles & FontStyles.Fraction) == FontStyles.Fraction)
-                values.Add(new Feature(Harfbuzz.HB_TAG('f', 'r', 'a', 'c'), 1, 0, textLendth));
+                values.Add(new Feature(Harfbuzz.HB_TAG('f', 'r', 'a', 'c'), 1, 0, textLength));
         }
         public void Clear()
         {

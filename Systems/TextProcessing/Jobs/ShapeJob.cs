@@ -1,15 +1,12 @@
-using Unity.Burst.Intrinsics;
+using TextMeshDOTS.HarfBuzz;
+using TextMeshDOTS.Rendering;
 using Unity.Burst;
+using Unity.Burst.Intrinsics;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Profiling;
-using Unity.Collections;
-using TextMeshDOTS.HarfBuzz;
-using System;
 using Buffer = TextMeshDOTS.HarfBuzz.Buffer;
-using TextMeshDOTS.Rendering;
-using UnityEngine;
-using Font = TextMeshDOTS.HarfBuzz.Font;
 
 namespace TextMeshDOTS.TextProcessing
 {
@@ -40,9 +37,6 @@ namespace TextMeshDOTS.TextProcessing
 
         [NativeSetThreadIndex]
         int threadIndex;
-
-        [NativeDisableUnsafePtrRestriction] IntPtr lastFontPtr;
-        bool initialized;
 
         [BurstCompile]
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
@@ -80,8 +74,8 @@ namespace TextMeshDOTS.TextProcessing
 
             FontAssetArray fontAssetArray = default;
             bool hasMultipleFonts = additionalFontMaterialEntityBuffers.Length > 0;
-            var cleanedText = new NativeList<byte>(1024, Allocator.Temp);
-            LayoutConfig2 layoutConfig2 =default;
+            var cleanedString = new NativeText(1024, Allocator.Temp);
+            LayoutConfig2 layoutConfig2 = default;
             FontConfig fontConfiguration = default;
 
             for (int indexInChunk = 0; indexInChunk < chunk.Count; indexInChunk++)
@@ -103,112 +97,133 @@ namespace TextMeshDOTS.TextProcessing
                 {
                     m_selectorBuffer = default;
                     fontAssetArray.Initialize(fontBlobReferenceLookup[rootFontMaterialEntity].value);
-                }
-                var calliString = new CalliString(calliBytesBuffer);
-                var rawCharacters = calliString.GetEnumerator();
-
+                }  
 
                 fontConfiguration.Reset(textBaseConfiguration, ref fontAssetArray);
                 layoutConfig2.Reset(textBaseConfiguration);
-
                 glyphOTFs.Clear();
-                var text = calliBytesBuffer.Reinterpret<byte>();
+                var calliString = new CalliString(calliBytesBuffer);
+                cleanedString.Capacity = calliString.Capacity;         
 
-                var calliStringRaw = new CalliString(calliBytesBuffer);
-                var cleanedString = new NativeText(calliBytesBuffer.Length, Allocator.Temp);
+                if (xmlTagBuffer.Length == 0)
+                    ShapeNoRichText(calliString, ref layoutConfig2, cleanedString, ref fontConfiguration, ref fontAssetArray, ref openTypeFeatures, ref textBaseConfiguration, ref segmentProperties, ref buffer, ref glyphOTFs, ref m_selectorBuffer, hasMultipleFonts);
+                else
+                    ShapeRichText(calliString, ref layoutConfig2, cleanedString, ref fontConfiguration, ref fontAssetArray, ref openTypeFeatures, ref textBaseConfiguration, ref segmentProperties, ref buffer, ref glyphOTFs, ref m_selectorBuffer, ref xmlTagBuffer, hasMultipleFonts);
 
-
-                if (xmlTagBuffer.Length==0) //text has no richtext tags, just search font requested by textBaseConfiguration and shape 
-                {
-                    //copy text into buffer used for shaping, convert case while doing so
-                    while (rawCharacters.MoveNext())
-                    {
-                        var currentRune = rawCharacters.Current;
-                        if ((layoutConfig2.m_fontStyles & FontStyles.UpperCase) == FontStyles.UpperCase)
-                            cleanedString.Append(currentRune.ToUpper());
-                        else if ((layoutConfig2.m_fontStyles & FontStyles.LowerCase) == FontStyles.LowerCase)
-                            cleanedString.Append(currentRune.ToLower());
-                        else
-                            cleanedString.Append(currentRune);
-                    }
-                    //find font Entity requested by combination of font family and style
-                    var fontIndex = fontConfiguration.GetFontIndex(ref fontAssetArray);
-                    //Debug.Log($"Index of font {} is {fontIndex}");
-                    if (fontIndex != -1)
-                        fontConfiguration.m_fontMaterialIndex = fontIndex;
-
-                    openTypeFeatures.SetGlobalFeatures(textBaseConfiguration, (uint)text.Length);
-                    Shape(buffer, cleanedString, 0, cleanedString.Length, ref segmentProperties, ref fontAssetArray, fontConfiguration.m_fontMaterialIndex, openTypeFeatures.values, glyphOTFs, hasMultipleFonts, m_selectorBuffer);
-                    continue;
-                }
-
-                //text has richtext tags. Search segments where font, language, script and direction does does not change (To-Do: use ICU for that),
-                //apply opentype features requested via richtext tags, and shape
-
-                cleanedText.Capacity = calliStringRaw.Capacity;
-                int tagsCounter = 0;
-                XMLTag currentTag;
-
-                var currentFontMaterialIndex = fontConfiguration.m_fontMaterialIndex;
-
-                //copy text into buffer used for shaping, convert case while doing so
-                int nextTagPosition = xmlTagBuffer.Length > 0 ? xmlTagBuffer[tagsCounter].startID : calliString.Length;
-                while (rawCharacters.MoveNext())
-                {
-                    var currentRune = rawCharacters.Current;
-                    while (rawCharacters.NextRuneByteIndex > nextTagPosition)
-                    {
-                        if (tagsCounter < xmlTagBuffer.Length)
-                        {
-                            currentTag = xmlTagBuffer[tagsCounter++];
-                            rawCharacters.GotoByteIndex(currentTag.endID);  // go to ">'
-                            rawCharacters.MoveNext();                       // go to char after '>'
-                            nextTagPosition = tagsCounter < xmlTagBuffer.Length ? xmlTagBuffer[tagsCounter].startID : calliString.Length;
-                            layoutConfig2.Update(ref currentTag);
-                            //Debug.Log($"{currentTag.tagType} {cleanedSegmentLength} {nextTagPositionInCleanedText}");
-                        }
-                        currentRune = rawCharacters.Current;
-                        //continue;
-                    }
-                    if ((layoutConfig2.m_fontStyles & FontStyles.UpperCase) == FontStyles.UpperCase)
-                        cleanedString.Append(currentRune.ToUpper());
-                    else if ((layoutConfig2.m_fontStyles & FontStyles.LowerCase) == FontStyles.LowerCase)
-                        cleanedString.Append(currentRune.ToLower());
-                    else
-                        cleanedString.Append(currentRune);
-                }
-
-                var richTextStartID = 0;
-                var cleanedEnd = 0;
-                var cleanedStart = 0;
-                tagsCounter = 0;
-                while (cleanedStart < cleanedString.Length)
-                {
-                    while (tagsCounter < xmlTagBuffer.Length && fontConfiguration.m_fontMaterialIndex == currentFontMaterialIndex)
-                    {
-                        currentTag = xmlTagBuffer[tagsCounter];
-                        var cleanedInterTagLength = (currentTag.startID - richTextStartID);
-                        cleanedEnd += cleanedInterTagLength;
-                        fontConfiguration.GetCurrentFontIndex(ref currentTag, ref fontAssetArray, ref calliStringRaw);
-                        openTypeFeatures.Update(ref currentTag, cleanedEnd);
-                        tagsCounter++;
-                        richTextStartID = currentTag.endID + 1;
-                    }
-                    openTypeFeatures.FinalizeOpenTypeFeatures(cleanedText.Length);
-                    openTypeFeatures.SetGlobalFeatures(textBaseConfiguration, (uint)cleanedText.Length);
-                    var cleanedSegmentLength = cleanedEnd - cleanedStart;
-                    Shape(buffer, cleanedString, cleanedStart, cleanedSegmentLength, ref segmentProperties, ref fontAssetArray, currentFontMaterialIndex, openTypeFeatures.values, glyphOTFs, hasMultipleFonts, m_selectorBuffer);
-                    currentFontMaterialIndex = fontConfiguration.m_fontMaterialIndex;
-                    cleanedStart = cleanedEnd;
-                    if (tagsCounter == xmlTagBuffer.Length) //last loop in order to shape text between last tag and end of rich text buffer
-                        cleanedEnd = cleanedString.Length;
-                }
                 cleanedString.Clear();
             }           
             //add missing glyphs identifed in chunks processed by this thread to missingGlyphs
             missingGlyphsStream.EndForEachIndex();
             buffer.Dispose();
         }
+
+        void AppendAndConvertCase(NativeText cleanedString, FontStyles fontStyles, ref Unicode.Rune currentRune)
+        {
+            if ((fontStyles & FontStyles.UpperCase) == FontStyles.UpperCase)
+                cleanedString.Append(currentRune.ToUpper());
+            else if ((fontStyles & FontStyles.LowerCase) == FontStyles.LowerCase)
+                cleanedString.Append(currentRune.ToLower());
+            else
+                cleanedString.Append(currentRune);
+        }
+        void ShapeNoRichText(CalliString calliString, 
+            ref LayoutConfig2 layoutConfig2, 
+            NativeText cleanedString, 
+            ref FontConfig fontConfiguration, 
+            ref FontAssetArray fontAssetArray,
+            ref OpenTypeFeatureConfig openTypeFeatures,
+            ref TextBaseConfiguration textBaseConfiguration,
+            ref SegmentProperties segmentProperties,
+            ref Buffer buffer,
+            ref DynamicBuffer<GlyphOTF> glyphOTFs,
+            ref DynamicBuffer<FontMaterialSelectorForGlyph> m_selectorBuffer,
+            bool hasMultipleFonts)
+        {
+            var rawCharacters = calliString.GetEnumerator();
+            int currentFontMaterialIndex = fontConfiguration.m_fontMaterialIndex;
+            //copy text into buffer used for shaping, convert case while doing so
+            while (rawCharacters.MoveNext())
+            {
+                var currentRune = rawCharacters.Current;
+                AppendAndConvertCase(cleanedString, layoutConfig2.m_fontStyles, ref currentRune);
+            }
+            //find font Entity requested by combination of font family and style
+            fontConfiguration.GetFontIndex(ref fontAssetArray);
+            openTypeFeatures.SetGlobalFeatures(textBaseConfiguration, (uint)cleanedString.Length);
+            Shape(buffer, cleanedString, 0, cleanedString.Length, ref segmentProperties, ref fontAssetArray, currentFontMaterialIndex, openTypeFeatures.values, glyphOTFs, hasMultipleFonts, m_selectorBuffer);            
+        }
+
+        void ShapeRichText(CalliString calliString,
+          ref LayoutConfig2 layoutConfig2,
+          NativeText cleanedString,
+          ref FontConfig fontConfiguration,
+          ref FontAssetArray fontAssetArray,
+          ref OpenTypeFeatureConfig openTypeFeatures,
+          ref TextBaseConfiguration textBaseConfiguration,
+          ref SegmentProperties segmentProperties,
+          ref Buffer buffer,
+          ref DynamicBuffer<GlyphOTF> glyphOTFs,
+          ref DynamicBuffer<FontMaterialSelectorForGlyph> m_selectorBuffer,
+          ref DynamicBuffer<XMLTag> xmlTagBuffer,
+          bool hasMultipleFonts)
+        {
+            //text has richtext tags. Search segments where font, language, script and direction does does not change (To-Do: use ICU for that),
+            //apply opentype features requested via richtext tags, and shape
+            var rawCharacters = calliString.GetEnumerator();
+            int currentFontMaterialIndex = fontConfiguration.m_fontMaterialIndex;
+            int tagsCounter = 0;
+            var nextTagPosition = tagsCounter < xmlTagBuffer.Length ? xmlTagBuffer[tagsCounter].startID : calliString.Length;
+            
+
+            //copy text into buffer used for shaping, convert case while doing so
+            bool keepGoing;
+            XMLTag currentTag;
+            while (keepGoing = rawCharacters.MoveNext())
+            {
+                var currentRune = rawCharacters.Current;
+                while (tagsCounter < xmlTagBuffer.Length && rawCharacters.NextRuneByteIndex > nextTagPosition)
+                {
+                    currentTag = xmlTagBuffer[tagsCounter];
+                    rawCharacters.GotoByteIndex(currentTag.endID);              // go to ">'
+                    keepGoing = rawCharacters.MoveNext();                       // go to char after '>'                        
+                    layoutConfig2.Update(ref currentTag);
+                    currentRune = rawCharacters.Current;
+                    tagsCounter++;
+                    nextTagPosition = tagsCounter < xmlTagBuffer.Length ? xmlTagBuffer[tagsCounter].startID : calliString.Length;
+                    //continue;
+                }
+                if (!keepGoing)
+                    continue;
+                AppendAndConvertCase(cleanedString, layoutConfig2.m_fontStyles, ref currentRune);
+            }
+
+            var richTextStartID = 0;
+            var cleanedEnd = 0;
+            var cleanedStart = 0;
+            tagsCounter = 0;
+            while (cleanedStart < cleanedString.Length)
+            {
+                while (tagsCounter < xmlTagBuffer.Length && fontConfiguration.m_fontMaterialIndex == currentFontMaterialIndex)
+                {
+                    currentTag = xmlTagBuffer[tagsCounter];
+                    var cleanedInterTagLength = (currentTag.startID - richTextStartID);
+                    cleanedEnd += cleanedInterTagLength;
+                    fontConfiguration.GetCurrentFontIndex(ref currentTag, ref fontAssetArray, ref calliString);
+                    openTypeFeatures.Update(ref currentTag, cleanedEnd);
+                    tagsCounter++;
+                    richTextStartID = currentTag.endID + 1;
+                }
+                openTypeFeatures.FinalizeOpenTypeFeatures(cleanedString.Length);
+                openTypeFeatures.SetGlobalFeatures(textBaseConfiguration, (uint)cleanedString.Length);
+                var cleanedSegmentLength = cleanedEnd - cleanedStart;
+                Shape(buffer, cleanedString, cleanedStart, cleanedSegmentLength, ref segmentProperties, ref fontAssetArray, currentFontMaterialIndex, openTypeFeatures.values, glyphOTFs, hasMultipleFonts, m_selectorBuffer);
+                currentFontMaterialIndex = fontConfiguration.m_fontMaterialIndex;
+                cleanedStart = cleanedEnd;
+                if (tagsCounter == xmlTagBuffer.Length) //last loop in order to shape text between last tag and end of rich text buffer
+                    cleanedEnd = cleanedString.Length;
+            }
+        }
+
         void Shape(Buffer buffer,
             //NativeArray<byte> text,
             NativeText text,

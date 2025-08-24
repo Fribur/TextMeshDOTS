@@ -144,7 +144,12 @@ namespace TextMeshDOTS.TextProcessing
             }
             else
             {
-                var fontPath = Path.Combine(Application.streamingAssetsPath, fontRequest.fontAssetPath.ToString());
+                string fontPath;
+                if (fontRequest.streamingAssetLocationValidated)
+                    fontPath = Path.Combine(Application.streamingAssetsPath, fontRequest.fontAssetPath.ToString());
+                else
+                    fontPath = fontRequest.fontAssetPath.ToString();
+
                 if (!File.Exists(fontPath))
                 {
                     Debug.Log($"Could not find font in {fontPath}");

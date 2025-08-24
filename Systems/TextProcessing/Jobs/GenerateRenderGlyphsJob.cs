@@ -11,8 +11,8 @@ namespace TextMeshDOTS.TextProcessing
     [BurstCompile]    
     public partial struct GenerateRenderGlyphsJob : IJobChunk
     {
-        public BufferTypeHandle<RenderGlyphOld> oldRenderGlyphHandle;
         public BufferTypeHandle<RenderGlyph> renderGlyphHandle;
+        public BufferTypeHandle<RenderGlyphOld> renderGlyphOldHandle;
         public ComponentTypeHandle<TextRenderControl> textRenderControlHandle;
 
         [ReadOnly] internal FontTable fontTable;
@@ -53,6 +53,7 @@ namespace TextMeshDOTS.TextProcessing
             var xmlTagBuffers = chunk.GetBufferAccessor(ref xmlTagHandle);
             var oldRenderGlyphBuffers = chunk.GetBufferAccessor(ref oldRenderGlyphHandle);
             var renderGlyphBuffers = chunk.GetBufferAccessor(ref renderGlyphHandle);
+            var renderGlyphOldBuffers = chunk.GetBufferAccessor(ref renderGlyphOldHandle);
             var textBaseConfigurations = chunk.GetNativeArray(ref textBaseConfigurationHandle);
             var textRenderControls = chunk.GetNativeArray(ref textRenderControlHandle);
 
@@ -71,8 +72,8 @@ namespace TextMeshDOTS.TextProcessing
                 var calliBytes = calliBytesBuffers[indexInChunk];
                 var glyphOTFs = glyphOTFBuffers[indexInChunk];
                 var xmlTags = xmlTagBuffers[indexInChunk];
-                var oldRenderGlyphs = oldRenderGlyphBuffers[indexInChunk];
-                var renderGlyph = renderGlyphBuffers[indexInChunk];
+                var renderGlyphs = renderGlyphBuffers[indexInChunk];
+                var renderGlyphsOld = renderGlyphOldBuffers[indexInChunk];
                 var textBaseConfiguration = textBaseConfigurations[indexInChunk];
                 var textRenderControl = textRenderControls[indexInChunk];
                  
@@ -88,8 +89,8 @@ namespace TextMeshDOTS.TextProcessing
                                                    ref fontAssetArray,
                                                    ref dynamicFontAssetsLookup,
                                                    ref fontAssetRefLookup,
-                                                   ref oldRenderGlyphs,
-                                                   ref renderGlyph,
+                                                   ref renderGlyphs,
+                                                   ref renderGlyphsOld,
                                                    in calliBytes,
                                                    in glyphOTFs,
                                                    in xmlTags,

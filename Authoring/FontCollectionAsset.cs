@@ -86,13 +86,32 @@ namespace TextMeshDOTS.Authoring
         }
         bool GetFontInfo(Object fontItem, bool useSystemFont, out FontRequest fontInfo)
         {
-            var fontAssetPath = AssetDatabase.GetAssetPath(fontItem);
             fontInfo = new FontRequest();
-            bool isTrueType = fontAssetPath.EndsWith("ttf", System.StringComparison.OrdinalIgnoreCase);
-            bool isOpentype = fontAssetPath.EndsWith("otf", System.StringComparison.OrdinalIgnoreCase);
-            //fontInfo.fontAssetPath = useSystemFont ? "" : fontAssetPath;
-            fontInfo.fontAssetPath = useSystemFont ? string.Empty : fontAssetPath.Substring(fontAssetPath.IndexOf("StreamingAssets") + 16);
             fontInfo.useSystemFont = useSystemFont;
+            string fontAssetPath = default;
+#if UNITY_EDITOR
+            fontAssetPath = AssetDatabase.GetAssetPath(fontItem);
+#endif
+            if (useSystemFont)
+                fontInfo.fontAssetPath = string.Empty;
+            else
+            {
+                var pathIndex = fontAssetPath.IndexOf("Assets/StreamingAssets");
+                if (pathIndex == -1)
+                {
+                    fontInfo.streamingAssetLocationValidated = false;
+                    Debug.LogWarning($"Unless you want to use System Fonts, the source font asset MUST be in \"Assets/StreamingAssets\"! Font cannot be loaded in a build from current location \"{fontAssetPath}\"");
+                    fontInfo.fontAssetPath = Path.GetFullPath(fontAssetPath);
+                }
+                else
+                {
+                    fontInfo.streamingAssetLocationValidated = true;
+                    fontInfo.fontAssetPath = fontAssetPath.Substring(pathIndex + 23);
+                }
+            }
+            
+            bool isTrueType = fontAssetPath.EndsWith("ttf", System.StringComparison.OrdinalIgnoreCase);
+            bool isOpentype = fontAssetPath.EndsWith("otf", System.StringComparison.OrdinalIgnoreCase);            
             if (isOpentype || isTrueType)
             {
                 var fontBytes = File.ReadAllBytes(fontAssetPath);

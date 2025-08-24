@@ -5,9 +5,7 @@ using TextMeshDOTS.HarfBuzz;
 using TextMeshDOTS.Rendering;
 using Unity.Jobs;
 using Unity.Collections;
-using UnityEngine;
 using Unity.Collections.LowLevel.Unsafe;
-using System;
 using Font = TextMeshDOTS.HarfBuzz.Font;
 using System.Collections.Generic;
 

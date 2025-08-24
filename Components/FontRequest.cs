@@ -11,6 +11,7 @@ namespace TextMeshDOTS
     {
         [SerializeField] public FontAssetRef fontAssetRef; //weight, width, italic, slant fields are redundantly stored here, but facilitates lookup of font Entities
         public FixedString128Bytes fontAssetPath;
+        public bool streamingAssetLocationValidated;
         public FixedString128Bytes fontFamily;
         public FixedString128Bytes fontSubFamily;
         public FixedString128Bytes typographicFamily;
