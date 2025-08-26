@@ -30,8 +30,8 @@ Phase 2 is currently in progress.
 
 ### Shaders
 
-[ ] Create new RenderGlyph reader hlsl file
-[ ] Create unified atlas shader (branch on SDF8, SDF16, and Bitmap based on glyph)
+- [x] Create new RenderGlyph reader hlsl file
+- [ ] Create unified atlas shader (branch on SDF8, SDF16, and Bitmap based on glyph)
 
 ## Phase 3 - Jobify Font Loading and Optimize
 

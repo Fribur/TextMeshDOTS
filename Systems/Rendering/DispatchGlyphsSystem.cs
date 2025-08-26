@@ -65,7 +65,7 @@ namespace TextMeshDOTS.Rendering
 
             _tmdSdf8   = Shader.PropertyToID("_tmdSdf8");
             _tmdSdf16  = Shader.PropertyToID("_tmdSdf16");
-            _tmdBitmap = Shader.PropertyToID("_tmdSdfBitmap");
+            _tmdBitmap = Shader.PropertyToID("_tmdBitmap");
             _tmdGlyphs = Shader.PropertyToID("_tmdGlyphs");
 
             var atlas = new AtlasTable(Allocator.Persistent, kTextureDimension, kShelfAlignment);

@@ -8,7 +8,7 @@ uniform ByteAddressBuffer _meta;
 
 uint _startOffset;
 
-void processGlyph(uint src, uint dst, uint options)
+void processGlyph(uint src, uint dst)
 {
     _dst.Store4(dst, _src.Load4(src));
     _dst.Store4(dst + 16, _src.Load4(src + 16));
@@ -17,7 +17,10 @@ void processGlyph(uint src, uint dst, uint options)
     _dst.Store4(dst + 64, _src.Load4(src + 64));
     _dst.Store4(dst + 80, _src.Load4(src + 80));
     _dst.Store4(dst + 96, _src.Load4(src + 96));
-    _dst.Store4(dst + 112, _src.Load4(src + 112));
+    uint4 lastLoad = _src.Load4(src + 112);
+    float arrayIndex = (float)lastLoad.x;
+    lastLoad.x = asuint(arrayIndex);
+    _dst.Store4(dst + 112, lastLoad);
 }
 
 [numthreads(64, 1, 1)]
@@ -34,13 +37,13 @@ void UploadGlyphs (uint threadId : SV_GroupIndex, uint3 groupIds : SV_GroupID)
     {
         uint src = (srcBase + i + threadId) * 96;
         uint dst = (dstBase + i + threadId) * 96;
-        processGlyph(src, dst, options);
+        processGlyph(src, dst);
     }
 
     if (i + threadId < elementCount)
     {
         uint src = (srcBase + i + threadId) * 96;
         uint dst = (dstBase + i + threadId) * 96;
-        processGlyph(src, dst, options);
+        processGlyph(src, dst);
     }
 }
