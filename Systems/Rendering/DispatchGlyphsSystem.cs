@@ -151,11 +151,74 @@ namespace TextMeshDOTS.Rendering
 
         public WriteState Write(ref SystemState state, ref CollectState collected)
         {
-            return default;
+            WriteState writeState = default;
+
+            if (collected.glyphsToUpload.IsEmpty && collected.glyphEntryIDsToRasterize.IsEmpty)
+                return writeState;
+
+            var rasterizeJh    = state.Dependency;
+            var uploadGlyphsJh = rasterizeJh;
+
+            if (!collected.glyphEntryIDsToRasterize.IsEmpty)
+            {
+                // Todo:
+            }
+            if (!collected.glyphsToUpload.IsEmpty)
+            {
+                var lastCapture      = collected.glyphsToUpload[collected.glyphsToUpload.Length - 1];
+                var glyphCount       = lastCapture.writeStart + lastCapture.glyphCount;
+                var uploadBuffer     = m_byteAddressUploadBuffers.Allocate(glyphCount * UnsafeUtility.SizeOf<RenderGlyph>() / 4);
+                var uploadArray      = uploadBuffer.LockBufferForWrite<RenderGlyph>(0, glyphCount);
+                var captureCount     = collected.glyphsToUpload.Length;
+                var uploadMetaBuffer = m_byteAddressUploadBuffers.Allocate(captureCount * 3);
+                var uploadMetaArray  = uploadMetaBuffer.LockBufferForWrite<uint3>(0, captureCount);
+
+                var glyphTable = SystemAPI.GetSingleton<GlyphTable>();
+
+                uploadGlyphsJh = new WriteRenderGlyphsToGpuJob
+                {
+                    captures        = collected.glyphsToUpload.AsArray(),
+                    uploadArray     = uploadArray,
+                    uploadMetaArray = uploadMetaArray,
+                    glyphTable      = glyphTable
+                }.ScheduleParallel(collected.glyphsToUpload.Length, 8, uploadGlyphsJh);
+
+                writeState.uploadBuffer               = uploadBuffer;
+                writeState.uploadBufferWriteCount     = glyphCount;
+                writeState.uploadMetaBuffer           = uploadMetaBuffer;
+                writeState.uploadMetaBufferWriteCount = captureCount;
+            }
+
+            state.Dependency = JobHandle.CombineDependencies(rasterizeJh, uploadGlyphsJh);
+            return writeState;
         }
 
         public void Dispatch(ref SystemState state, ref WriteState written)
         {
+            if (written.uploadBufferWriteCount > 0)
+            {
+                var glyphGpuTable = SystemAPI.GetSingleton<GlyphGpuTable>();
+
+                written.uploadMetaBuffer.UnlockBufferAfterWrite<uint3>(written.uploadMetaBufferWriteCount);
+                written.uploadBuffer.UnlockBufferAfterWrite<RenderGlyph>(written.uploadBufferWriteCount);
+
+                var persistentBuffer = m_glyphsBuffer.GetBuffer(glyphGpuTable.bufferSize.Value);
+                var shader           = m_uploadGlyphsShader.Value;
+                shader.SetBuffer(0, _dst,  persistentBuffer);
+                shader.SetBuffer(0, _src,  written.uploadBuffer);
+                shader.SetBuffer(0, _meta, written.uploadMetaBuffer);
+
+                for (uint dispatchesRemaining = (uint)written.uploadMetaBufferWriteCount, offset = 0; dispatchesRemaining > 0;)
+                {
+                    uint dispatchCount = math.min(dispatchesRemaining, 65535);
+                    shader.SetInt(_startOffset, (int)offset);
+                    shader.Dispatch(0, (int)dispatchCount, 1, 1);
+                    offset              += dispatchCount;
+                    dispatchesRemaining -= dispatchCount;
+                }
+
+                Shader.SetGlobalBuffer(_tmdGlyphs, persistentBuffer);
+            }
         }
 
         public struct CollectState
@@ -167,6 +230,10 @@ namespace TextMeshDOTS.Rendering
 
         public struct WriteState
         {
+            internal GraphicsBuffer uploadBuffer;
+            internal GraphicsBuffer uploadMetaBuffer;
+            internal int            uploadBufferWriteCount;
+            internal int            uploadMetaBufferWriteCount;
         }
 
         internal struct RenderGlyphCapture
@@ -180,6 +247,7 @@ namespace TextMeshDOTS.Rendering
             public int              gpuStart;
         }
 
+        #region Collect Jobs
         [BurstCompile]
         struct AllocateJob : IJob
         {
@@ -353,6 +421,38 @@ namespace TextMeshDOTS.Rendering
                     atlasDirtyIDs.AddNoResize(id);
             }
         }
+        #endregion
+
+        #region Write Jobs
+        [BurstCompile]
+        struct WriteRenderGlyphsToGpuJob : IJobFor
+        {
+            [ReadOnly] public GlyphTable                      glyphTable;
+            [ReadOnly] public NativeArray<RenderGlyphCapture> captures;
+            public NativeArray<RenderGlyph>                   uploadArray;
+            public NativeArray<uint3>                         uploadMetaArray;
+
+            public void Execute(int index)
+            {
+                const float kTextureResolutionFloatInverse = 1f / kTextureDimension;
+                var         capture                        = captures[index];
+                for (int i = 0; i < capture.glyphCount; i++)
+                {
+                    var glyph = capture.glyphBuffer[i];
+                    var entry = glyphTable.GetEntry(glyph.glyphEntryId);
+
+                    glyph.arrayIndex = (uint)entry.z;
+                    // Todo: Currently we are overwriting these values because glyph generation doesn't need to augment these.
+                    // Should we change that there? Or should we change the RenderGlyph comment?
+                    glyph.blUVA = new float2(entry.x, entry.y) * kTextureResolutionFloatInverse;
+                    glyph.trUVA = glyph.blUVA + new float2(entry.width, entry.height) * kTextureResolutionFloatInverse;
+
+                    uploadArray[capture.writeStart + i] = glyph;
+                }
+                uploadMetaArray[index] = new uint3((uint)capture.writeStart, (uint)capture.gpuStart, (uint)capture.glyphCount);
+            }
+        }
+        #endregion
     }
 }
 
