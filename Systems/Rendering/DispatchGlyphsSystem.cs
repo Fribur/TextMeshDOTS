@@ -27,9 +27,9 @@ namespace TextMeshDOTS.Rendering
         PersistentBuffer         m_glyphsBuffer;
         GraphicsBufferUploadPool m_byteAddressUploadBuffers;
 
-        UnityObjectRef<Texture2DArray> m_sdf8Array;
-        UnityObjectRef<Texture2DArray> m_sdf16Array;
-        UnityObjectRef<Texture2DArray> m_bitmapArray;
+        TextureAtlasArray<byte>    m_sdf8Array;
+        TextureAtlasArray<ushort>  m_sdf16Array;
+        TextureAtlasArray<Color32> m_bitmapArray;
 
         // Shader bindings
         int _src;
@@ -54,10 +54,6 @@ namespace TextMeshDOTS.Rendering
             m_glyphsBuffer             = new PersistentBuffer(1024 * 16 * 128, 4, GraphicsBuffer.Target.Raw, m_copyBytesShader);
             m_byteAddressUploadBuffers = new GraphicsBufferUploadPool(1024 * 8 * 4, GraphicsBuffer.Target.Raw, 4);
 
-            m_sdf8Array   = new Texture2DArray(kTextureDimension, kTextureDimension, 2, TextureFormat.R8, false);
-            m_sdf16Array  = new Texture2DArray(kTextureDimension, kTextureDimension, 2, TextureFormat.R16, false);
-            m_bitmapArray = new Texture2DArray(kTextureDimension, kTextureDimension, 2, TextureFormat.RGBA32, true);
-
             _src         = Shader.PropertyToID("_src");
             _dst         = Shader.PropertyToID("_dst");
             _startOffset = Shader.PropertyToID("_startOffset");
@@ -67,6 +63,10 @@ namespace TextMeshDOTS.Rendering
             _tmdSdf16  = Shader.PropertyToID("_tmdSdf16");
             _tmdBitmap = Shader.PropertyToID("_tmdBitmap");
             _tmdGlyphs = Shader.PropertyToID("_tmdGlyphs");
+
+            m_sdf8Array   = new TextureAtlasArray<byte>(_tmdSdf8, kTextureDimension, 2, TextureFormat.R8, false);
+            m_sdf16Array  = new TextureAtlasArray<ushort>(_tmdSdf16, kTextureDimension, 2, TextureFormat.R16, false);
+            m_bitmapArray = new TextureAtlasArray<Color32>(_tmdBitmap, kTextureDimension, 2, TextureFormat.RGBA32, true);
 
             var atlas = new AtlasTable(Allocator.Persistent, kTextureDimension, kShelfAlignment);
             EntityManager.CreateSingleton(atlas);
@@ -92,6 +92,10 @@ namespace TextMeshDOTS.Rendering
             Shader.SetGlobalTexture(_tmdSdf8,   t);
             Shader.SetGlobalTexture(_tmdSdf16,  t);
             Shader.SetGlobalTexture(_tmdBitmap, t);
+
+            m_sdf8Array.Dispose();
+            m_sdf16Array.Dispose();
+            m_bitmapArray.Dispose();
         }
 
         public CollectState Collect(ref SystemState state)
@@ -161,7 +165,51 @@ namespace TextMeshDOTS.Rendering
 
             if (!collected.glyphEntryIDsToRasterize.IsEmpty)
             {
-                // Todo:
+                int dirtySdf8Count;
+                for (dirtySdf8Count = 0; dirtySdf8Count < collected.atlasDirtyIDs.Length; dirtySdf8Count++)
+                {
+                    var dirtyId = collected.atlasDirtyIDs[dirtySdf8Count];
+                    if (dirtyId >= 0x40000000u)
+                        break;
+                }
+                int dirtySdf16Count;
+                for (dirtySdf16Count = dirtySdf8Count; dirtySdf16Count < collected.atlasDirtyIDs.Length; dirtySdf16Count++)
+                {
+                    var dirtyId = collected.atlasDirtyIDs[dirtySdf8Count];
+                    if (dirtyId >= 0x80000000u)
+                        break;
+                }
+                dirtySdf16Count      -= dirtySdf8Count;
+                var dirtyBitmapCount  = collected.atlasDirtyIDs.Length - dirtySdf8Count - dirtySdf16Count;
+
+                var sdf8Ptrs = CollectionHelper.CreateNativeArray<TextureAtlasArray<byte>.AtlasPtr>(dirtySdf8Count,
+                                                                                                    state.WorldUpdateAllocator,
+                                                                                                    NativeArrayOptions.UninitializedMemory);
+                var sdf16Ptrs = CollectionHelper.CreateNativeArray<TextureAtlasArray<ushort>.AtlasPtr>(dirtySdf8Count,
+                                                                                                       state.WorldUpdateAllocator,
+                                                                                                       NativeArrayOptions.UninitializedMemory);
+                var bitmapPtrs = CollectionHelper.CreateNativeArray<TextureAtlasArray<Color32>.AtlasPtr>(dirtySdf8Count,
+                                                                                                         state.WorldUpdateAllocator,
+                                                                                                         NativeArrayOptions.UninitializedMemory);
+
+                if (dirtySdf8Count > 0)
+                {
+                    m_sdf8Array.GetAtlasPtrsForDirtyIndices(collected.atlasDirtyIDs.AsArray().GetSubArray(0, dirtySdf8Count).AsSpan(), sdf8Ptrs.AsSpan());
+                    writeState.isSdf8Dirty = true;
+                }
+                if (dirtySdf16Count > 0)
+                {
+                    m_sdf16Array.GetAtlasPtrsForDirtyIndices(collected.atlasDirtyIDs.AsArray().GetSubArray(dirtySdf8Count, dirtySdf16Count).AsSpan(), sdf16Ptrs.AsSpan());
+                    writeState.isSdf16Dirty = true;
+                }
+                if (dirtySdf16Count > 0)
+                {
+                    m_bitmapArray.GetAtlasPtrsForDirtyIndices(collected.atlasDirtyIDs.AsArray().GetSubArray(dirtySdf8Count + dirtySdf16Count, dirtyBitmapCount).AsSpan(),
+                                                              bitmapPtrs.AsSpan());
+                    writeState.isBitmapDirty = true;
+                }
+
+                // Todo: Schedule job
             }
             if (!collected.glyphsToUpload.IsEmpty)
             {
@@ -195,6 +243,13 @@ namespace TextMeshDOTS.Rendering
 
         public void Dispatch(ref SystemState state, ref WriteState written)
         {
+            if (written.isSdf8Dirty)
+                m_sdf8Array.ApplyChanges();
+            if (written.isSdf16Dirty)
+                m_sdf16Array.ApplyChanges();
+            if (written.isBitmapDirty)
+                m_bitmapArray.ApplyChanges();
+
             if (written.uploadBufferWriteCount > 0)
             {
                 var glyphGpuTable = SystemAPI.GetSingleton<GlyphGpuTable>();
@@ -230,6 +285,10 @@ namespace TextMeshDOTS.Rendering
 
         public struct WriteState
         {
+            internal bool isSdf8Dirty;
+            internal bool isSdf16Dirty;
+            internal bool isBitmapDirty;
+
             internal GraphicsBuffer uploadBuffer;
             internal GraphicsBuffer uploadMetaBuffer;
             internal int            uploadBufferWriteCount;
@@ -419,6 +478,7 @@ namespace TextMeshDOTS.Rendering
                 atlasDirtyIDs.Capacity = dirtyAtlasIDSet.Count;
                 foreach (var id in dirtyAtlasIDSet)
                     atlasDirtyIDs.AddNoResize(id);
+                atlasDirtyIDs.Sort();
             }
         }
         #endregion

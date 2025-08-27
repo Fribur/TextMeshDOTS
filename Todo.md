@@ -16,23 +16,51 @@ Phase 2 is currently in progress.
 ### Glyph Generation Optional
 
 - [ ] Move glyph line wrapping logic to ShapeJob
-- [ ] Internalize/privatize types
-- [ ] Clean up namespaces and directory structure
+
 
 ### Dispatch (DreamingImLatios owns this)
 
 - [x] Identify RenderGlyphs to upload and advance residence state machine and material properties
 - [x] Identify glyphs to generate in atlas and create list of atlas array indices to modify
 - [x] Upload RenderGlyphs to GPU
-- [ ] Resize atlas arrays and acquire array indices native buffers
+- [x] Resize atlas arrays and acquire array indices native buffers
 - [ ] Generate glyph textures
-- [ ] Commit textures to GPU
+- [x] Commit textures to GPU
 
 ### Shaders
 
 - [x] Create new RenderGlyph reader hlsl file
 - [ ] Create unified atlas shader (branch on SDF8, SDF16, and Bitmap based on glyph)
 
+### Final Steps
+
+- [ ] Move TextShaderIndex to TextShaderIndexOld and replace with TextShaderIndex for new pipeline
+- [ ] Enable creation of new rendering path systems
+- [ ] Create temporary workflow so that each entity can pick which rendering path it uses
+- [ ] Debug, readable text
+- [ ] Debug, correctly rendered text
+- [ ] Debug, feature parity
+
 ## Phase 3 - Jobify Font Loading and Optimize
 
 Phase 3 has not started yet
+
+### Cleanup
+
+- [ ] Remove old component types from entities and temporary rendering path switching workflow
+- [ ] Delete dead code
+- [ ] Internalize/privatize types
+- [ ] Clean up namespaces, directory structure, and code organization
+
+### Improve
+
+- [ ] Move glyph line wrapping logic to ShapeJob
+- [ ] Double-buffer CalliByte with PreviousCalliByte for aggressive change filtering
+- [ ] Jobify font loading reactively (probably needs more breakdown)
+- [ ] Support sprites
+
+### Optimize
+
+- [ ] Optimize job scheduling bubbles
+- [ ] Optimize SDF generation
+- [ ] Optimize rasterization
