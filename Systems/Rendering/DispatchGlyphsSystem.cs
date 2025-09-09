@@ -1,4 +1,6 @@
+using static Unity.Entities.SystemAPI;
 using TextMeshDOTS.HarfBuzz;
+using TextMeshDOTS.HarfBuzz.Bitmap;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
@@ -8,8 +10,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Rendering;
 using UnityEngine;
-
-using static Unity.Entities.SystemAPI;
+using UnityEngine.TextCore;
 
 namespace TextMeshDOTS.Rendering
 {
@@ -30,6 +31,9 @@ namespace TextMeshDOTS.Rendering
         TextureAtlasArray<byte>    m_sdf8Array;
         TextureAtlasArray<ushort>  m_sdf16Array;
         TextureAtlasArray<Color32> m_bitmapArray;
+
+        DrawDelegates  m_drawDelegates;
+        PaintDelegates m_paintDelegates;
 
         // Shader bindings
         int _src;
@@ -68,6 +72,9 @@ namespace TextMeshDOTS.Rendering
             m_sdf16Array  = new TextureAtlasArray<ushort>(_tmdSdf16, kTextureDimension, 2, TextureFormat.R16, false);
             m_bitmapArray = new TextureAtlasArray<Color32>(_tmdBitmap, kTextureDimension, 2, TextureFormat.RGBA32, true);
 
+            m_drawDelegates  = new DrawDelegates(true);
+            m_paintDelegates = new PaintDelegates(true);
+
             var atlas = new AtlasTable(Allocator.Persistent, kTextureDimension, kShelfAlignment);
             EntityManager.CreateSingleton(atlas);
         }
@@ -96,6 +103,9 @@ namespace TextMeshDOTS.Rendering
             m_sdf8Array.Dispose();
             m_sdf16Array.Dispose();
             m_bitmapArray.Dispose();
+
+            m_drawDelegates.Dispose();
+            m_paintDelegates.Dispose();
         }
 
         public CollectState Collect(ref SystemState state)
@@ -160,6 +170,9 @@ namespace TextMeshDOTS.Rendering
             if (collected.glyphsToUpload.IsEmpty && collected.glyphEntryIDsToRasterize.IsEmpty)
                 return writeState;
 
+            var glyphTable = SystemAPI.GetSingleton<GlyphTable>();
+            var fontTable  = SystemAPI.GetSingleton<FontTable>();
+
             var rasterizeJh    = state.Dependency;
             var uploadGlyphsJh = rasterizeJh;
 
@@ -209,7 +222,17 @@ namespace TextMeshDOTS.Rendering
                     writeState.isBitmapDirty = true;
                 }
 
-                // Todo: Schedule job
+                rasterizeJh = new RasterizeJob
+                {
+                    bitmapPtrs               = bitmapPtrs,
+                    drawDelegates            = m_drawDelegates,
+                    fontTable                = fontTable,
+                    glyphEntryIDsToRasterize = collected.glyphEntryIDsToRasterize.AsArray(),
+                    glyphTable               = glyphTable,
+                    paintDelegates           = m_paintDelegates,
+                    sdf16Ptrs                = sdf16Ptrs,
+                    sdf8Ptrs                 = sdf8Ptrs,
+                }.ScheduleParallel(collected.glyphEntryIDsToRasterize.Length, 1, rasterizeJh);
             }
             if (!collected.glyphsToUpload.IsEmpty)
             {
@@ -220,8 +243,6 @@ namespace TextMeshDOTS.Rendering
                 var captureCount     = collected.glyphsToUpload.Length;
                 var uploadMetaBuffer = m_byteAddressUploadBuffers.Allocate(captureCount * 3);
                 var uploadMetaArray  = uploadMetaBuffer.LockBufferForWrite<uint3>(0, captureCount);
-
-                var glyphTable = SystemAPI.GetSingleton<GlyphTable>();
 
                 uploadGlyphsJh = new WriteRenderGlyphsToGpuJob
                 {
@@ -484,6 +505,108 @@ namespace TextMeshDOTS.Rendering
         #endregion
 
         #region Write Jobs
+        [BurstCompile]
+        struct RasterizeJob : IJobFor
+        {
+            [ReadOnly] public NativeArray<uint>                                                           glyphEntryIDsToRasterize;
+            [ReadOnly] public GlyphTable                                                                  glyphTable;
+            [ReadOnly] public FontTable                                                                   fontTable;
+            [NativeDisableParallelForRestriction] public NativeArray<TextureAtlasArray<byte>.AtlasPtr>    sdf8Ptrs;
+            [NativeDisableParallelForRestriction] public NativeArray<TextureAtlasArray<ushort>.AtlasPtr>  sdf16Ptrs;
+            [NativeDisableParallelForRestriction] public NativeArray<TextureAtlasArray<Color32>.AtlasPtr> bitmapPtrs;
+
+            public DrawDelegates  drawDelegates;
+            public PaintDelegates paintDelegates;
+
+            [NativeDisableContainerSafetyRestriction] DrawData drawData;
+            [NativeSetThreadIndex] int                         threadIndex;
+
+            public void Execute(int glyphIndex)
+            {
+                var glyphEntry = glyphTable.GetEntry(glyphEntryIDsToRasterize[glyphIndex]);
+
+                // If the glyph doesn't have any real size, then there's nothing to rasterize.
+                if (glyphEntry.width == 0 || glyphEntry.height == 0)
+                    return;
+
+                var face         = fontTable.faces[glyphEntry.key.faceIndex];
+                var font         = fontTable.GetOrCreateFont(glyphEntry.key.faceIndex, threadIndex);
+                var samplingSize = glyphEntry.key.textureSize.GetSamplingSize();
+                font.SetScale(samplingSize, samplingSize);
+                var maxDeviation = BezierMath.GetMaxDeviation(font.GetScale().x);
+                if (!drawData.edges.IsCreated)
+                    drawData = new DrawData(256, 16, maxDeviation, Allocator.Temp);
+                drawData.Clear();
+                drawData.maxDeviation = maxDeviation;
+
+                if (glyphEntry.key.format == RenderFormat.SDF8)
+                {
+                    font.DrawGlyph(glyphEntry.key.glyphIndex, drawDelegates, ref drawData);
+                    var sdf8TextureSlice = GetSdf8TextureSlice(glyphEntry.z);
+                    var atlasRect        = new GlyphRect(glyphEntry.x, glyphEntry.y, glyphEntry.width, glyphEntry.height);
+                    SDF_SPMD.SDFGenerateSubDivisionLineEdges(face.sdfOrientation,
+                                                             ref drawData,
+                                                             sdf8TextureSlice,
+                                                             atlasRect,
+                                                             glyphEntry.padding,
+                                                             kTextureDimension,
+                                                             kTextureDimension,
+                                                             glyphEntry.padding);
+                }
+                else if (glyphEntry.key.format == RenderFormat.Bitmap8888)
+                {
+                    PaintData paintData     = default;
+                    paintData.drawDelegates = drawDelegates;
+                    paintData.clipGlyph     = drawData;
+                    paintData.Clear();
+                    font.PaintGlyph(glyphEntry.key.glyphIndex, ref paintData, paintDelegates, 0, new ColorARGB(255, 0, 0, 0));
+                    if (paintData.paintSurface.Length > 0)
+                    {
+                        var bitmapTextureSlice = GetBitmapTextureSlice(glyphEntry.z);
+                        for (int y = 0; y < glyphEntry.height; y++)
+                        {
+                            for (int x = 0; x < glyphEntry.width; x++)
+                            {
+                                var argb                     = paintData.paintSurface[y * glyphEntry.width + x];
+                                var dstY                     = y + glyphEntry.y;
+                                var dstX                     = x + glyphEntry.x;
+                                var dstIndex                 = dstY * kTextureDimension + dstX;
+                                bitmapTextureSlice[dstIndex] = new Color32(argb.r, argb.g, argb.b, argb.a);
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    UnityEngine.Debug.LogError("SDF16 is not supported yet.");
+                }
+            }
+
+            unsafe NativeArray<byte> GetSdf8TextureSlice(short z)
+            {
+                foreach (var ptr in sdf8Ptrs)
+                {
+                    if (ptr.atlasIndex == z)
+                    {
+                        return CollectionHelper.ConvertExistingDataToNativeArray<byte>(ptr.ptr, ptr.dimension * ptr.dimension, Allocator.None, true);
+                    }
+                }
+                return default;
+            }
+
+            unsafe NativeArray<Color32> GetBitmapTextureSlice(short z)
+            {
+                foreach (var ptr in bitmapPtrs)
+                {
+                    if (ptr.atlasIndex == z)
+                    {
+                        return CollectionHelper.ConvertExistingDataToNativeArray<Color32>(ptr.ptr, ptr.dimension * ptr.dimension, Allocator.None, true);
+                    }
+                }
+                return default;
+            }
+        }
+
         [BurstCompile]
         struct WriteRenderGlyphsToGpuJob : IJobFor
         {

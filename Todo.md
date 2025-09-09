@@ -24,7 +24,7 @@ Phase 2 is currently in progress.
 - [x] Identify glyphs to generate in atlas and create list of atlas array indices to modify
 - [x] Upload RenderGlyphs to GPU
 - [x] Resize atlas arrays and acquire array indices native buffers
-- [ ] Generate glyph textures
+- [x] Generate glyph textures
 - [x] Commit textures to GPU
 
 ### Shaders
