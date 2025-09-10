@@ -11,13 +11,13 @@ namespace TextMeshDOTS.Rendering
     partial struct CopyGlyphShaderIndicesJob : IJobEntity
     {
         [ReadOnly] public BufferLookup<RenderGlyphMask> renderGlyphMaskLookup;
-        [NativeDisableContainerSafetyRestriction] public ComponentLookup<TextShaderIndex> textShaderIndexLookup;
-        void Execute(in TextShaderIndex textShaderIndices, DynamicBuffer<AdditionalFontMaterialEntity> additionalEntitiesBuffer)
+        [NativeDisableContainerSafetyRestriction] public ComponentLookup<TextShaderIndexOld> textShaderIndexLookup;
+        void Execute(in TextShaderIndexOld textShaderIndices, DynamicBuffer<AdditionalFontMaterialEntity> additionalEntitiesBuffer)
         {
             foreach (var child in additionalEntitiesBuffer)
             {
                 var maskBuffer = renderGlyphMaskLookup[child.entity];
-                textShaderIndexLookup[child.entity] = new TextShaderIndex 
+                textShaderIndexLookup[child.entity] = new TextShaderIndexOld 
                 { 
                     firstGlyphIndex = textShaderIndices.firstGlyphIndex, 
                     glyphCount = (uint)(16 * maskBuffer.Length) 

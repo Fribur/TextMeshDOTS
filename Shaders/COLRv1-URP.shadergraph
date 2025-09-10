@@ -772,6 +772,7 @@
     },
     "isMainTexture": false,
     "useTilingAndOffset": false,
+    "useTexelSize": true,
     "m_Modifiable": true,
     "m_DefaultType": 0
 }
@@ -783,11 +784,11 @@
     "m_Guid": {
         "m_GuidSerialized": "3e1c46d4-1fcf-436c-ab55-18dcff34588f"
     },
-    "m_Name": "TextShaderIndex",
+    "m_Name": "TextShaderIndexOld",
     "m_DefaultRefNameVersion": 1,
-    "m_RefNameGeneratedByDisplayName": "TextShaderIndex",
-    "m_DefaultReferenceName": "_TextShaderIndex",
-    "m_OverrideReferenceName": "_TextShaderIndex",
+    "m_RefNameGeneratedByDisplayName": "TextShaderIndexOld",
+    "m_DefaultReferenceName": "_TextShaderIndexOld",
+    "m_OverrideReferenceName": "_TextShaderIndexOld",
     "m_GeneratePropertyBlock": true,
     "m_UseCustomSlotLabel": false,
     "m_CustomSlotLabel": "",
@@ -1239,7 +1240,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector2MaterialSlot",
     "m_ObjectId": "83d4ac46684a451a8960e14c9cf3bf84",
     "m_Id": 0,
-    "m_DisplayName": "TextShaderIndex",
+    "m_DisplayName": "TextShaderIndexOld",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",

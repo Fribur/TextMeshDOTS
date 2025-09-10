@@ -49,7 +49,7 @@ namespace TextMeshDOTS.Rendering
     {
         [ReadOnly] public BufferTypeHandle<RenderGlyphOld> renderGlyphHandle;
         [ReadOnly] public BufferTypeHandle<RenderGlyphMask> glyphMaskHandle;    //only valid for multi-font
-        public ComponentTypeHandle<TextShaderIndex> textShaderIndexHandle;
+        public ComponentTypeHandle<TextShaderIndexOld> textShaderIndexHandle;
         public ComponentLookup<GlyphCountThisFrame> glyphCountThisFrameLookup;
         public Entity textStatisticsSingleton;
 
@@ -68,11 +68,11 @@ namespace TextMeshDOTS.Rendering
             for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
             {
                 var buffer = glyphsBuffers[i];
-                TextShaderIndex textShaderIndex;
+                TextShaderIndexOld textShaderIndex;
                 //if (masksBuffers.Length > 0)//if(chunkHasMaskBuffer) instead of this?
                 if (chunkHasMaskBuffer)
                 {
-                    textShaderIndex = new TextShaderIndex
+                    textShaderIndex = new TextShaderIndexOld
                     {
                         firstGlyphIndex = glyphCountThisFrame,
                         glyphCount = (uint)masksBuffers[i].Length * 16 //this causes early out in Text Shader to ensure masked glyphs are not rendered
@@ -80,7 +80,7 @@ namespace TextMeshDOTS.Rendering
                 }
                 else
                 {
-                    textShaderIndex = new TextShaderIndex
+                    textShaderIndex = new TextShaderIndexOld
                     {
                         firstGlyphIndex = glyphCountThisFrame,
                         glyphCount = (uint)buffer.Length

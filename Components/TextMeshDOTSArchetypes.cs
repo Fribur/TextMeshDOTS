@@ -52,7 +52,7 @@ namespace TextMeshDOTS
             componentTypeStaging[5] = ComponentType.ReadWrite<XMLTag>();
             componentTypeStaging[6] = ComponentType.ReadWrite<RenderGlyph>();
             componentTypeStaging[7] = ComponentType.ReadWrite<RenderGlyphOld>();
-            componentTypeStaging[8] = ComponentType.ReadWrite<TextShaderIndex>();
+            componentTypeStaging[8] = ComponentType.ReadWrite<TextShaderIndexOld>();
             componentTypeStaging[9] = ComponentType.ReadWrite<LocalTransform>();
             componentTypeStaging[10] = ComponentType.ReadWrite<LocalToWorld>();
             componentTypeStaging[11] = ComponentType.ReadWrite<WorldToLocal_Tag>();
@@ -76,7 +76,7 @@ namespace TextMeshDOTS
             componentTypeStaging[6] = ComponentType.ReadWrite<RenderGlyph>();
             componentTypeStaging[7] = ComponentType.ReadWrite<RenderGlyphOld>();
             componentTypeStaging[8] = ComponentType.ReadWrite<RenderGlyphMask>();
-            componentTypeStaging[9] = ComponentType.ReadWrite<TextShaderIndex>();
+            componentTypeStaging[9] = ComponentType.ReadWrite<TextShaderIndexOld>();
             componentTypeStaging[10] = ComponentType.ReadWrite<TextMaterialMaskShaderIndex>();
             componentTypeStaging[11] = ComponentType.ReadWrite<FontMaterialSelectorForGlyph>();
             componentTypeStaging[12] = ComponentType.ReadWrite<AdditionalFontMaterialEntity>();
@@ -97,7 +97,7 @@ namespace TextMeshDOTS
             componentTypeStaging[0] = ComponentType.ReadWrite<FontBlobReference>();            
             componentTypeStaging[1] = ComponentType.ReadWrite<TextRenderControl>();
             componentTypeStaging[2] = ComponentType.ReadWrite<RenderGlyphMask>();
-            componentTypeStaging[3] = ComponentType.ReadWrite<TextShaderIndex>();
+            componentTypeStaging[3] = ComponentType.ReadWrite<TextShaderIndexOld>();
             componentTypeStaging[4] = ComponentType.ReadWrite<TextMaterialMaskShaderIndex>();
             componentTypeStaging[5] = ComponentType.ReadWrite<LocalTransform>();
             componentTypeStaging[6] = ComponentType.ReadWrite<LocalToWorld>();

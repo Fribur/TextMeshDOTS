@@ -83,6 +83,13 @@ namespace TextMeshDOTS.Rendering
         public RenderGlyph glyph;
     }
 
+    [MaterialProperty("_TextShaderIndexOld")]
+    public struct TextShaderIndexOld : IComponentData
+    {
+        public uint firstGlyphIndex;
+        public uint glyphCount;
+    }
+
     [MaterialProperty("_TextShaderIndex")]
     public struct TextShaderIndex : IComponentData
     {
