@@ -64,6 +64,7 @@ namespace TextMeshDOTS.Authoring
             AddEntityGraphicsComponents(entity, renderFilterSettings);
             AddComponent(entity, new TextRenderControl { flags = TextRenderControl.Flags.Dirty });
             AddComponent<TextShaderIndexOld>(entity);
+            AddComponent<TextShaderIndex>(entity);
 
             //add for each font in FontCollectionAsset an additional render entity to enable use of this font
             var additionalEntities = new NativeList<Entity>(fontCount, Allocator.Temp);
@@ -120,6 +121,7 @@ namespace TextMeshDOTS.Authoring
             AddBuffer<RenderGlyphMask>(newEntity);
             AddComponent(newEntity, new TextRenderControl { flags = TextRenderControl.Flags.Dirty });
             AddComponent<TextShaderIndexOld>(newEntity);
+            AddComponent<TextShaderIndex>(newEntity);
 
             AddComponent(newEntity, new FontBlobReference { value = fontAssetRef });
             additionalEntities.Add(newEntity);
