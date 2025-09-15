@@ -64,9 +64,9 @@ namespace TextMeshDOTS.HarfBuzz.Bitmap
                     //currentGlyph.glyphRect = bestRect; //bestRect is the padded atlas texture window.
                     //the glyph (bounded by glyphExtents) will be renderered into the center of this window
                     //GlyphRect needs to point to non-padded Glyph, and NOT to the entire padded atlas texture window                    
-                    glyphEntry.x = (short)(bestRect.x + padding);
-                    glyphEntry.y = (short)(bestRect.y + padding);
-                    glyphEntry.padding = (short)padding;                    
+                    glyphEntry.xOld = (short)(bestRect.x + padding);
+                    glyphEntry.yOld = (short)(bestRect.y + padding);
+                    glyphEntry.paddingOld = (short)padding;                    
 
                     usedRects.Add(bestRect);
                     usedGlyphs.Add(glyphEntry.key.glyphIndex);
@@ -103,9 +103,9 @@ namespace TextMeshDOTS.HarfBuzz.Bitmap
                 //currentGlyph.glyphRect = bestRect; //bestRect is the padded atlast Texture windows.
                 //the glyph (dounded by glyphExtents) will be renderered into the center of this windows
                 //GlyphRect needs to point to non-padded Glyph, and NOT to the entire padded atlas texture window
-                glyphEntry.x = (short)(bestRect.x + padding);
-                glyphEntry.y = (short)(bestRect.y + padding);
-                glyphEntry.padding = (short)padding;
+                glyphEntry.xOld = (short)(bestRect.x + padding);
+                glyphEntry.yOld = (short)(bestRect.y + padding);
+                glyphEntry.paddingOld = (short)padding;
 
                 RemoveRectFromFreeList(bestRect, freeRects);
                 usedRects.Add(bestRect);

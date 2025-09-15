@@ -133,6 +133,10 @@ namespace TextMeshDOTS.HarfBuzz
             public short yBearing;
             public short padding;
 
+            public short xOld;
+            public short yOld;
+            public short paddingOld;
+
             public bool isInAtlas => x >= 0;
             // Todo:
         }

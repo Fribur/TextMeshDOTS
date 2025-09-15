@@ -25,13 +25,13 @@ namespace TextMeshDOTS.Rendering
                 var atlas = atlasLookup[fontEntity];
 
                 float2 blUVA, tlUVA, trUVA, brUVA;
-                blUVA.x = (entry.x - entry.padding) / (float)atlas.atlasWidth;
-                blUVA.y = (entry.y - entry.padding) / (float)atlas.atlasHeight;
+                blUVA.x = (entry.xOld - entry.paddingOld) / (float)atlas.atlasWidth;
+                blUVA.y = (entry.yOld - entry.paddingOld) / (float)atlas.atlasHeight;
 
                 tlUVA.x = blUVA.x;
-                tlUVA.y = (entry.y + entry.padding + entry.height) / (float)atlas.atlasHeight;
+                tlUVA.y = (entry.yOld + entry.paddingOld + entry.height) / (float)atlas.atlasHeight;
 
-                trUVA.x = (entry.x + entry.padding + entry.width) / (float)atlas.atlasWidth;
+                trUVA.x = (entry.xOld + entry.paddingOld + entry.width) / (float)atlas.atlasWidth;
                 trUVA.y = tlUVA.y;
 
                 brUVA.x = trUVA.x;
