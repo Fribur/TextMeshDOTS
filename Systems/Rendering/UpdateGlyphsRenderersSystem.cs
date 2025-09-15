@@ -1,6 +1,7 @@
 using System;
 using TextMeshDOTS.HarfBuzz;
 using TextMeshDOTS.Rendering.Authoring;
+using TextMeshDOTS.TextProcessing;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
@@ -12,17 +13,11 @@ using Unity.Rendering;
 
 using static Unity.Entities.SystemAPI;
 
-// Todo: We need to decide upon a strategy for adding cleanup components to these entities.
-// The current system is written to allow cleanup components to be added next frame, but
-// TextMeshDOTS doesn't have AddComponentsCommandBuffer to guard against destroyed entities.
-// The alternative would be to add the components synchronously, but then we'd need a way
-// to detect these new entities in the change filter, because enabling a disabled entity
-// won't always trigger a change.
-
 namespace TextMeshDOTS.Rendering
 {
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]
-    [DisableAutoCreation]
+    [UpdateAfter(typeof(GenerateGlyphsSystem))]
     [BurstCompile]
     public unsafe partial struct UpdateGlyphsRenderersSystem : ISystem
     {
@@ -32,8 +27,6 @@ namespace TextMeshDOTS.Rendering
         public void OnCreate(ref SystemState state)
         {
             m_query = QueryBuilder().WithAny<RenderGlyph, AnimatedRenderGlyph>().WithPresentRW<GpuState, MaterialMeshInfo>().WithPresentRW<RenderBounds>().Build();
-            m_query.AddChangedVersionFilter(ComponentType.ReadOnly<RenderGlyph>());
-            m_query.AddChangedVersionFilter(ComponentType.ReadOnly<AnimatedRenderGlyph>());
             m_deadQuery = QueryBuilder().WithPresent<PreviousRenderGlyph>().WithAbsent<RenderGlyph, AnimatedRenderGlyph>().Build();
         }
 
@@ -207,14 +200,22 @@ namespace TextMeshDOTS.Rendering
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
+                var animatedGlyphBuffers = chunk.GetBufferAccessor(ref animatedRenderGlyphHandle);
+                bool hasAnimated = animatedGlyphBuffers.Length > 0;
+
+                if (hasAnimated && !chunk.DidChange(ref animatedRenderGlyphHandle, lastSystemVersion))
+                    return;
+                else if (!hasAnimated && !chunk.DidChange(ref renderGlyphHandle, lastSystemVersion))
+                    return;
+                
                 if (!threadRefCountChangeMap.IsCreated)
                     threadRefCountChangeMap = new UnsafeHashMap<uint, RefCountChangePtr>(1024, Allocator.Temp);
 
                 refCountChangeBlocklist.BeginForEachIndex(unfilteredChunkIndex);
                 residentDeallocationBlocklist.BeginForEachIndex(unfilteredChunkIndex);
 
-                var animatedGlyphBuffers       = chunk.GetBufferAccessor(ref animatedRenderGlyphHandle);
-                var glyphBuffers               = animatedGlyphBuffers.Length > 0 ? chunk.GetBufferAccessor(ref renderGlyphHandle) : default;
+                
+                var glyphBuffers               = !hasAnimated ? chunk.GetBufferAccessor(ref renderGlyphHandle) : default;
                 var previousRenderGlyphBuffers = chunk.GetBufferAccessor(ref previousRenderGlyphHandle);
 
                 var gpuStates = (GpuState*)chunk.GetRequiredComponentDataPtrRW(ref gpuStateHandle);

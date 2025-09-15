@@ -14,7 +14,8 @@ using UnityEngine.TextCore;
 
 namespace TextMeshDOTS.Rendering
 {
-    [DisableAutoCreation]
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
+    [UpdateAfter(typeof(UpdateGlyphsRenderersSystem))]
     public unsafe partial class DispatchGlyphsSystem : SystemBase
     {
         const int kTextureDimension = 4096;
@@ -46,6 +47,9 @@ namespace TextMeshDOTS.Rendering
         int _tmdBitmap;
         int _tmdGlyphs;
 
+        AtlasTable    m_atlasToDestroy;
+        GlyphGpuTable m_glyphGpuTableToDestroy;
+
         protected override void OnCreate()
         {
             ref var state = ref CheckedStateRef;
@@ -75,8 +79,17 @@ namespace TextMeshDOTS.Rendering
             m_drawDelegates  = new DrawDelegates(true);
             m_paintDelegates = new PaintDelegates(true);
 
-            var atlas = new AtlasTable(Allocator.Persistent, kTextureDimension, kShelfAlignment);
+            var atlas        = new AtlasTable(Allocator.Persistent, kTextureDimension, kShelfAlignment);
+            m_atlasToDestroy = atlas;
             EntityManager.CreateSingleton(atlas);
+            var glyphGpuTable = new GlyphGpuTable
+            {
+                bufferSize          = new NativeReference<uint>(Allocator.Persistent, NativeArrayOptions.ClearMemory),
+                dispatchDynamicGaps = new NativeList<uint2>(Allocator.Persistent),
+                residentGaps        = new NativeList<uint2>(Allocator.Persistent)
+            };
+            m_glyphGpuTableToDestroy = glyphGpuTable;
+            EntityManager.CreateSingleton(glyphGpuTable);
         }
 
         protected override void OnUpdate()
@@ -106,6 +119,12 @@ namespace TextMeshDOTS.Rendering
 
             m_drawDelegates.Dispose();
             m_paintDelegates.Dispose();
+
+            m_atlasToDestroy.TryDispose(default);
+            m_glyphGpuTableToDestroy.TryDispose(default);
+
+            m_glyphsBuffer.Dispose();
+            m_byteAddressUploadBuffers.Dispose();
         }
 
         public CollectState Collect(ref SystemState state)
@@ -215,7 +234,7 @@ namespace TextMeshDOTS.Rendering
                     m_sdf16Array.GetAtlasPtrsForDirtyIndices(collected.atlasDirtyIDs.AsArray().GetSubArray(dirtySdf8Count, dirtySdf16Count).AsSpan(), sdf16Ptrs.AsSpan());
                     writeState.isSdf16Dirty = true;
                 }
-                if (dirtySdf16Count > 0)
+                if (dirtyBitmapCount > 0)
                 {
                     m_bitmapArray.GetAtlasPtrsForDirtyIndices(collected.atlasDirtyIDs.AsArray().GetSubArray(dirtySdf8Count + dirtySdf16Count, dirtyBitmapCount).AsSpan(),
                                                               bitmapPtrs.AsSpan());
@@ -336,7 +355,7 @@ namespace TextMeshDOTS.Rendering
 
             public void Execute()
             {
-                glyphEntryIDsToRasterizeSet.Capacity = glyphTable.entries.Length;
+                glyphEntryIDsToRasterizeSet.Capacity = math.max(glyphTable.entries.Length, glyphEntryIDsToRasterizeSet.Capacity);
             }
         }
 
@@ -409,7 +428,7 @@ namespace TextMeshDOTS.Rendering
                 for (int stream = 0; stream < renderGlyphCapturesStream.ForEachCount; stream++)
                 {
                     var reader = renderGlyphCapturesStream.AsReader();
-                    for (int i = reader.BeginForEachIndex(stream); i >= 0; i--)
+                    for (int i = reader.BeginForEachIndex(stream); i > 0; i--)
                     {
                         var capture         = reader.Read<RenderGlyphCapture>();
                         capture.writeStart  = writeBufferOffset;
@@ -515,8 +534,8 @@ namespace TextMeshDOTS.Rendering
             [NativeDisableParallelForRestriction] public NativeArray<TextureAtlasArray<ushort>.AtlasPtr>  sdf16Ptrs;
             [NativeDisableParallelForRestriction] public NativeArray<TextureAtlasArray<Color32>.AtlasPtr> bitmapPtrs;
 
-            public DrawDelegates  drawDelegates;
-            public PaintDelegates paintDelegates;
+            [NativeDisableUnsafePtrRestriction] public DrawDelegates  drawDelegates;
+            [NativeDisableUnsafePtrRestriction] public PaintDelegates paintDelegates;
 
             [NativeDisableContainerSafetyRestriction] DrawData drawData;
             [NativeSetThreadIndex] int                         threadIndex;
@@ -610,10 +629,10 @@ namespace TextMeshDOTS.Rendering
         [BurstCompile]
         struct WriteRenderGlyphsToGpuJob : IJobFor
         {
-            [ReadOnly] public GlyphTable                      glyphTable;
-            [ReadOnly] public NativeArray<RenderGlyphCapture> captures;
-            public NativeArray<RenderGlyph>                   uploadArray;
-            public NativeArray<uint3>                         uploadMetaArray;
+            [ReadOnly] public GlyphTable                                          glyphTable;
+            [ReadOnly] public NativeArray<RenderGlyphCapture>                     captures;
+            [NativeDisableParallelForRestriction] public NativeArray<RenderGlyph> uploadArray;
+            public NativeArray<uint3>                                             uploadMetaArray;
 
             public void Execute(int index)
             {

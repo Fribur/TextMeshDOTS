@@ -1,3 +1,4 @@
+using TextMeshDOTS.TextProcessing;
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Rendering;
@@ -5,8 +6,9 @@ using static Unity.Entities.SystemAPI;
 
 namespace TextMeshDOTS.Rendering
 {
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
+    [UpdateBefore(typeof(ShapeSystem))]
     [RequireMatchingQueriesForUpdate]
-    [DisableAutoCreation]
     [BurstCompile]
     public partial struct TextRendererInitializeSystem : ISystem
     {

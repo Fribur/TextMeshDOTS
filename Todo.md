@@ -35,7 +35,7 @@ Phase 2 is currently in progress.
 ### Final Steps
 
 - [x] Move TextShaderIndex to TextShaderIndexOld and replace with TextShaderIndex for new pipeline
-- [ ] Enable creation of new rendering path systems
+- [x] Enable creation of new rendering path systems
 - [ ] Create temporary workflow so that each entity can pick which rendering path it uses
 - [ ] Debug, readable text
 - [ ] Debug, correctly rendered text
