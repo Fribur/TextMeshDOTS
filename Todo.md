@@ -13,11 +13,6 @@ Phase 2 is currently in progress.
 - [x] Add new RenderGlyph type to entities alongside RenderGlyphOld
 - [x] Populate RenderGlyph inside GlyphGeneration alongside RenderGlyphOld
 
-### Glyph Generation Optional
-
-- [ ] Move glyph line wrapping logic to ShapeJob
-
-
 ### Dispatch (DreamingImLatios owns this)
 
 - [x] Identify RenderGlyphs to upload and advance residence state machine and material properties
@@ -30,7 +25,7 @@ Phase 2 is currently in progress.
 ### Shaders
 
 - [x] Create new RenderGlyph reader hlsl file
-- [ ] Create unified atlas shader (branch on SDF8, SDF16, and Bitmap based on glyph)
+- [x] Create unified atlas shader (branch on SDF8, SDF16, and Bitmap based on glyph)
 
 ### Final Steps
 
@@ -58,6 +53,8 @@ Phase 3 has not started yet
 - [ ] Double-buffer CalliByte with PreviousCalliByte for aggressive change filtering
 - [ ] Jobify font loading reactively (probably needs more breakdown)
 - [ ] Support sprites
+- [ ] Support texture sampling sizes in shaders
+- [ ] Add more shader features
 
 ### Optimize
 

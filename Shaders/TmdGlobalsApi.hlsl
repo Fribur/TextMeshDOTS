@@ -100,55 +100,38 @@ void GetGlyph(uint glyphIndex, uint glyphStartIndex, uint glyphCount,
     scale = asfloat(load112_127.z);
     reserved = load112_127.w;
 }
-// textShaderIndexProperty, glyphEntryId, and reserved are all uints stored within float variables, and need to be read with asuint()
-void GetGlyph_float(float glyphIndex, float2 textShaderIndex,
-    out float2 blPosition,
-    out float2 brPosition,
-    out float2 tlPosition,
-    out float2 trPosition,
 
-    out float2 blUVB,
-    out float2 brUVB,
-    out float2 tlUVB,
-    out float2 trUVB,
+// Todo: This causes Unity's shader compiler to break. Attempt to reenable this later.
+//UnityTexture2DArray GetSdfTextureArray(bool is16Bit)
+//{
+//    if (is16Bit)
+//    {
+//        return UnityBuildTexture2DArrayStruct(_tmdSdf16);
+//    }
+//    else
+//    {
+//        return UnityBuildTexture2DArrayStruct(_tmdSdf8);
+//    }
+//}
 
-    out float4 blColor,
-    out float4 brColor,
-    out float4 tlColor,
-    out float4 trColor,
-
-    out float2 blUVA,
-    out float2 trUVA,
-
-    out float arrayIndex,
-    out float glyphEntryId,
-    out float scale,
-    out float reserved)
+UnityTexture2DArray GetSdf8TextureArray()
 {
-    uint glyphStartIndex = asuint(textShaderIndex.x);
-    uint glyphCount = asuint(textShaderIndex.y);
-    uint glyphEntryIdUint;
-    uint reservedUint;
-    GetGlyph(glyphIndex, glyphStartIndex, glyphCount, blPosition, brPosition, tlPosition, trPosition, blUVB, brUVB, tlUVB, trUVB, blColor, brColor, tlColor, trColor, blUVA, trUVA, arrayIndex, glyphEntryIdUint, scale, reservedUint);
-    glyphEntryId = asfloat(glyphEntryIdUint);
-    reserved = asfloat(reservedUint);
+    return UnityBuildTexture2DArrayStruct(_tmdSdf8);
 }
 
-void GetSdfTextureArray_float(bool is16Bit, out UnityTexture2DArray sdfTexture)
+UnityTexture2DArray GetSdf16TextureArray()
 {
-    if (is16Bit)
-    {
-        sdfTexture = UnityBuildTexture2DArrayStruct(_tmdSdf16);
-    }
-    else
-    {
-        sdfTexture = UnityBuildTexture2DArrayStruct(_tmdSdf8);
-    }
+    return UnityBuildTexture2DArrayStruct(_tmdSdf16);
 }
 
-void GetBitmapTextureArray_float(out UnityTexture2DArray bitmapTexture)
+UnityTexture2DArray GetBitmapTextureArray()
 {
-    bitmapTexture = UnityBuildTexture2DArrayStruct(_tmdBitmap);
+    return UnityBuildTexture2DArrayStruct(_tmdBitmap);
+}
+
+float GetGlyphTexelSize()
+{
+    return 1.0 / 4096.0;
 }
 
 // Additional APIs
@@ -206,15 +189,6 @@ void GetGlyphCorner(uint glyphIndex, uint cornerIndex, uint glyphStartIndex, uin
         color = brColor;
     }
 }
-// glyphIndex, cornerIndex, textShaderIndex, and glyphEntryID are all uints stored in float variables and must be read with asuint()
-void GetGlyphCorner_float(float glyphIndex, float cornerIndex, float2 textShaderIndex, out float2 position, out float3 uvA, out float2 uvB, out float4 color, out float scale, out float glyphEntryID)
-{
-    uint glyphStartIndex = asuint(textShaderIndex.x);
-    uint glyphCount = asuint(textShaderIndex.y);
-    uint glyphEntryIDUint;
-    GetGlyphCorner(asuint(glyphIndex), asuint(cornerIndex), glyphStartIndex, glyphCount, position, uvA, uvB, color, scale, glyphEntryIDUint);
-    glyphEntryID = asfloat(glyphEntryIDUint);
-}
 
 void ExtractGlyphFlagsFromEntryID(uint glyphEntryID, out bool isSdf16, out bool isBitmap)
 {
@@ -222,23 +196,11 @@ void ExtractGlyphFlagsFromEntryID(uint glyphEntryID, out bool isSdf16, out bool 
     isSdf16 = format == 1;
     isBitmap = format == 2;
 }
-// glyphEntryID is a uint stored in a float variable
-void ExtractGlyphFlagsFromEntryID_float(float glyphEntryID, out bool isSdf16, out bool isBitmap)
-{
-    ExtractGlyphFlagsFromEntryID(asuint(glyphEntryID), isSdf16, isBitmap);
-}
 
 void GetGlyphIndexAndCornerFromQuadVertexID(uint vertexID, out uint glyphIndex, out uint cornerIndex)
 {
     glyphIndex = vertexID >> 2u;
     cornerIndex = vertexID & 3u;
-}
-// glyphIndex and cornerIndex are uints stored in float variables, and must be read with asuint()
-void GetGlyphIndexAndCornerFromQuadVertexID_float(float vertexID, out float glyphIndex, out float cornerIndex)
-{
-    uint vertexIDUint = vertexID;
-    glyphIndex = asfloat(vertexIDUint >> 2u);
-    cornerIndex = asfloat(vertexIDUint & 3u);
 }
 
 #endif
