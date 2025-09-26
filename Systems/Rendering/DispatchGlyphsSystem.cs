@@ -217,10 +217,10 @@ namespace TextMeshDOTS.Rendering
                 var sdf8Ptrs = CollectionHelper.CreateNativeArray<TextureAtlasArray<byte>.AtlasPtr>(dirtySdf8Count,
                                                                                                     state.WorldUpdateAllocator,
                                                                                                     NativeArrayOptions.UninitializedMemory);
-                var sdf16Ptrs = CollectionHelper.CreateNativeArray<TextureAtlasArray<ushort>.AtlasPtr>(dirtySdf8Count,
+                var sdf16Ptrs = CollectionHelper.CreateNativeArray<TextureAtlasArray<ushort>.AtlasPtr>(dirtySdf16Count,
                                                                                                        state.WorldUpdateAllocator,
                                                                                                        NativeArrayOptions.UninitializedMemory);
-                var bitmapPtrs = CollectionHelper.CreateNativeArray<TextureAtlasArray<Color32>.AtlasPtr>(dirtySdf8Count,
+                var bitmapPtrs = CollectionHelper.CreateNativeArray<TextureAtlasArray<Color32>.AtlasPtr>(dirtyBitmapCount,
                                                                                                          state.WorldUpdateAllocator,
                                                                                                          NativeArrayOptions.UninitializedMemory);
 
@@ -648,6 +648,13 @@ namespace TextMeshDOTS.Rendering
                     // Should we change that there? Or should we change the RenderGlyph comment?
                     glyph.blUVA = new float2(entry.x, entry.y) * kTextureResolutionFloatInverse;
                     glyph.trUVA = glyph.blUVA + new float2(entry.width, entry.height) * kTextureResolutionFloatInverse;
+
+                    // Debug:
+                    if (i < 5 && entry.key.format == RenderFormat.SDF8)
+                    {
+                        //UnityEngine.Debug.Log($"x: {entry.x}, y: {entry.y}, width: {entry.width}, height: {entry.height}, arrayIndex: {entry.z}, blUVA: {glyph.blUVA}, trUVA: {glyph.trUVA}");
+                    }
+                    capture.glyphBuffer[i] = glyph;
 
                     uploadArray[capture.writeStart + i] = glyph;
                 }

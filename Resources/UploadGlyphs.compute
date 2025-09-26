@@ -35,15 +35,15 @@ void UploadGlyphs (uint threadId : SV_GroupIndex, uint3 groupIds : SV_GroupID)
     uint i = 0;
     for (i = 0; i + 64 < elementCount; i += 64)
     {
-        uint src = (srcBase + i + threadId) * 96;
-        uint dst = (dstBase + i + threadId) * 96;
+        uint src = (srcBase + i + threadId) * 128;
+        uint dst = (dstBase + i + threadId) * 128;
         processGlyph(src, dst);
     }
 
     if (i + threadId < elementCount)
     {
-        uint src = (srcBase + i + threadId) * 96;
-        uint dst = (dstBase + i + threadId) * 96;
+        uint src = (srcBase + i + threadId) * 128;
+        uint dst = (dstBase + i + threadId) * 128;
         processGlyph(src, dst);
     }
 }

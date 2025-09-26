@@ -46,7 +46,7 @@ void GetGlyph(uint glyphIndex, uint glyphStartIndex, uint glyphCount,
     out float scale,
     out uint reserved)
 {
-    if (glyphIndex < glyphStartIndex || glyphIndex >= glyphStartIndex + glyphCount)
+    if (glyphIndex >= glyphCount)
     {
         blPosition = asfloat(~0u);
         brPosition = blPosition;
@@ -68,7 +68,7 @@ void GetGlyph(uint glyphIndex, uint glyphStartIndex, uint glyphCount,
         reserved = 0u;
     }
 
-    uint baseAddress = glyphIndex * 128;
+    uint baseAddress = (glyphStartIndex + glyphIndex) * 128;
     uint4 load0_15 = _tmdGlyphs.Load4(baseAddress);
     blPosition = asfloat(load0_15.xy);
     brPosition = asfloat(load0_15.zw);
