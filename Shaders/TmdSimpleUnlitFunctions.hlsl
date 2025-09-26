@@ -80,4 +80,27 @@ void DoSimpleUnlitFrag_float(float4 vertexColor, float4 uvAandB, float4 atlasInd
 	}
 }
 
+void DoSimpleUnlitFragDebug_float(float4 vertexColor, float4 uvAandB, float4 atlasIndexScaleIsSdf16IsBitmap, out float3 finalColor, out float finalAlpha)
+{
+	float3 uvA = float3(uvAandB.xy, atlasIndexScaleIsSdf16IsBitmap.x);
+	float2 uvB = uvAandB.zw;
+	float scale = atlasIndexScaleIsSdf16IsBitmap.y;
+	bool isSdf16 = atlasIndexScaleIsSdf16IsBitmap.z;
+	bool isBitmap = atlasIndexScaleIsSdf16IsBitmap.w;
+
+	if (isBitmap)
+	{
+		finalColor = float3(0, 0, 1);
+		finalAlpha = 1;
+		return;
+	}
+	else
+	{
+		finalColor = float3(1, 0, 0);
+		finalAlpha = 1;
+		return;
+	}
+}
+
+
 #endif
