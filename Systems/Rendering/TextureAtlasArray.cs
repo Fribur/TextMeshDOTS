@@ -27,14 +27,19 @@ namespace TextMeshDOTS.Rendering
         TextureFormat  format;
         bool           useMipmapping;
 
-        public TextureAtlasArray(int shaderPropertyId, int dimension, int initialAtlasCount, TextureFormat format, bool useMipmapping)
+        public TextureAtlasArray(int shaderPropertyId, int dimension, int initialAtlasCount, TextureFormat format, bool useMipmapping, bool linear)
         {
-            this.texture2DArray   = new Texture2DArray(dimension, dimension, initialAtlasCount, format, useMipmapping);
+            this.texture2DArray   = new Texture2DArray(dimension, dimension, initialAtlasCount, format, useMipmapping, linear);
             this.shaderPropertyId = shaderPropertyId;
             this.dimension        = dimension;
             this.atlasCount       = initialAtlasCount;
             this.format           = format;
             this.useMipmapping    = useMipmapping;
+            for (int i = 0; i < initialAtlasCount; i++)
+            {
+                texture2DArray.GetPixelData<T>(0, i).AsSpan().Clear();
+            }
+            texture2DArray.Apply(useMipmapping, false);
         }
 
         public void Dispose()

@@ -72,9 +72,9 @@ namespace TextMeshDOTS.Rendering
             _tmdBitmap = Shader.PropertyToID("_tmdBitmap");
             _tmdGlyphs = Shader.PropertyToID("_tmdGlyphs");
 
-            m_sdf8Array   = new TextureAtlasArray<byte>(_tmdSdf8, kTextureDimension, 2, TextureFormat.R8, false);
-            m_sdf16Array  = new TextureAtlasArray<ushort>(_tmdSdf16, kTextureDimension, 2, TextureFormat.R16, false);
-            m_bitmapArray = new TextureAtlasArray<Color32>(_tmdBitmap, kTextureDimension, 2, TextureFormat.RGBA32, true);
+            m_sdf8Array   = new TextureAtlasArray<byte>(_tmdSdf8, kTextureDimension, 2, TextureFormat.R8, false, true);
+            m_sdf16Array  = new TextureAtlasArray<ushort>(_tmdSdf16, kTextureDimension, 2, TextureFormat.R16, false, true);
+            m_bitmapArray = new TextureAtlasArray<Color32>(_tmdBitmap, kTextureDimension, 2, TextureFormat.RGBA32, true, false);
 
             m_drawDelegates  = new DrawDelegates(true);
             m_paintDelegates = new PaintDelegates(true);
@@ -650,16 +650,18 @@ namespace TextMeshDOTS.Rendering
                     // Todo: Currently we are overwriting these values because glyph generation doesn't need to augment these.
                     // Should we change that there? Or should we change the RenderGlyph comment?
 
-                    if (entry.key.format == RenderFormat.SDF8)
+                    //if (entry.key.format == RenderFormat.SDF8)
                     {
-                        glyph.blUVA = new float2(entry.x + entry.padding, entry.y + entry.padding) * kTextureResolutionFloatInverse;
-                        glyph.trUVA = glyph.blUVA + new float2(entry.width, entry.height) * kTextureResolutionFloatInverse;
-                    }
-                    else
-                    {
+                        //glyph.blUVA = (new float2(entry.x, entry.y) + entry.padding) * kTextureResolutionFloatInverse;
+                        //glyph.trUVA = glyph.blUVA + new float2(entry.width, entry.height) * kTextureResolutionFloatInverse;
                         glyph.blUVA = new float2(entry.x, entry.y) * kTextureResolutionFloatInverse;
-                        glyph.trUVA = glyph.blUVA + new float2(entry.width, entry.height) * kTextureResolutionFloatInverse;
+                        glyph.trUVA = glyph.blUVA + (new float2(entry.width, entry.height) + entry.padding * 2) * kTextureResolutionFloatInverse;
                     }
+                    //else
+                    //{
+                    //    glyph.blUVA = new float2(entry.x, entry.y) * kTextureResolutionFloatInverse;
+                    //    glyph.trUVA = glyph.blUVA + new float2(entry.width, entry.height) * kTextureResolutionFloatInverse;
+                    //}
 
                     // Debug:
                     //if (i < 5 && entry.key.format == RenderFormat.SDF8)
