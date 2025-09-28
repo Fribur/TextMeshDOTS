@@ -90,12 +90,24 @@ namespace TextMeshDOTS.TextProcessing
                 missingGlyphsToAdd = missingGlyphsToAdd
             }.Schedule(state.Dependency);
 
+            // Todo: As of harfbuzz 12.0.0, a Face object contains various table accerators for each glyph type.
+            // For example, true-type outlines have a separate accelerator than COLR. Each accelerator contains
+            // a scratch buffer which is acquired by mutex. And fetching the glyph extents locks this mutex.
+            // Based on this, the most likely way to parallelize capturing glyph extents would be to group new
+            // glyphs by face and then by type. However, this isn't the full story.
+            // True-type glyphs are cheap to calculate extents for, and so there may not be any benefit to
+            // parallelizing those in practice. COLR may be more expensive, but current tests still show this
+            // to not be very significant except for the very first glyph processed, which has multiple
+            // milliseconds of latency. And if multiple threads attempt to operate on COLR glyphs before the
+            // first one is done, the CPU runs into some kind of thrashing situation. This requires more
+            // investigation and testing to characterize what operations are actually parallelizable. In the
+            // meantime, we run this job single-threaded.
             state.Dependency = new PopulateNewGlyphsJob
             {
                 fontTable = fontTable,
                 glyphEntries = glyphTable.entries.AsDeferredJobArray(),
                 missingGlyphs = missingGlyphsToAdd.AsDeferredJobArray()
-                //}.Schedule(missingGlyphsToAdd, 4, state.Dependency);
+            //}.Schedule(missingGlyphsToAdd, 4, state.Dependency);
             }.Schedule(state.Dependency);
         }
         [BurstCompile]
@@ -171,7 +183,6 @@ namespace TextMeshDOTS.TextProcessing
 
                 if (!initialized || RequiresFontSetup(lastKey, missingGlyph))
                 {
-                    using var createFontMarker = new Unity.Profiling.ProfilerMarker("GetOrCreateFont").Auto();
                     font = fontTable.GetOrCreateFont(missingGlyph.faceIndex, threadIndex);
                     var samplingSize = missingGlyph.textureSize.GetSamplingSize();
                     font.SetScale(samplingSize, samplingSize);
@@ -185,11 +196,7 @@ namespace TextMeshDOTS.TextProcessing
                 // total time = thread * (single thread time) 
                 // reason unknown. Could be mutex lock. Or single thread benefits more
                 // from font acceleration structures populated with each hb_font_get_glyph_extents call
-                GlyphExtents extents;
-                using (var getGlyphExtentsMarker = new Unity.Profiling.ProfilerMarker($"GetGlyphExtents {(uint)missingGlyph.format}").Auto())
-                {
-                    font.GetGlyphExtents(missingGlyph.glyphIndex, out extents);
-                }
+                font.GetGlyphExtents(missingGlyph.glyphIndex, out var extents);
 
                 var padding = missingGlyph.format switch
                 {
