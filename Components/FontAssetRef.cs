@@ -11,7 +11,7 @@ namespace TextMeshDOTS
     /// because slant value cannot be "guessed" and requested by user during typesetting 
     /// </summary>
     [Serializable]
-    public struct FontAssetRef : IEquatable<FontAssetRef>, IComponentData
+    public struct FontAssetRef : IEquatable<FontAssetRef>
     {
         //Font selection logic: https://www.high-logic.com/font-editor/fontcreator/tutorials/font-family-settings
         public int familyHash;    //default to typeographic family, and fall-back to family if it does not exist
