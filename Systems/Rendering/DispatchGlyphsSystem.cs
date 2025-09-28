@@ -435,15 +435,19 @@ namespace TextMeshDOTS.Rendering
                         writeBufferOffset  += capture.glyphCount;
                         if (capture.makeResident)
                         {
-                            GapAllocator.TryAllocate(glyphGpuTable.residentGaps, (uint)capture.glyphCount, ref residentBufferSize, out var newLocation);
-                            capture.gpuStart = (int)newLocation;
-                            if (capture.textShaderIndexPtr != null)
+                            if (capture.residentRangePtr->count != capture.glyphCount)
                             {
-                                capture.textShaderIndexPtr->firstGlyphIndex = newLocation;
-                                capture.textShaderIndexPtr->glyphCount      = (uint)capture.glyphCount;
+                                GapAllocator.TryAllocate(glyphGpuTable.residentGaps, (uint)capture.glyphCount, ref residentBufferSize, out var newLocation);
+                                capture.gpuStart = (int)newLocation;
+                                if (capture.textShaderIndexPtr != null)
+                                {
+                                    capture.textShaderIndexPtr->firstGlyphIndex = newLocation;
+                                    capture.textShaderIndexPtr->glyphCount = (uint)capture.glyphCount;
+                                }
+                                capture.residentRangePtr->start = newLocation;
+                                capture.residentRangePtr->count = (uint)capture.glyphCount;
+                                //UnityEngine.Debug.Log($"Allocated resident range: {capture.residentRangePtr->start}, {capture.residentRangePtr->count}");
                             }
-                            capture.residentRangePtr->start = newLocation;
-                            capture.residentRangePtr->count = (uint)capture.glyphCount;
                         }
                         else
                         {
@@ -466,9 +470,8 @@ namespace TextMeshDOTS.Rendering
                     {
                         capture.textShaderIndexPtr->firstGlyphIndex = (uint)capture.gpuStart;
                         capture.textShaderIndexPtr->glyphCount      = (uint)capture.glyphCount;
+                        //UnityEngine.Debug.Log($"Allocated dynamic range: {capture.textShaderIndexPtr->firstGlyphIndex}, {capture.textShaderIndexPtr->glyphCount}");
                     }
-                    capture.residentRangePtr->start = (uint)capture.gpuStart;
-                    capture.residentRangePtr->count = (uint)capture.glyphCount;
                 }
 
                 glyphGpuTable.bufferSize.Value = residentBufferSize;

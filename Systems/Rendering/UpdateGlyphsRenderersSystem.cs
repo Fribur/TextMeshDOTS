@@ -24,10 +24,14 @@ namespace TextMeshDOTS.Rendering
         EntityQuery m_query;
         EntityQuery m_deadQuery;
 
+        uint m_twoAgoSystemVersion;
+
         public void OnCreate(ref SystemState state)
         {
             m_query = QueryBuilder().WithAny<RenderGlyph, AnimatedRenderGlyph>().WithPresentRW<GpuState, MaterialMeshInfo>().WithPresentRW<RenderBounds>().Build();
             m_deadQuery = QueryBuilder().WithPresent<PreviousRenderGlyph>().WithAbsent<RenderGlyph, AnimatedRenderGlyph>().Build();
+
+            m_twoAgoSystemVersion = 0;
         }
 
         [BurstCompile]
@@ -77,7 +81,8 @@ namespace TextMeshDOTS.Rendering
                 renderBoundsHandle            = GetComponentTypeHandle<RenderBounds>(false),
                 renderGlyphHandle             = GetBufferTypeHandle<RenderGlyph>(true),
                 residentDeallocationBlocklist = residentDeallocationBlocklistB.AsWriter(),
-                residentRangeHandle           = GetComponentTypeHandle<ResidentRange>(false)
+                residentRangeHandle           = GetComponentTypeHandle<ResidentRange>(false),
+                twoAgoSystemVersion           = m_twoAgoSystemVersion
             }.ScheduleParallel(m_query, state.Dependency);
 
             var atlasTable = GetSingletonRW<AtlasTable>().ValueRW;
@@ -99,7 +104,8 @@ namespace TextMeshDOTS.Rendering
                 residentDeallocationBlocklistB = residentDeallocationBlocklistB.AsReader()
             }.Schedule(state.Dependency);
 
-            state.Dependency = JobHandle.CombineDependencies(jhA, jhB);
+            state.Dependency      = JobHandle.CombineDependencies(jhA, jhB);
+            m_twoAgoSystemVersion = state.LastSystemVersion;
         }
 
         struct RefCountChange
@@ -194,6 +200,7 @@ namespace TextMeshDOTS.Rendering
             public NativeStream.Writer                              residentDeallocationBlocklist;
 
             public uint lastSystemVersion;
+            public uint twoAgoSystemVersion;
 
             [NativeSetThreadIndex] int             threadIndex;
             UnsafeHashMap<uint, RefCountChangePtr> threadRefCountChangeMap;
@@ -203,9 +210,9 @@ namespace TextMeshDOTS.Rendering
                 var animatedGlyphBuffers = chunk.GetBufferAccessor(ref animatedRenderGlyphHandle);
                 bool hasAnimated = animatedGlyphBuffers.Length > 0;
 
-                if (hasAnimated && !chunk.DidChange(ref animatedRenderGlyphHandle, lastSystemVersion))
+                if (hasAnimated && !chunk.DidChange(ref animatedRenderGlyphHandle, twoAgoSystemVersion))
                     return;
-                else if (!hasAnimated && !chunk.DidChange(ref renderGlyphHandle, lastSystemVersion))
+                else if (!hasAnimated && !chunk.DidChange(ref renderGlyphHandle, twoAgoSystemVersion))
                     return;
                 
                 if (!threadRefCountChangeMap.IsCreated)
@@ -213,7 +220,6 @@ namespace TextMeshDOTS.Rendering
 
                 refCountChangeBlocklist.BeginForEachIndex(unfilteredChunkIndex);
                 residentDeallocationBlocklist.BeginForEachIndex(unfilteredChunkIndex);
-
                 
                 var glyphBuffers               = !hasAnimated ? chunk.GetBufferAccessor(ref renderGlyphHandle) : default;
                 var previousRenderGlyphBuffers = chunk.GetBufferAccessor(ref previousRenderGlyphHandle);
@@ -240,6 +246,8 @@ namespace TextMeshDOTS.Rendering
                             gpuStateMask[i] = true;
                         }
                     }
+                    refCountChangeBlocklist.EndForEachIndex();
+                    residentDeallocationBlocklist.EndForEachIndex();
                     return;
                 }
 
@@ -268,10 +276,11 @@ namespace TextMeshDOTS.Rendering
                         }
 
                         // Something changed. Figure out if we need to deallocate or just do an update.
-                        if (glyphs.Length != previousGlyphs.Length && gpuStates[i].state == GpuState.State.Resident)
+                        if (glyphs.Length != previousGlyphs.Length && residentRanges[i].count != 0)
                         {
                             // We need to deallocate.
                             residentDeallocationBlocklist.Write(residentRanges[i]);
+                            //UnityEngine.Debug.Log($"Deallocated resident range: {residentRanges[i].start}, {residentRanges[i].count}");
                             residentRanges[i] = default;
                         }
                         // Reset the state, update ref counts, and copy previousGlyphs
