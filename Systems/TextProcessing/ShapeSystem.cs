@@ -6,6 +6,7 @@ using Unity.Jobs;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Font = TextMeshDOTS.HarfBuzz.Font;
+using UnityEditor.Build.Reporting;
 
 namespace TextMeshDOTS.TextProcessing
 {
@@ -94,7 +95,8 @@ namespace TextMeshDOTS.TextProcessing
                 fontTable = fontTable,
                 glyphEntries = glyphTable.entries.AsDeferredJobArray(),
                 missingGlyphs = missingGlyphsToAdd.AsDeferredJobArray()
-            }.Schedule(missingGlyphsToAdd, 32, state.Dependency);
+                //}.Schedule(missingGlyphsToAdd, 4, state.Dependency);
+            }.Schedule(state.Dependency);
         }
         [BurstCompile]
         public void OnDestroy(ref SystemState state)
@@ -141,7 +143,7 @@ namespace TextMeshDOTS.TextProcessing
         }
 
         [BurstCompile]
-        struct PopulateNewGlyphsJob : IJobParallelForDefer
+        struct PopulateNewGlyphsJob : IJobParallelForDefer, IJob
         {
             [ReadOnly] public NativeArray<GlyphTable.Key> missingGlyphs;
             [ReadOnly] public FontTable fontTable;
@@ -154,6 +156,14 @@ namespace TextMeshDOTS.TextProcessing
             [NativeDisableUnsafePtrRestriction] Font lastFont;
             bool initialized;
 
+            public void Execute()
+            {
+                for (int i = 0; i < missingGlyphs.Length; i++)
+                {
+                    Execute(i);
+                }
+            }
+
             public void Execute(int i)
             {
                 var missingGlyph = missingGlyphs[i];
@@ -161,6 +171,7 @@ namespace TextMeshDOTS.TextProcessing
 
                 if (!initialized || RequiresFontSetup(lastKey, missingGlyph))
                 {
+                    using var createFontMarker = new Unity.Profiling.ProfilerMarker("GetOrCreateFont").Auto();
                     font = fontTable.GetOrCreateFont(missingGlyph.faceIndex, threadIndex);
                     var samplingSize = missingGlyph.textureSize.GetSamplingSize();
                     font.SetScale(samplingSize, samplingSize);
@@ -174,7 +185,11 @@ namespace TextMeshDOTS.TextProcessing
                 // total time = thread * (single thread time) 
                 // reason unknown. Could be mutex lock. Or single thread benefits more
                 // from font acceleration structures populated with each hb_font_get_glyph_extents call
-                font.GetGlyphExtents(missingGlyph.glyphIndex, out var extents);
+                GlyphExtents extents;
+                using (var getGlyphExtentsMarker = new Unity.Profiling.ProfilerMarker($"GetGlyphExtents {(uint)missingGlyph.format}").Auto())
+                {
+                    font.GetGlyphExtents(missingGlyph.glyphIndex, out extents);
+                }
 
                 var padding = missingGlyph.format switch
                 {

@@ -109,6 +109,7 @@ namespace TextMeshDOTS.TextProcessing
                 else
                 {
                     blob = new Blob(fontPath);
+                    blob.MakeImmutable();
                 }
             }             
 
@@ -117,7 +118,9 @@ namespace TextMeshDOTS.TextProcessing
                 var id = fontTable.fontAssetRefToFaceIndexMap.Count;
                 fontTable.fontAssetRefs.Add(fontRequest.fontAssetRef);
                 fontTable.fontAssetRefToFaceIndexMap.Add(fontRequest.fontAssetRef, id);
-                fontTable.faces.Add(new Face(blob.ptr, 0));
+                var face = new Face(blob.ptr, 0);
+                face.MakeImmutable();
+                fontTable.faces.Add(face);
                 for (int i = 0; i < fontTable.perThreadFontCaches.Length; i++)
                 {
                     var list = fontTable.perThreadFontCaches[i];

@@ -62,6 +62,10 @@ namespace TextMeshDOTS.Rendering
                 {
                     texture2DArray.CopyPixels(oldArray, i, 0, i, 0);
                 }
+                for (int i = atlasCount; i < atlasesNeeded; i++)
+                {
+                    texture2DArray.GetPixelData<T>(0, i).AsSpan().Clear();
+                }
 
                 atlasCount = atlasesNeeded;
             }
