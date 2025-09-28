@@ -46,7 +46,7 @@ namespace TextMeshDOTS
             int hashCode = 2055808453;
             var familyHash = typographicFamily == string.Empty ? TextHelper.GetHashCodeCaseInSensitive(fontFamily) : TextHelper.GetHashCodeCaseInSensitive(typographicFamily);
             hashCode = hashCode * -1521134295 + familyHash;
-            hashCode = hashCode * -1521134295 + weight.GetHashCode();
+            hashCode = hashCode * -1521134295 + ((byte)weight).GetHashCode();
             hashCode = hashCode * -1521134295 + width.GetHashCode();
             hashCode = hashCode * -1521134295 + isItalic.GetHashCode();
             hashCode = hashCode * -1521134295 + slant;
