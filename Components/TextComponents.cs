@@ -1,4 +1,6 @@
-﻿using TextMeshDOTS.RichText;
+﻿using System.Runtime.InteropServices;
+using TextMeshDOTS.HarfBuzz;
+using TextMeshDOTS.RichText;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -15,8 +17,10 @@ namespace TextMeshDOTS
     {
         public byte element;
     }
+    
+    // Todo: Replace these with temporary allocations, as Allocator.Persistent mallocs are showing up a lot in the profiler.
     [InternalBufferCapacity(0)]
-    public struct XMLTag : IBufferElementData
+    internal struct XMLTag : IBufferElementData
     {
         public TagType tagType;
         public bool isClosing;
@@ -34,5 +38,17 @@ namespace TextMeshDOTS
             value.type = TagValueType.None;
             value.unit = TagUnitType.Pixels;            
         }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    [InternalBufferCapacity(0)]
+    internal struct GlyphOTF : IBufferElementData
+    {
+        internal GlyphTable.Key glyphKey;
+        public uint cluster;
+        public int xAdvance;
+        public int yAdvance;
+        public int xOffset;
+        public int yOffset;
     }
 }

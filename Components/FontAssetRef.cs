@@ -4,6 +4,8 @@ using Unity.Entities;
 
 namespace TextMeshDOTS
 {
+    // Todo: This is used by FontRequest. Once we decide what to do with that, we can maybe internalize this.
+
     /// <summary>
     /// FontAssetRef is THE link between any fonts request and font entities, and consists of a hash representing the 
     /// font family, and variation axis used during typesetting such as weight ("normal", "bold", semibold"), 

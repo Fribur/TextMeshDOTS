@@ -30,41 +30,6 @@ namespace TextMeshDOTS
 
             return state.EntityManager.CreateArchetype(componentTypeStaging);
         }
-        public static EntityArchetype GetMultiFontParentTextArchetype(ref SystemState state)
-        {
-            var componentTypeStaging = new NativeArray<ComponentType>(14, Allocator.Temp);
-            componentTypeStaging[0] = ComponentType.ReadWrite<TextBaseConfiguration>();
-            componentTypeStaging[1] = ComponentType.ReadWrite<GlyphOTF>();
-            componentTypeStaging[2] = ComponentType.ReadWrite<CalliByte>();
-            componentTypeStaging[3] = ComponentType.ReadWrite<XMLTag>();
-            componentTypeStaging[4] = ComponentType.ReadWrite<RenderGlyph>();
-            componentTypeStaging[5] = ComponentType.ReadWrite<TextShaderIndex>();
-            componentTypeStaging[6] = ComponentType.ReadWrite<LocalTransform>();
-            componentTypeStaging[7] = ComponentType.ReadWrite<LocalToWorld>();
-            componentTypeStaging[8] = ComponentType.ReadWrite<WorldToLocal_Tag>();
-            componentTypeStaging[9] = ComponentType.ReadWrite<WorldRenderBounds>();
-            componentTypeStaging[10] = ComponentType.ReadWrite<RenderBounds>();
-            componentTypeStaging[11] = ComponentType.ReadWrite<PerInstanceCullingTag>();
-            componentTypeStaging[12] = ComponentType.ReadWrite<MaterialMeshInfo>();
-            componentTypeStaging[13] = ComponentType.ReadWrite<RenderFilterSettings>();            
-
-            return state.EntityManager.CreateArchetype(componentTypeStaging);
-        }
-        public static EntityArchetype GetMultiFontChildTextArchetype(ref SystemState state)
-        {
-            var componentTypeStaging = new NativeArray<ComponentType>(9, Allocator.Temp);     
-            componentTypeStaging[0] = ComponentType.ReadWrite<TextShaderIndex>();
-            componentTypeStaging[1] = ComponentType.ReadWrite<LocalTransform>();
-            componentTypeStaging[2] = ComponentType.ReadWrite<LocalToWorld>();
-            componentTypeStaging[3] = ComponentType.ReadWrite<WorldToLocal_Tag>();
-            componentTypeStaging[4] = ComponentType.ReadWrite<WorldRenderBounds>();
-            componentTypeStaging[5] = ComponentType.ReadWrite<RenderBounds>();
-            componentTypeStaging[6] = ComponentType.ReadWrite<PerInstanceCullingTag>();
-            componentTypeStaging[7] = ComponentType.ReadWrite<MaterialMeshInfo>();
-            componentTypeStaging[8] = ComponentType.ReadWrite<RenderFilterSettings>();
-
-            return state.EntityManager.CreateArchetype(componentTypeStaging);
-        }
     }
 }
 

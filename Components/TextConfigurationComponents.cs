@@ -77,20 +77,6 @@ namespace TextMeshDOTS
             set => Bits.SetBits(ref packed, 12, 4, (uint)value);
         }
 
-        public float fontWidthValue => fontWidth switch
-        {
-            FontWidth.UltraCondensed => 50f,
-            FontWidth.ExtraCondensed => 62.5f,
-            FontWidth.Narrow => 75f,
-            FontWidth.SemiCondensed => 87.5f,
-            FontWidth.Normal => 100f,
-            FontWidth.SemiExpanded => 112.5f,
-            FontWidth.Expanded => 125f,
-            FontWidth.ExtraExpanded => 150f,
-            FontWidth.UltraExpanded => 200f,
-            _ => float.NaN,
-        };
-
         /// <summary>
         /// The horizontal alignment mode of the text
         /// </summary>
@@ -222,5 +208,24 @@ namespace TextMeshDOTS
         Normal = 0,
         Big = 1,
         Massive = 2,
+    }
+
+    public static class FontEnumerationExtensions
+    {
+        public static float Value(this FontWidth fontWidth) => fontWidth switch
+        {
+            FontWidth.UltraCondensed => 50f,
+            FontWidth.ExtraCondensed => 62.5f,
+            FontWidth.Narrow => 75f,
+            FontWidth.SemiCondensed => 87.5f,
+            FontWidth.Normal => 100f,
+            FontWidth.SemiExpanded => 112.5f,
+            FontWidth.Expanded => 125f,
+            FontWidth.ExtraExpanded => 150f,
+            FontWidth.UltraExpanded => 200f,
+            _ => float.NaN,
+        };
+
+        public static int Value(this FontWeight fontWeight) => 100 * (int)fontWeight;
     }
 }

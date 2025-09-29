@@ -9,7 +9,7 @@ using Unity.Collections.LowLevel.Unsafe;
 namespace TextMeshDOTS.TextProcessing
 {
     [BurstCompile]    
-    public partial struct GenerateRenderGlyphsJob : IJobChunk
+    internal partial struct GenerateRenderGlyphsJob : IJobChunk
     {
         public BufferTypeHandle<RenderGlyph> renderGlyphHandle;
 

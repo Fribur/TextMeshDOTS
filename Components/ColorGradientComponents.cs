@@ -1,29 +1,8 @@
-using System;
 using Unity.Entities;
 using UnityEngine;
-using UnityEngine.TextCore.Text;
 
 namespace TextMeshDOTS
 {
-    /// <summary>
-    /// Definition of color gradients
-    /// </summary>
-    [Serializable]
-    public struct TextMeshDOTSColorGradient
-    {
-        [SerializeField]
-        public string name;
-        [SerializeField]
-        public ColorGradientMode colorMode;
-        [SerializeField]
-        public Color topLeft;
-        [SerializeField]
-        public Color topRight;
-        [SerializeField]
-        public Color bottomLeft;
-        [SerializeField]
-        public Color bottomRight;
-    }
     /// <summary>
     /// Definition of color gradients
     /// </summary>

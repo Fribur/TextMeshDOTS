@@ -31,7 +31,7 @@ using UnityEngine.Rendering;
 // sprites and rasterized emojis. Access APIs can also be found in the hlsl file. Any shader including
 // that file will have access to these global resources. 
 
-namespace TextMeshDOTS.Rendering
+namespace TextMeshDOTS
 {
     /// <summary>
     /// The glyphs to be rendered based on the processed CalliByte buffer.
@@ -86,6 +86,12 @@ namespace TextMeshDOTS.Rendering
         public uint glyphCount;
     }
 
+    public struct RuntimeFontMaterial : IComponentData
+    {
+        public BatchMeshID batchMeshID;
+        public BatchMaterialID batchMaterialID;
+    }
+
     internal struct GpuState : IComponentData, IEnableableComponent  // Enabled to request dispatch
     {
         internal enum State : byte
@@ -117,10 +123,6 @@ namespace TextMeshDOTS.Rendering
 
         public JobHandle TryDispose(JobHandle inputDeps) => inputDeps;
     }
-    public struct RuntimeFontMaterial : IComponentData
-    {
-        public BatchMeshID batchMeshID;
-        public BatchMaterialID batchMaterialID;
-    }
+    
 }
 

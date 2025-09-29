@@ -9,7 +9,7 @@ using UnityEngine;
 namespace TextMeshDOTS.TextProcessing
 {
     [BurstCompile]
-    public partial struct ExtractTagsJob : IJobChunk
+    internal partial struct ExtractTagsJob : IJobChunk
     {
         public BufferTypeHandle<XMLTag> xmlTagHandle; 
         [ReadOnly] public BufferTypeHandle<CalliByte> calliByteHandle;
