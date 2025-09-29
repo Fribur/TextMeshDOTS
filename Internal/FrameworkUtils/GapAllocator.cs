@@ -3,7 +3,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
-namespace TextMeshDOTS.Rendering
+namespace TextMeshDOTS
 {
     /// <summary>
     /// A virtual allocator for large buffers (typically graphics buffers) which must be packed
@@ -14,7 +14,7 @@ namespace TextMeshDOTS.Rendering
     /// For this allocator, the strategy is to append all deallocated ranges to the end of the list,
     /// then call CoellesceGaps. And finally, make new allocations.
     /// </summary>
-    public static class GapAllocator
+    internal static class GapAllocator
     {
         /// <summary>
         /// Merges gaps together to be fit for future allocations.

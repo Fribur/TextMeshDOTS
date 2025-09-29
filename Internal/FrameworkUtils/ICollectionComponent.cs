@@ -5,7 +5,7 @@ namespace TextMeshDOTS
 {
     // This type is defined to help maintain consistency with Calligraphics.
     // TextMeshDOTS uses these as singletons.
-    public interface ICollectionComponent : IComponentData
+    internal interface ICollectionComponent : IComponentData
     {
         /// <summary>
         /// Attempt to Dispose the collection component. Note that user code could add not-fully-allocated collection components

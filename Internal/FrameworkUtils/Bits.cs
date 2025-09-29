@@ -3,7 +3,7 @@ using Unity.Mathematics;
 
 namespace TextMeshDOTS
 {
-    public static class Bits
+    internal static class Bits
     {
         public static bool GetBit(int data, int bitIndex) => new BitField32(math.asuint(data)).IsSet(bitIndex);
         public static void SetBit(ref int data, int bitIndex, bool bitValue)
