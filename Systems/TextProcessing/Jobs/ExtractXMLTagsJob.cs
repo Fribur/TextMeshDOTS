@@ -6,7 +6,7 @@ using Unity.Burst.Intrinsics;
 using System.IO;
 using UnityEngine;
 
-namespace TextMeshDOTS.TextProcessing
+namespace TextMeshDOTS
 {
     [BurstCompile]
     internal partial struct ExtractTagsJob : IJobChunk

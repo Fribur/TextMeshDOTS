@@ -8,7 +8,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Font = TextMeshDOTS.HarfBuzz.Font;
 using UnityEditor.Build.Reporting;
 
-namespace TextMeshDOTS.TextProcessing
+namespace TextMeshDOTS
 {
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]

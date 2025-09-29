@@ -7,7 +7,7 @@ using Unity.Entities;
 using Unity.Profiling;
 using Buffer = TextMeshDOTS.HarfBuzz.Buffer;
 
-namespace TextMeshDOTS.TextProcessing
+namespace TextMeshDOTS
 {
     [BurstCompile]
     internal partial struct ShapeJob : IJobChunk

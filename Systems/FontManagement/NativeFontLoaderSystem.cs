@@ -4,17 +4,19 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Scenes;
 using UnityEngine;
 using static TextMeshDOTS.TextCoreExtensions;
 using Font = TextMeshDOTS.HarfBuzz.Font;
 
 
-namespace TextMeshDOTS.TextProcessing
+namespace TextMeshDOTS
 {
     //[DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
+    [UpdateAfter(typeof(SceneSystemGroup))]
     partial struct NativeFontLoaderSystem : ISystem
     {
         EntityQuery changedFontRequestQ;

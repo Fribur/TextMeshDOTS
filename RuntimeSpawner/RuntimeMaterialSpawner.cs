@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 
-namespace TextMeshDOTS.TextProcessing
+namespace TextMeshDOTS
 {
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [CreateAfter(typeof(EntitiesGraphicsSystem))]

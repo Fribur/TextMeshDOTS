@@ -3,7 +3,7 @@ using Unity.Burst;
 using Unity.Entities;
 using TextMeshDOTS.HarfBuzz;
 
-namespace TextMeshDOTS.TextProcessing
+namespace TextMeshDOTS
 {
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]

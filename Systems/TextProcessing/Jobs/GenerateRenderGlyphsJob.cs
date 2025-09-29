@@ -6,7 +6,7 @@ using Unity.Collections;
 using TextMeshDOTS.HarfBuzz;
 using Unity.Collections.LowLevel.Unsafe;
 
-namespace TextMeshDOTS.TextProcessing
+namespace TextMeshDOTS
 {
     [BurstCompile]    
     internal partial struct GenerateRenderGlyphsJob : IJobChunk

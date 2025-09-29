@@ -1,5 +1,4 @@
 using System;
-using TextMeshDOTS.TextProcessing;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
