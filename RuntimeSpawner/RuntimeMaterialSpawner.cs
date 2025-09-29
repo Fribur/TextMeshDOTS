@@ -1,5 +1,4 @@
 using TextMeshDOTS.Rendering;
-using TextMeshDOTS.Rendering.Authoring;
 using Unity.Entities;
 using Unity.Rendering;
 using UnityEngine;
@@ -13,6 +12,8 @@ namespace TextMeshDOTS.TextProcessing
     [UpdateInGroup(typeof(PresentationSystemGroup))]
     partial class RunttimeMaterialSpawner : SystemBase
     {
+        private const string kUnified_URP_Material = "Unified-URP";
+
         EntitiesGraphicsSystem hybridRenderer;
 
         Material runtimeMaterial;
@@ -23,7 +24,7 @@ namespace TextMeshDOTS.TextProcessing
         protected override void OnCreate()
         {
             hybridRenderer = World.GetExistingSystemManaged<EntitiesGraphicsSystem>();
-            backendMesh = Resources.Load<Mesh>(TextBackendBakingUtility.kTextBackendMeshResource);
+            backendMesh = Resources.Load<Mesh>(RenderingTools.kTextBackendMeshResource);
             backendMeshID = BatchMeshID.Null;
             var srpType = GraphicsSettings.defaultRenderPipeline.GetType().ToString();
             if (srpType.Contains("HDRenderPipelineAsset"))
@@ -34,7 +35,7 @@ namespace TextMeshDOTS.TextProcessing
             else if (srpType.Contains("UniversalRenderPipelineAsset") || srpType.Contains("LightweightRenderPipelineAsset"))
             {
                 //Debug.Log("Universal Render Pipeline (URP) is being used.");
-                runtimeMaterial = Resources.Load<Material>(TextMaterialUtility.kUnified_URP_Material);
+                runtimeMaterial = Resources.Load<Material>(kUnified_URP_Material);
             }
             else
                 Debug.LogError("TextMeshDOTS does not work with the Built-in (Legacy) Render Pipeline");

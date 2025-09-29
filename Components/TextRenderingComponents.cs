@@ -5,38 +5,31 @@ using Unity.Mathematics;
 using Unity.Rendering;
 using UnityEngine.Rendering;
 
-// If you are providing a frontend, listen up!
-// Your objective is to query for all entities with two components:
-// RenderGlyphOld and TextRenderControl.
-// Write to them in PresentationSystemGroup before KinemationRenderUpdateSuperSystem
-// which is inside UpdatePresentationSystemGroup.
-// If you change anything on any of the RenderGlyphs, or resize the buffer,
-// you must add the Dirty flag to TextRenderControl. The other flags are optional
-// and are simply there so you can defer some calculations to the GPU (they're effectively free).
-// For baking, you must bake whatever data you require to populate the RenderGlyphs.
-// In the namespace Latios.Kinemation.TextBackend.Authoring, call the IBaker extension
-// method BakeTextBackendMeshAndMaterial() to set up the rendering side. This will add
-// the required RenderGlyphOld and TextRenderControl components as well as internal rendering
-// components.
+// How Rendering works:
+// When the DynamicBuffer<CalliByte> is updated, a pipeline will process it, convert it into a set
+// of glyphs, and add any glyphs it hasn't seen before to a global internal table. The result of
+// this is the DynamicBuffer<RenderGlyph>. As a user, you can override this buffer by adding
+// DynamicBuffer<AnimatedRenderGlyph> and populating the values using modified elements read from
+// DynamicBuffer<RenderGlyph>.
 //
-// How it works:
 // In the Kinemation Resources directory, there is a special Mesh baked which contains dummy
 // vertex attributes, and has multiple submeshes. Each submesh contains the triangle vertex indices
-// for various glyph counts. Inside KinemationRenderUpdateSuperSystem, for any TextRenderControl
-// with the dirty flag, Kinemation will set the appropriate submesh on the entity's MaterialMeshInfo.
-// It will also recalculate the RenderBounds (local-space bounds).
-// In the culling loop, Kinemation will update any visible text glyphs to an upload GraphicsBuffer.
-// The uploaded glyphs need to be transferred to a persistent GraphicsBuffer which is done via
-// a ComputeShader. Because this ComputeShader is primarily a memory-transfer operation, most of the
-// time the GPU is doing NOPs waiting on memory. We try to replace those NOPs with useful calculations
-// that the CPU would otherwise have to do, such as color space conversion. The culling loop will also
-// set the TextShaderIndex material property.
-// Lastly, the Latios Text Shader Graph node will parse the glyphs from the persistent buffer based on
-// the vertex ID. If the vertex ID does not map to any glyph (because the string is short), the node
-// will instead return a vertex that the GPU will discard based on the same mechanism VFX Graph uses.
-// Otherwise, the returned vertex will contain all the information the vertex needs to provide to
-// TextMeshPro. The glyph stays compressed in its 96 byte form on the GPU and is decoded directly in
-// the vertex shader.
+// for various glyph counts. The submesh is with with the least number of triangles needed is chosen
+// to render the set of glyphs contained by the text renderer entity.
+//
+// A material override property _TextShaderIndex is sent to the GPU. This contains a start index and
+// count as integers into a global buffer containing all glyphs. This global buffer has two regions,
+// a resident region and a dynamic region. The first time an entity with glyphs is rendered, the
+// glyphs are allocated in the dynamic region and forgotten about the next frame. If the second frame
+// also sees the same entity rendered without changes to glyphs, it will allocate the glyphs in a
+// resident region, allowing future renders of the entity to not require uploading glyphs. The GPU
+// buffer can be accessed and decoded using the included GlobalsApi.hlsl file. Extra triangles that
+// don't have glyphs will have NaN assigned to the positions. This causes the GPU to discard the
+// triangle.
+//
+// Similarly, global texture arrays are used to store SDFs for character glyphs and bitmaps for
+// sprites and rasterized emojis. Access APIs can also be found in the hlsl file. Any shader including
+// that file will have access to these global resources. 
 
 namespace TextMeshDOTS.Rendering
 {

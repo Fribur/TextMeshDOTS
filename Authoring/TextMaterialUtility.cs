@@ -7,11 +7,10 @@ namespace TextMeshDOTS.Rendering.Authoring
     [BurstCompile]
     public static class TextMaterialUtility
     {        
-        public const string kResourcePath = "Assets/Resources";
+        private const string kResourcePath = "Assets/Resources";
 
         private const string kUnified_URP_Shader = "TextMeshDOTS/TMD_Simple_Unlit";
-        public const string kUnified_URP_Material = "Unified-URP";
-        public const string kUnified_URP_MaterialPath = "Assets/Resources/Unified-URP.mat";
+        private const string kUnified_URP_MaterialPath = "Assets/Resources/Unified-URP.mat";
 
 #if UNITY_EDITOR
         [UnityEditor.MenuItem("TextMeshDOTS/Generate Materials")]

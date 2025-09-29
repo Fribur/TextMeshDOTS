@@ -12,7 +12,7 @@ using UnityEngine.Rendering;
 
 // Use this system for spawning new TextRender at runtime
 
-namespace TextMeshDOTS.Authoring
+namespace TextMeshDOTS
 {
     [BurstCompile]
     //[DisableAutoCreation]

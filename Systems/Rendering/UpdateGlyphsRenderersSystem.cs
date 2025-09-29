@@ -1,6 +1,5 @@
 using System;
 using TextMeshDOTS.HarfBuzz;
-using TextMeshDOTS.Rendering.Authoring;
 using TextMeshDOTS.TextProcessing;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
@@ -339,7 +338,7 @@ namespace TextMeshDOTS.Rendering
                 }
                 bounds = new RenderBounds { Value = new AABB { Center = center, Extents = extents } };;
 
-                TextBackendBakingUtility.SetSubMesh(glyphs.Length, ref mmi);
+                RenderingTools.SetSubMesh(glyphs.Length, ref mmi);
             }
         }
 

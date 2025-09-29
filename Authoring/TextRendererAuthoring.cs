@@ -1,9 +1,7 @@
 using TextMeshDOTS.HarfBuzz;
 using TextMeshDOTS.Rendering;
-using TextMeshDOTS.Rendering.Authoring;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Entities.UniversalDelegates;
 using Unity.Mathematics;
 using UnityEngine;
 
@@ -51,7 +49,7 @@ namespace TextMeshDOTS.Authoring
                 authoring.material ==null)
                 return;
 
-            var backEndMesh = Resources.Load<Mesh>(TextBackendBakingUtility.kTextBackendMeshResource);
+            var backEndMesh = Resources.Load<Mesh>(RenderingTools.kTextBackendMeshResource);
             
             //add MeshFilter and MeshRender on main entity to ensure it correctly converted 
             var meshRenderer = GetComponent<MeshRenderer>();

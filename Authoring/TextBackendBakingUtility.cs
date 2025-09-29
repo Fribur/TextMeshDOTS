@@ -13,7 +13,6 @@ namespace TextMeshDOTS.Rendering.Authoring
         public const string kResourcePath = "Assets/Resources";
         //public const string kTextBackendMeshPath     = "Packages/com.textmeshdots/Resources/TextBackendMesh.mesh";
         public const string kTextBackendMeshPath = "Assets/Resources/TextBackendMesh.mesh";
-        public const string kTextBackendMeshResource = "TextBackendMesh";
 
         #region Mesh Building
 #if UNITY_EDITOR
@@ -98,38 +97,6 @@ namespace TextMeshDOTS.Rendering.Authoring
                 indices[dst + 3] = (ushort)(src + 2);
                 indices[dst + 4] = (ushort)(src + 3);
                 indices[dst + 5] = src;
-            }
-        }
-        public static void SetSubMesh(int glyphCount, ref MaterialMeshInfo mmi)
-        {
-            switch (glyphCount)
-            {
-                case int _ when glyphCount <= 4:
-                    mmi.SubMesh = 0; break;
-                case int _ when glyphCount <= 8:
-                    mmi.SubMesh = 1; break;
-                case int _ when glyphCount <= 16:
-                    mmi.SubMesh = 2; break;
-                case int _ when glyphCount <= 24:
-                    mmi.SubMesh = 3; break;
-                case int _ when glyphCount <= 32:
-                    mmi.SubMesh = 4; break;
-                case int _ when glyphCount <= 48:
-                    mmi.SubMesh = 5; break;
-                case int _ when glyphCount <= 64:
-                    mmi.SubMesh = 6; break;
-                case int _ when glyphCount <= 256:
-                    mmi.SubMesh = 7; break;
-                case int _ when glyphCount <= 1024:
-                    mmi.SubMesh = 8; break;
-                case int _ when glyphCount <= 4096:
-                    mmi.SubMesh = 9; break;
-                case int _ when glyphCount <= 16384:
-                    mmi.SubMesh = 10; break;               
-                default:
-                    mmi.SubMesh = 10;
-                    UnityEngine.Debug.LogWarning("Glyphs in RenderGlyph buffer exceeds max capacity of 16384 and will be truncated.");
-                    break;
             }
         }
         #endregion
