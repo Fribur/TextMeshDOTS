@@ -1,5 +1,4 @@
 using System;
-using TextMeshDOTS.HarfBuzz;
 using TextMeshDOTS.TextProcessing;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
@@ -12,7 +11,7 @@ using Unity.Rendering;
 
 using static Unity.Entities.SystemAPI;
 
-namespace TextMeshDOTS.Rendering
+namespace TextMeshDOTS
 {
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [RequireMatchingQueriesForUpdate]
