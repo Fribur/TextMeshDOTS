@@ -44,7 +44,7 @@ namespace TextMeshDOTS
         public override int GetHashCode()
         {
             int hashCode = 2055808453;
-            var familyHash = typographicFamily == string.Empty ? TextHelper.GetHashCodeCaseInSensitive(fontFamily) : TextHelper.GetHashCodeCaseInSensitive(typographicFamily);
+            var familyHash = typographicFamily == string.Empty ? TextHelper.GetHashCodeCaseInsensitive(fontFamily) : TextHelper.GetHashCodeCaseInsensitive(typographicFamily);
             hashCode = hashCode * -1521134295 + familyHash;
             hashCode = hashCode * -1521134295 + ((byte)weight).GetHashCode();
             hashCode = hashCode * -1521134295 + width.GetHashCode();

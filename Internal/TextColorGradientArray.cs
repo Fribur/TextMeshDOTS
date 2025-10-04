@@ -3,7 +3,7 @@ using Unity.Entities;
 
 namespace TextMeshDOTS
 {
-    public struct TextColorGradientArray
+    internal struct TextColorGradientArray
     {
         public FixedList4096Bytes<TextColorGradient> textColorGradients;
         public readonly int Length => textColorGradients.Length;

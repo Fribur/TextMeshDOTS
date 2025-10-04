@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace TextMeshDOTS.RichText
 {    
-    public static class RichTextParser
+    internal static class RichTextParser
     {
         private enum ParserState : byte
         {

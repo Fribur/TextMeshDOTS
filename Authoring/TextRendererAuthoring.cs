@@ -70,7 +70,7 @@ namespace TextMeshDOTS.Authoring
             calliString.Append(authoring.text);
             var textBaseConfiguraton = new TextBaseConfiguration
             {
-                defaultFontFamilyHash = TextHelper.GetHashCodeCaseInSensitive(authoring.defaultFont),
+                defaultFontFamilyHash = TextHelper.GetHashCodeCaseInsensitive(authoring.defaultFont),
                 fontSize = (half)authoring.fontSize,
                 color = authoring.color,
                 maxLineWidth = math.select(float.MaxValue, authoring.maxLineWidth, authoring.wordWrap),

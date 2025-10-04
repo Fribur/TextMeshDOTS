@@ -28,7 +28,7 @@ namespace TextMeshDOTS
             textRenderArchetype = TextMeshDOTSArchetypes.GetSingleFontTextArchetype(ref state);
             textBaseConfiguration = new TextBaseConfiguration
             {
-                defaultFontFamilyHash = TextHelper.GetHashCodeCaseInSensitive("Noto Sans Display"),
+                defaultFontFamilyHash = TextHelper.GetHashCodeCaseInsensitive("Noto Sans Display"),
                 fontSize = (half)12,
                 color = Color.white,                
                 maxLineWidth = 30,
@@ -89,7 +89,7 @@ namespace TextMeshDOTS
         void SpawnTextArray(FixedString512Bytes text, FixedString128Bytes fontFamily, int count, float maxLineWidth, Color textcolor, float spreadFactor, ref SystemState state)
         {
             int half = count / 2;
-            textBaseConfiguration.defaultFontFamilyHash = TextHelper.GetHashCodeCaseInSensitive(fontFamily);
+            textBaseConfiguration.defaultFontFamilyHash = TextHelper.GetHashCodeCaseInsensitive(fontFamily);
             textBaseConfiguration.color = textcolor;
             textBaseConfiguration.maxLineWidth = maxLineWidth;
             var entities = state.EntityManager.CreateEntity(textRenderArchetype, count * count, state.WorldUpdateAllocator);
@@ -113,7 +113,7 @@ namespace TextMeshDOTS
         }
         void SpawnText(FixedString512Bytes text, FixedString128Bytes fontFamily, float maxLineWidth, float3 position, Color textcolor,  ref SystemState state)
         {
-            textBaseConfiguration.defaultFontFamilyHash = TextHelper.GetHashCodeCaseInSensitive(fontFamily);
+            textBaseConfiguration.defaultFontFamilyHash = TextHelper.GetHashCodeCaseInsensitive(fontFamily);
             textBaseConfiguration.color = textcolor;
             textBaseConfiguration.maxLineWidth = maxLineWidth;
             var entity = state.EntityManager.CreateEntity(textRenderArchetype);

@@ -230,7 +230,7 @@ namespace TextMeshDOTS
                                     //To-Do: better to store valueHash in tag struct
                                     FixedString128Bytes stringValue = default; //should not happen too often, so should be OK to allocate here
                                     calliStringRaw.GetSubString(ref stringValue, tag.value.valueStart, tag.value.valueLength);
-                                    m_fontFamilyHash = TextHelper.GetHashCodeCaseInSensitive(stringValue);
+                                    m_fontFamilyHash = TextHelper.GetHashCodeCaseInsensitive(stringValue);
                                     m_fontFamilyHashStack.Add(m_fontFamilyHash);
                                 }
 

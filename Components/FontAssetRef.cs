@@ -23,7 +23,7 @@ namespace TextMeshDOTS
 
         public FontAssetRef(FixedString128Bytes fontFamily, FixedString128Bytes typographicFamily, FontWeight fontWeight, float width, bool isItalic, float slant)
         {
-            this.familyHash = typographicFamily.IsEmpty ? TextHelper.GetHashCodeCaseInSensitive(fontFamily) : TextHelper.GetHashCodeCaseInSensitive(typographicFamily);
+            this.familyHash = typographicFamily.IsEmpty ? TextHelper.GetHashCodeCaseInsensitive(fontFamily) : TextHelper.GetHashCodeCaseInsensitive(typographicFamily);
             this.weight = fontWeight;
             this.width = width;
             this.isItalic = isItalic;

@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace TextMeshDOTS.RichText
 {
-    public enum StringValue : byte
+    internal enum StringValue : byte
     {
         Unknown, // Not a real tag, used to indicate unknown string, which needs to be fetched from calliBytesRaw
         Default,

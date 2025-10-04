@@ -44,8 +44,8 @@ Phase 3 is currently in progress.
 
 - [x] Remove old component types from entities and temporary rendering path switching workflow
 - [x] Delete dead code
-- [ ] Internalize/privatize types
-- [ ] Clean up namespaces, directory structure, and code organization
+- [x] Internalize/privatize types
+- [x] Clean up namespaces, directory structure, and code organization
 
 ### Improve Font Loading
 

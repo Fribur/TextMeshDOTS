@@ -6,7 +6,7 @@ namespace TextMeshDOTS.RichText
 {   
         
     [StructLayout(LayoutKind.Explicit, Size = 16)]
-    public struct TagValue
+    internal struct TagValue
     {
         [FieldOffset(0)]
         internal TagValueType type;

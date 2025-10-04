@@ -2,9 +2,9 @@ using Unity.Collections;
 
 namespace TextMeshDOTS
 {
-    public static class TextHelper
+    internal static class TextHelper
     {       
-        public static int GetHashCodeCaseInSensitive(FixedString128Bytes text)
+        public static int GetHashCodeCaseInsensitive(FixedString128Bytes text)
         {
             var s = text.GetEnumerator();
             int num = 0;

@@ -1,6 +1,6 @@
 namespace TextMeshDOTS.RichText
 {
-    public enum TagType : byte
+    internal enum TagType : byte
     {
         Hyperlink,
         Align,
