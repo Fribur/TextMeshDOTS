@@ -296,6 +296,7 @@ namespace TextMeshDOTS
                     uploadBuffer              = uploadArray,
                     uploadMetaBuffer          = uploadMetaArray,
                     useComputeUpload          = kEnableComputePixelUpload,
+                    atomicPrioritizer         = new NativeReference<int>(0, state.WorldUpdateAllocator),
                 }.ScheduleParallel(collected.glyphEntryIDsToRasterize.Length, 1, rasterizeJh);
 
                 writeState.pixelUploadBuffer               = uploadBuffer;

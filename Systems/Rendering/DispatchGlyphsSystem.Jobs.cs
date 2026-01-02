@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Threading;
 using TextMeshDOTS.HarfBuzz;
 using TextMeshDOTS.HarfBuzz.Bitmap;
 using Unity.Burst;
@@ -174,7 +176,9 @@ namespace TextMeshDOTS
                 glyphEntryIDsToRasterize.Capacity = count;
                 foreach (var glyph in glyphEntryIDsToRasterizeSet)
                     glyphEntryIDsToRasterize.AddNoResize(glyph);
-                glyphEntryIDsToRasterize.Sort();
+                // We sort in reverse order, because higher values of the top two bits tend to be the most expensive,
+                // so we want to have those earlier in the list when we rasterize them.
+                glyphEntryIDsToRasterize.Sort(new ReverseComparer());
 
                 UnsafeHashSet<uint> dirtyAtlasIDSet = new UnsafeHashSet<uint>(32, Allocator.Temp);
                 int                 runningOffset   = 0;
@@ -215,6 +219,11 @@ namespace TextMeshDOTS
                 atlasDirtyIDs.Sort();
             }
         }
+
+        struct ReverseComparer : IComparer<uint>
+        {
+            public int Compare(uint x, uint y) => - x.CompareTo(y);
+        }
         #endregion
 
         #region Write Jobs
@@ -230,6 +239,7 @@ namespace TextMeshDOTS
             [NativeDisableParallelForRestriction] public NativeArray<TextureAtlasArray<Color32>.AtlasPtr> bitmapPtrs;
             [NativeDisableParallelForRestriction] public NativeArray<byte>                                uploadBuffer;
             [NativeDisableParallelForRestriction] public NativeArray<uint4>                               uploadMetaBuffer;  // Disable parallel in case compute upload is disabled
+            [NativeDisableParallelForRestriction] public NativeReference<int>                             atomicPrioritizer;
 
             [NativeDisableUnsafePtrRestriction] public DrawDelegates  drawDelegates;
             [NativeDisableUnsafePtrRestriction] public PaintDelegates paintDelegates;
@@ -240,8 +250,10 @@ namespace TextMeshDOTS
 
             static readonly Unity.Profiling.ProfilerMarker kPaintMarker = new Unity.Profiling.ProfilerMarker("Rasterize Paint");
 
-            public void Execute(int glyphIndex)
+            public unsafe void Execute(int workerIndex)
             {
+                var glyphIndex = Interlocked.Increment(ref *atomicPrioritizer.GetUnsafePtr()) - 1;
+
                 var glyphEntry = glyphTable.GetEntry(glyphEntryIDsToRasterize[glyphIndex]);
 
                 // If the glyph doesn't have any real size, then there's nothing to rasterize.
