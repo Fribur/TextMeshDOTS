@@ -79,16 +79,28 @@ namespace TextMeshDOTS.HarfBuzz.Bitmap
         {
             var scaleTo8Bit = 256 / (spread * 2);
             //var scaleTo16Bit = 65536 / (spread * 2);
-            for (int row = 0; row < atlasRectHeight; row++)
+
+            if (buffer.Length == distances.Length && buffer.Length == atlasRectWidth * atlasRectHeight)
             {
-                for (int column = 0; column < atlasRectWidth; column++)
+                for (int i = 0; i < buffer.Length; i++)
                 {
-                    var sourceIndex = atlasRectWidth * row + column;
-                    var targetIndex = (atlasWidth * (row + atlasY)) + (column + atlasX);
-                 
-                    // convert to byte range of alpha8 texture
-                    var result = (distances[sourceIndex] + spread) * scaleTo8Bit;
-                    buffer[targetIndex] = (byte)result;
+                    var result = (distances[i] + spread) * scaleTo8Bit;
+                    buffer[i] = (byte)result;
+                }
+            }
+            else
+            {
+                for (int row = 0; row < atlasRectHeight; row++)
+                {
+                    for (int column = 0; column < atlasRectWidth; column++)
+                    {
+                        var sourceIndex = atlasRectWidth * row + column;
+                        var targetIndex = (atlasWidth * (row + atlasY)) + (column + atlasX);
+
+                        // convert to byte range of alpha8 texture
+                        var result = (distances[sourceIndex] + spread) * scaleTo8Bit;
+                        buffer[targetIndex] = (byte)result;
+                    }
                 }
             }
         }        
