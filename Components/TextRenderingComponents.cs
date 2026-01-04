@@ -102,7 +102,8 @@ namespace TextMeshDOTS
             Uncommitted,
             Dynamic,
             DynamicPromoteToResident,
-            Resident
+            Resident,
+            ResidentUncommitted
         }
         internal State state;
     }

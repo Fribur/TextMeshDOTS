@@ -281,7 +281,7 @@ namespace TextMeshDOTS
                             residentRanges[i] = default;
                         }
                         // Reset the state, update ref counts, and copy previousGlyphs
-                        gpuStates[i].state = GpuState.State.Uncommitted;
+                        gpuStates[i].state = residentRanges[i].count != 0 ? GpuState.State.ResidentUncommitted : GpuState.State.Uncommitted;
                         gpuStateMask[i]    = true;
                         UpdateRefCounts(previousGlyphs.Reinterpret<RenderGlyph>().AsNativeArray().AsReadOnlySpan(), -1);
                         UpdateRefCounts(glyphs.AsNativeArray().AsReadOnlySpan(),                                    1);

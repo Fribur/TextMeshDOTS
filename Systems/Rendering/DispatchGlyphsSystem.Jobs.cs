@@ -55,8 +55,9 @@ namespace TextMeshDOTS
                 var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
                 while (enumerator.NextEntityIndex(out var entityIndex))
                 {
-                    gpuStateMask[entityIndex]    = false;
-                    bool resident                = gpuStates[entityIndex].state == GpuState.State.DynamicPromoteToResident;
+                    gpuStateMask[entityIndex] = false;
+                    bool resident             = gpuStates[entityIndex].state == GpuState.State.DynamicPromoteToResident ||
+                                                gpuStates[entityIndex].state == GpuState.State.ResidentUncommitted;
                     gpuStates[entityIndex].state = resident ? GpuState.State.Resident : GpuState.State.Dynamic;
                     var glyphs                   = glyphBuffers[entityIndex];
                     renderGlyphCapturesStream.Write(new RenderGlyphCapture
@@ -118,6 +119,10 @@ namespace TextMeshDOTS
                                 capture.residentRangePtr->start = newLocation;
                                 capture.residentRangePtr->count = (uint)capture.glyphCount;
                                 //UnityEngine.Debug.Log($"Allocated resident range: {capture.residentRangePtr->start}, {capture.residentRangePtr->count}");
+                            }
+                            else
+                            {
+                                capture.gpuStart = (int)capture.residentRangePtr->start;
                             }
                         }
                         else
