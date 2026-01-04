@@ -53,9 +53,6 @@ namespace TextMeshDOTS
                 var glyphOTFBuffers = chunk.GetBufferAccessor(ref glyphOTFHandle);
                 var textBaseConfigurations = chunk.GetNativeArray(ref textBaseConfigurationHandle);
 
-                var language = Language.English;
-                //var language = new Language(HB.HB_TAG('A', 'P', 'P', 'H'));
-                var segmentProperties = new SegmentProperties(Direction.LTR, Script.LATIN, language);
                 var buffer = new Buffer(true);
                 var openTypeFeatures = new OpenTypeFeatureConfig(16, Allocator.Temp);
 
@@ -73,6 +70,10 @@ namespace TextMeshDOTS
                     var glyphOTFs = glyphOTFBuffers[indexInChunk];
                     var calliBytesBuffer = calliBytesBuffers[indexInChunk].Reinterpret<byte>();
                     var textBaseConfiguration = textBaseConfigurations[indexInChunk];
+
+                    var language = new Language(textBaseConfiguration.languageCode.code);
+                    var script = (Script)textBaseConfiguration.scriptCode.code;
+                    var segmentProperties = new SegmentProperties(Direction.LTR, script, language);
 
                     fontConfig.Reset(textBaseConfiguration, ref fontTable);
                     layoutConfig.Reset(textBaseConfiguration);

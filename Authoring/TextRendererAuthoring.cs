@@ -34,6 +34,8 @@ namespace TextMeshDOTS.Authoring
         public float lineSpacing = 0;
         [Tooltip("Paragraph spacing in font units where a value of 1 equals 1/100em.")]
         public float paragraphSpacing = 0;
+        public LanguageCode languageCode = new LanguageCode('E', 'N', 'G', ' ');
+        public ScriptCode scriptCode = new ScriptCode('L', 'a', 't', 'n');
         public Material material;
     }
 
@@ -88,6 +90,8 @@ namespace TextMeshDOTS.Authoring
                 wordSpacing = (half)authoring.wordSpacing,
                 lineSpacing = (half)authoring.lineSpacing,
                 paragraphSpacing = (half)authoring.paragraphSpacing,
+                languageCode = authoring.languageCode,
+                scriptCode = authoring.scriptCode,
             };
             AddComponent(entity, textBaseConfiguraton);           
         } 

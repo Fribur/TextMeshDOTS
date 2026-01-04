@@ -38,18 +38,21 @@ namespace TextMeshDOTS
         /// </summary>
         public half paragraphSpacing;
 
+        /// <summary>
+        /// The size of the font, in point sizes
+        /// </summary>
+        public half fontSize;
+
         //internal int samplingSize => fontTextureSize.GetSamplingSize();
-        internal uint packed;  // 2 bits left unused
+        internal uint packed;  // 2 bits left unused, we may want to use these for text direction when we better support that
 
         /// <summary>
         /// The color of the rendered text
         /// </summary>
         public Color32 color;
 
-        /// <summary>
-        /// The size of the font, in point sizes
-        /// </summary>
-        public half fontSize;
+        public LanguageCode languageCode;
+        public ScriptCode scriptCode;
 
         /// <summary>
         /// The various font styling flags. Readout of bold style only during authoring, otherwise this library will use fontweight (changeable via xml tags)
@@ -212,6 +215,26 @@ namespace TextMeshDOTS
         Normal = 0,
         Big = 1,
         Massive = 2,
+    }
+
+    public struct LanguageCode
+    {
+        internal uint code;
+
+        public LanguageCode(char a, char b, char c, char d)
+        {
+            code = HarfBuzz.Harfbuzz.HB_TAG(a, b, c, d);
+        }
+    }
+
+    public struct ScriptCode
+    {
+        internal uint code;
+
+        public ScriptCode(char a, char b, char c, char d)
+        {
+            code = HarfBuzz.Harfbuzz.HB_TAG(a, b, c, d);
+        }
     }
 
     public static class FontEnumerationExtensions
