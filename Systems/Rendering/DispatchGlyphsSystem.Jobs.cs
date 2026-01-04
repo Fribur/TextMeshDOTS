@@ -443,7 +443,9 @@ namespace TextMeshDOTS
                     //{
                     //    UnityEngine.Debug.Log($"x: {entry.x}, y: {entry.y}, width: {entry.width}, height: {entry.height}, arrayIndex: {entry.z}, blUVA: {glyph.blUVA}, trUVA: {glyph.trUVA}");
                     //}
-                    capture.glyphBuffer[i] = glyph;
+
+                    // Assigning back the values breaks MemCmp.
+                    //capture.glyphBuffer[i] = glyph;
 
                     uploadArray[capture.writeStart + i] = glyph;
                 }

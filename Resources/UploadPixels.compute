@@ -30,8 +30,7 @@ void UploadPixels(uint threadId : SV_GroupIndex, uint3 groupIds : SV_GroupID)
     if (target == 0)
     {
         uint i = 0;
-        //for (i = threadId * 4; i + 64 * 4 < pixelCount; i += 64 * 4)
-		for (i = threadId * 4; i < pixelCount; i += 64 * 4)
+        for (i = threadId * 4; i < pixelCount; i += 64 * 4)
         {
             // Load 4 pixels
             uint packed4Pixels = _src.Load(srcStart * 4 + i);
@@ -77,8 +76,7 @@ void UploadPixels(uint threadId : SV_GroupIndex, uint3 groupIds : SV_GroupID)
     else if (target == 1)
     {
         uint i = 0;
-        //for (i = threadId * 2; i + 64 * 2 < pixelCount; i += 64 * 2)
-		for (i = threadId * 2; i < pixelCount; i += 64 * 4)
+        for (i = threadId * 2; i < pixelCount; i += 64 * 2)
         {
             // Load 2 pixels
             uint packed2Pixels = _src.Load(srcStart * 4 + i * 2);
@@ -106,8 +104,7 @@ void UploadPixels(uint threadId : SV_GroupIndex, uint3 groupIds : SV_GroupID)
     else if (target == 2)
     {
         uint i = 0;
-        //for (i = threadId; i + 64 < pixelCount; i += 64)
-		for (i = threadId; i < pixelCount; i += 64)
+        for (i = threadId; i < pixelCount; i += 64)
         {
             // Load pixel
             uint pixel = _src.Load(srcStart * 4 + i * 4);
