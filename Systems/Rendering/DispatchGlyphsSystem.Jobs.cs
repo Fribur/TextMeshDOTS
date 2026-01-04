@@ -10,8 +10,6 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
-using UnityEngine.TextCore;
-using static UnityEditor.U2D.ScriptablePacker;
 
 namespace TextMeshDOTS
 {
@@ -194,8 +192,8 @@ namespace TextMeshDOTS
                 {
                     ref var glyphEntry    = ref glyphTable.GetEntryRW(glyph);
                     var     doublePadding = 2 * glyphEntry.padding;
-                    var paddedWith = glyphEntry.width + doublePadding;
-                    var paddedHeight = glyphEntry.height + doublePadding;
+                    var     paddedWith    = glyphEntry.width + doublePadding;
+                    var     paddedHeight  = glyphEntry.height + doublePadding;
                     atlasTable.Allocate(glyph,
                                         (short)(paddedWith),
                                         (short)(paddedHeight),
@@ -322,7 +320,46 @@ namespace TextMeshDOTS
                                                              glyphEntry.padding,
                                                              kTextureDimension,
                                                              kTextureDimension,
-                                                             32);                //suggest to hardwire spread to 8 for SDF8 and 16 for SDF16
+                                                             32);  //suggest to hardwire spread to 8 for SDF8 and 16 for SDF16
+                }
+                else if (glyphEntry.key.format == RenderFormat.SDF16)
+                {
+                    font.DrawGlyph(glyphEntry.key.glyphIndex, drawDelegates, ref drawData);
+                    var paddedAtlasRect   = glyphEntry.PaddedAtlasRect;
+                    var sdf16TextureSlice = useComputeUpload ? GetSdf16Upload(glyphIndex, paddedAtlasRect.width, paddedAtlasRect.height) : GetSdf16TextureSlice(glyphEntry.z);
+                    if (useComputeUpload)
+                    {
+                        uint x                        = (uint)glyphEntry.z;
+                        x                            |= ((uint)glyphEntry.key.format) << 30;
+                        uint y                        = (uint)pixelUploadOffsetsInBytes[glyphIndex] / 4;
+                        uint z                        = (uint)paddedAtlasRect.x;
+                        z                            |= ((uint)paddedAtlasRect.y) << 16;
+                        uint w                        = (uint)paddedAtlasRect.width;
+                        w                            |= ((uint)paddedAtlasRect.height) << 16;
+                        uploadMetaBuffer[glyphIndex]  = new uint4(x, y, z, w);
+                    }
+
+                    // remove overlaps using Clipper
+                    // not needed for static postscript fonts which are not permitted to have overlaps
+                    if (face.sdfOrientation == SDFOrientation.TRUETYPE || face.HasVarData)
+                    {
+                        // clipper always outputs polygon oriented CCW for outer contours and CW for holes,
+                        // which is the same as postscript convention:
+                        // Truetype: CW for outer contours, CCW for holes
+                        // Postscript: CCW for outer contours, CW for holes
+                        PaintUtils.removeOverlapsMarker.Begin();
+                        PolygonOperation.RemoveSelfIntersections(ref drawData, Clipper2AoS.ClipType.Union, Clipper2AoS.FillRule.NonZero);
+                        face.sdfOrientation = SDFOrientation.POSTSCRIPT;
+                        PaintUtils.removeOverlapsMarker.End();
+                    }
+                    SDF_SPMD.SDFGenerateSubDivisionLineEdges(face.sdfOrientation,
+                                                             ref drawData,
+                                                             ref sdf16TextureSlice,
+                                                             ref paddedAtlasRect,
+                                                             glyphEntry.padding,
+                                                             kTextureDimension,
+                                                             kTextureDimension,
+                                                             32);  //suggest to hardwire spread to 8 for SDF8 and 16 for SDF16
                 }
                 else if (glyphEntry.key.format == RenderFormat.Bitmap8888)
                 {
@@ -392,6 +429,18 @@ namespace TextMeshDOTS
                 return default;
             }
 
+            unsafe NativeArray<ushort> GetSdf16TextureSlice(short z)
+            {
+                foreach (var ptr in sdf16Ptrs)
+                {
+                    if (ptr.atlasIndex == z)
+                    {
+                        return CollectionHelper.ConvertExistingDataToNativeArray<ushort>(ptr.ptr, ptr.dimension * ptr.dimension, Allocator.None, true);
+                    }
+                }
+                return default;
+            }
+
             unsafe NativeArray<Color32> GetBitmapTextureSlice(short z)
             {
                 foreach (var ptr in bitmapPtrs)
@@ -409,6 +458,13 @@ namespace TextMeshDOTS
                 int pixelCount = width * height;
                 var pixelStart = pixelUploadOffsetsInBytes[glyphIndex];
                 return uploadBuffer.GetSubArray(pixelStart, pixelCount);
+            }
+
+            NativeArray<ushort> GetSdf16Upload(int glyphIndex, int width, int height)
+            {
+                int pixelCount = width * height * 2;
+                var pixelStart = pixelUploadOffsetsInBytes[glyphIndex];
+                return uploadBuffer.GetSubArray(pixelStart, pixelCount).Reinterpret<ushort>(1);
             }
 
             NativeArray<Color32> GetBitmapUpload(int glyphIndex, int width, int height)

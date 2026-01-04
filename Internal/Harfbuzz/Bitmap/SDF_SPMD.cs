@@ -55,6 +55,48 @@ namespace TextMeshDOTS.HarfBuzz.Bitmap
             return true;
         }
 
+        /// <summary>
+        /// Converts a glyph into a SDF bitmap. When using this function, ensure all bezier edges have been split into line edges first. Distance to lines is much less 
+        /// math compared to distance to bezier curves, so this approach is faster overall.
+        /// </summary>
+        [BurstCompile]
+        public static bool SDFGenerateSubDivisionLineEdges(SDFOrientation orientation, ref DrawData drawData, ref NativeArray<ushort> buffer, ref GlyphRect atlasRect, int padding, int atlasWidth, int atlasHeight, int spread = SDFCommon.DEFAULT_SPREAD)
+        {
+            PaintUtils.rasterizeSDFMarker.Begin();
+            if (drawData.contourIDs.Length < 2 || drawData.edges.Length == 0)
+                return false;
+
+            if (spread < SDFCommon.MIN_SPREAD || spread > SDFCommon.MAX_SPREAD)
+                return false;
+
+            bool flip_y = true;
+            var offset = drawData.glyphRect.min - padding;
+            var atlasRectWidth = atlasRect.width;
+            var atlasRectHeight = atlasRect.height;
+
+            float sp_sq = math.select(spread, spread * spread, SDFCommon.USE_SQUARED_DISTANCES);
+
+            var size = atlasRectWidth * atlasRectHeight;
+            var targetDistances = new NativeArray<float>(size, Allocator.Temp);
+            var targetCrosses = new NativeArray<float>(size, Allocator.Temp);
+            var targetSigns = new NativeArray<int>(size, Allocator.Temp);
+
+            var edges = drawData.edges;
+            var contourIDs = drawData.contourIDs;
+            for (int contourID = 0, end = contourIDs.Length - 1; contourID < end; contourID++) //for each contour
+            {
+                var startID = contourIDs[contourID];
+                var nextStartID = contourIDs[contourID + 1];
+                GetDistancesForContour(edges, startID, nextStartID, targetDistances, targetCrosses, targetSigns, orientation, atlasRectHeight, atlasRectWidth, spread, sp_sq, flip_y, offset);
+            }
+            SDFCommon.FinalPass(targetDistances, targetSigns, spread, atlasRectWidth, atlasRectHeight);
+
+            //convert signed distance (range: negative = inside, positive=outside) to alpha bitmap (range: 0 (inside) to 255 (outside))
+            SDFCommon.GetAlphaTexture(targetDistances, buffer, spread, atlasRect.x, atlasRect.y, atlasRectWidth, atlasRectHeight, atlasWidth, atlasHeight);
+            PaintUtils.rasterizeSDFMarker.End();
+            return true;
+        }
+
         [BurstCompile]
         public static bool SDFGenerateSubDivisionLineEdges_Overlap(SDFOrientation orientation, ref DrawData drawData, ref NativeArray<byte> buffer, ref GlyphRect atlasRect, int padding, int atlasWidth, int atlasHeight, int spread = SDFCommon.DEFAULT_SPREAD)
         {

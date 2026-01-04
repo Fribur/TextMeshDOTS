@@ -133,7 +133,9 @@ namespace TextMeshDOTS
                 public float m_fontWidth;
                 public FixedStack512Bytes<float> m_fontWidthStack;
 
-                public bool m_isItalic; 
+                public bool m_isItalic;
+
+                public FontTextureSize m_fontTextureSize;
 
                 FontAssetRef FontAssetRef
                 {
@@ -155,6 +157,8 @@ namespace TextMeshDOTS
                     m_fontWidth = textBaseConfiguration.fontWidth.Value();
                     m_fontWidthStack.Clear();
                     m_fontWidthStack.Add(m_fontWidth);
+
+                    m_fontTextureSize = textBaseConfiguration.fontTextureSize;
 
                     var defaultFaceIndex = fontTable.GetFaceIndex(FontAssetRef);
                     if(defaultFaceIndex == -1)

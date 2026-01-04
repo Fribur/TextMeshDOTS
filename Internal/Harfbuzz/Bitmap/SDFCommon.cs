@@ -98,7 +98,41 @@ namespace TextMeshDOTS.HarfBuzz.Bitmap
                     }
                 }
             }
-        }        
+        }
+
+        public static void GetAlphaTexture(
+            NativeArray<float> distances,
+            NativeArray<ushort> buffer,
+            int spread, int atlasX, int atlasY, int atlasRectWidth, int atlasRectHeight, int atlasWidth, int atlasHeight)
+        {
+            //float scaleTo8Bit = 255f / (spread * 2);
+            var scaleTo16Bit = 65535 / (spread * 2);
+
+            if (buffer.Length == distances.Length && buffer.Length == atlasRectWidth * atlasRectHeight)
+            {
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    var result = (distances[i] + spread) * scaleTo16Bit;
+                    buffer[i] = (byte)result;
+                }
+            }
+            else
+            {
+                for (int row = 0, rowEnd = math.min(atlasRectHeight, atlasHeight); row < rowEnd; row++)
+                {
+                    for (int column = 0, columnEnd = math.min(atlasRectWidth, atlasWidth); column < columnEnd; column++)
+                    {
+                        var sourceIndex = atlasRectWidth * row + column;
+                        var targetIndex = (atlasWidth * (row + atlasY)) + (column + atlasX);
+
+                        // convert to byte range of alpha8 texture
+                        var result = (distances[sourceIndex] + spread) * scaleTo16Bit;
+                        buffer[targetIndex] = (ushort)result;
+                    }
+                }
+            }
+        }
+
         public static void MergeSDF(
             NativeArray<float> destinationDistances,
             NativeArray<float> destinationCrosses,

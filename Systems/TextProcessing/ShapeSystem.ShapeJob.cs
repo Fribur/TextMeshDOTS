@@ -221,8 +221,10 @@ namespace TextMeshDOTS
                 var font = this.fontTable.GetOrCreateFont(faceIndex, threadIndex);
                 if (face.HasVarData && font.currentVariableProfileIndex != namedVariationIndex)
                     font = fontTable.SetVariableProfile(faceIndex, threadIndex, namedVariationIndex);
+                if (renderFormat == RenderFormat.SDF8 && fontConfig.m_fontTextureSize != FontTextureSize.Normal)
+                    renderFormat = RenderFormat.SDF16;
 
-                var samplingSize = FontTextureSize.Normal.GetSamplingSize();
+                var samplingSize = fontConfig.m_fontTextureSize.GetSamplingSize();
                 font.SetScale(samplingSize, samplingSize);
 
                 //Debug.Log($"shape {text} {startIndex} {length}");
@@ -262,7 +264,7 @@ namespace TextMeshDOTS
                             faceIndex = faceIndex,
                             glyphIndex = (ushort)glyphInfo.codepoint,
                             format = renderFormat,
-                            textureSize = FontTextureSize.Normal,
+                            textureSize = fontConfig.m_fontTextureSize,
                             variableProfileIndex = namedVariationIndex
                         },
                         cluster = glyphInfo.cluster,
