@@ -99,7 +99,7 @@ namespace TextMeshDOTS
                 {
                     RenderFormat.SDF8 => 9,     //determined via RenderTest Mono: padding of 9 works for both SPREAD 8 (SDF8) 
                     RenderFormat.SDF16 => 9,    //and SPREAD 16 (SDF16), regardless if 64px or 128px
-                    RenderFormat.Bitmap8888 => 8,
+                    RenderFormat.Bitmap8888 => 0,
                     _ => 0,
                 };
                 var newEntry = new GlyphTable.Entry
