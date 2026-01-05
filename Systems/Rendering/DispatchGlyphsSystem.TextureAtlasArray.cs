@@ -58,6 +58,7 @@ namespace TextMeshDOTS
                     var rtrw                               = linear ? RenderTextureReadWrite.Linear : RenderTextureReadWrite.sRGB;
                     renderTexture2DArray                   = new RenderTexture(dimension, dimension, initialAtlasCount, renderFormat, rtrw);
                     renderTexture2DArray.dimension         = TextureDimension.Tex2DArray;
+                    renderTexture2DArray.volumeDepth       = initialAtlasCount;
                     renderTexture2DArray.enableRandomWrite = true;
                     renderTexture2DArray.useMipMap         = useMipmapping;
                     renderTexture2DArray.autoGenerateMips  = false;
@@ -118,6 +119,7 @@ namespace TextMeshDOTS
                         var rtrw                               = linear ? RenderTextureReadWrite.Linear : RenderTextureReadWrite.sRGB;
                         renderTexture2DArray                   = new RenderTexture(dimension, dimension, atlasesNeeded, renderFormat, rtrw);
                         renderTexture2DArray.dimension         = TextureDimension.Tex2DArray;
+                        renderTexture2DArray.volumeDepth       = atlasesNeeded;
                         renderTexture2DArray.enableRandomWrite = true;
                         renderTexture2DArray.useMipMap         = useMipmapping;
                         renderTexture2DArray.autoGenerateMips  = false;

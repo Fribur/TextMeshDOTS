@@ -84,9 +84,10 @@ namespace TextMeshDOTS
             _tmdBitmap = Shader.PropertyToID("_tmdBitmap");
             _tmdGlyphs = Shader.PropertyToID("_tmdGlyphs");
 
-            m_sdf8Array   = new TextureAtlasArray<byte>(_tmdSdf8, kTextureDimension, 2, TextureFormat.R8, false, true, kEnableComputePixelUpload);
-            m_sdf16Array  = new TextureAtlasArray<ushort>(_tmdSdf16, kTextureDimension, 2, TextureFormat.R16, false, true, kEnableComputePixelUpload);
-            m_bitmapArray = new TextureAtlasArray<Color32>(_tmdBitmap, kTextureDimension, 2, TextureFormat.RGBA32, true, false, kEnableComputePixelUpload);
+            var initialAtlasArraySize = kEnableComputePixelUpload ? 1 : 2; // RenderTexture supports array size 1
+            m_sdf8Array   = new TextureAtlasArray<byte>(_tmdSdf8, kTextureDimension, initialAtlasArraySize, TextureFormat.R8, false, true, kEnableComputePixelUpload);
+            m_sdf16Array  = new TextureAtlasArray<ushort>(_tmdSdf16, kTextureDimension, initialAtlasArraySize, TextureFormat.R16, false, true, kEnableComputePixelUpload);
+            m_bitmapArray = new TextureAtlasArray<Color32>(_tmdBitmap, kTextureDimension, initialAtlasArraySize, TextureFormat.RGBA32, true, false, kEnableComputePixelUpload);
 
             m_drawDelegates  = new DrawDelegates(true);
             m_paintDelegates = new PaintDelegates(true);
