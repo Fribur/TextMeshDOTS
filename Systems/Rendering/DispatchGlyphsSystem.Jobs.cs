@@ -121,6 +121,7 @@ namespace TextMeshDOTS
                             else
                             {
                                 capture.gpuStart = (int)capture.residentRangePtr->start;
+                                //UnityEngine.Debug.Log($"Updated resident range: {capture.residentRangePtr->start}, {capture.residentRangePtr->count}");
                             }
                         }
                         else
@@ -131,20 +132,24 @@ namespace TextMeshDOTS
                     }
                     reader.EndForEachIndex();
                 }
-                GapAllocator.TryAllocate(glyphGpuTable.residentGaps, (uint)dynamicCount, ref residentBufferSize, out var dynamicStart);
-                glyphGpuTable.dispatchDynamicGaps.Add(new uint2(dynamicStart, (uint)dynamicCount));
-                for (int i = 0; i < captures.Length; i++)
+                if (dynamicCount > 0)
                 {
-                    ref var capture = ref captures.ElementAt(i);
-                    if (capture.makeResident)
-                        continue;
-                    capture.gpuStart  = (int)dynamicStart;
-                    dynamicStart     += (uint)capture.glyphCount;
-                    if (capture.textShaderIndexPtr != null)
+                    GapAllocator.TryAllocate(glyphGpuTable.residentGaps, (uint)dynamicCount, ref residentBufferSize, out var dynamicStart);
+                    //UnityEngine.Debug.Log($"Allocated dynamic region: {dynamicStart}, {dynamicCount}");
+                    glyphGpuTable.dispatchDynamicGaps.Add(new uint2(dynamicStart, (uint)dynamicCount));
+                    for (int i = 0; i < captures.Length; i++)
                     {
-                        capture.textShaderIndexPtr->firstGlyphIndex = (uint)capture.gpuStart;
-                        capture.textShaderIndexPtr->glyphCount      = (uint)capture.glyphCount;
-                        //UnityEngine.Debug.Log($"Allocated dynamic range: {capture.textShaderIndexPtr->firstGlyphIndex}, {capture.textShaderIndexPtr->glyphCount}");
+                        ref var capture = ref captures.ElementAt(i);
+                        if (capture.makeResident)
+                            continue;
+                        capture.gpuStart = (int)dynamicStart;
+                        dynamicStart += (uint)capture.glyphCount;
+                        if (capture.textShaderIndexPtr != null)
+                        {
+                            capture.textShaderIndexPtr->firstGlyphIndex = (uint)capture.gpuStart;
+                            capture.textShaderIndexPtr->glyphCount = (uint)capture.glyphCount;
+                            //UnityEngine.Debug.Log($"Allocated dynamic range: {capture.textShaderIndexPtr->firstGlyphIndex}, {capture.textShaderIndexPtr->glyphCount}");
+                        }
                     }
                 }
 
@@ -200,6 +205,8 @@ namespace TextMeshDOTS
                                         out glyphEntry.x,
                                         out glyphEntry.y,
                                         out glyphEntry.z);
+                    //if (glyphEntry.key.format == RenderFormat.SDF8)
+                    //    UnityEngine.Debug.Log($"Allocating {new int2(glyphEntry.x, glyphEntry.y)}");
                     uint id  = (uint)glyphEntry.z;
                     id      |= glyph & 0xc0000000;
                     dirtyAtlasIDSet.Add(id);
@@ -265,7 +272,10 @@ namespace TextMeshDOTS
 
                 // If the glyph doesn't have any real size, then there's nothing to rasterize.
                 if (glyphEntry.width == 0 || glyphEntry.height == 0)
+                {
+                    uploadMetaBuffer[glyphIndex] = default;
                     return;
+                }
 
                 var face = fontTable.faces[glyphEntry.key.faceIndex];
 

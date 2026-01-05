@@ -24,6 +24,8 @@ namespace TextMeshDOTS
         /// <returns>The new size of the buffer (or used portion of it)</returns>
         public static uint CoellesceGaps(NativeList<uint2> gaps, uint oldSize)
         {
+            if (gaps.IsEmpty)
+                return oldSize;
             gaps.Sort(new GapSorter());
             int dst   = 1;
             var array = gaps.AsArray();
@@ -63,6 +65,8 @@ namespace TextMeshDOTS
         /// <returns>The new size of the buffer (or used portion of it)</returns>
         public static uint CoellesceGaps(ref UnsafeList<uint2> gaps, uint oldSize)
         {
+            if (gaps.IsEmpty)
+                return oldSize;
             gaps.Sort(new GapSorter());
             int dst   = 1;
             var array = gaps;

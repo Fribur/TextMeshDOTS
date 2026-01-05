@@ -57,9 +57,12 @@ namespace TextMeshDOTS
 
             if (!m_deadQuery.IsEmptyIgnoreFilter)
             {
+                var ecb = GetSingleton<EndSimulationEntityCommandBufferSystem.Singleton>().CreateCommandBuffer(state.WorldUnmanaged);
                 state.Dependency = new RecordDeadJob
                 {
-                    rangeHandle                   = GetComponentTypeHandle<ResidentRange>(true),
+                    entityHandle                  = GetEntityTypeHandle(),
+                    ecb                           = ecb.AsParallelWriter(),
+                    rangeHandle                   = GetComponentTypeHandle<ResidentRange>(false),
                     previousRenderGlyphsHandle    = GetBufferTypeHandle<PreviousRenderGlyph>(true),
                     refCountChangeBlocklist       = refCountChangeBlocklistA.AsWriter(),
                     residentDeallocationBlocklist = residentDeallocationBlocklistA.AsWriter()
@@ -134,10 +137,12 @@ namespace TextMeshDOTS
         [BurstCompile]
         struct RecordDeadJob : IJobChunk
         {
-            [ReadOnly] public ComponentTypeHandle<ResidentRange>    rangeHandle;
+            [ReadOnly] public EntityTypeHandle entityHandle;
             [ReadOnly] public BufferTypeHandle<PreviousRenderGlyph> previousRenderGlyphsHandle;
+            public ComponentTypeHandle<ResidentRange> rangeHandle;
             public NativeStream.Writer                              residentDeallocationBlocklist;
             public NativeStream.Writer                              refCountChangeBlocklist;
+            public EntityCommandBuffer.ParallelWriter ecb;
 
             [NativeSetThreadIndex] int             threadIndex;
             UnsafeHashMap<uint, RefCountChangePtr> threadRefCountChangeMap;
@@ -147,6 +152,9 @@ namespace TextMeshDOTS
                 if (!threadRefCountChangeMap.IsCreated)
                     threadRefCountChangeMap = new UnsafeHashMap<uint, RefCountChangePtr>(1024, Allocator.Temp);
 
+                var typeSet = new ComponentTypeSet(ComponentType.ReadWrite<ResidentRange>(), ComponentType.ReadWrite<PreviousRenderGlyph>());
+                ecb.RemoveComponent(unfilteredChunkIndex, chunk.GetNativeArray(entityHandle), in typeSet);
+
                 residentDeallocationBlocklist.BeginForEachIndex(unfilteredChunkIndex);
                 refCountChangeBlocklist.BeginForEachIndex(unfilteredChunkIndex);
 
@@ -154,7 +162,10 @@ namespace TextMeshDOTS
                 for (int i = 0; i < chunk.Count; i++)
                 {
                     if (ranges[i].count > 0)
+                    {
                         residentDeallocationBlocklist.Write(ranges[i]);
+                        ranges[i] = default;
+                    }
                 }
                 var glyphsBuffers = chunk.GetBufferAccessor(ref previousRenderGlyphsHandle);
                 for (int index = 0; index < chunk.Count; index++)
@@ -238,7 +249,7 @@ namespace TextMeshDOTS
                             gpuStates[i].state = GpuState.State.DynamicPromoteToResident;
                             gpuStateMask[i]    = true;
                         }
-                        else if (gpuStates[i].state == GpuState.State.Uncommitted)
+                        else if (gpuStates[i].state == GpuState.State.Uncommitted || gpuStates[i].state == GpuState.State.ResidentUncommitted)
                         {
                             gpuStateMask[i] = true;
                         }
@@ -393,6 +404,8 @@ namespace TextMeshDOTS
                     ref var entry = ref glyphTable.GetEntryRW(id);
                     var doublePadding = 2 * entry.padding;
                     atlasTable.Free(id, (short)(entry.width + doublePadding), (short)(entry.height + doublePadding), entry.x, entry.y, entry.z);
+                    //if (entry.key.format == RenderFormat.SDF8)
+                    //    UnityEngine.Debug.Log($"Freeing {new int2(entry.x, entry.y)}");
                     entry.x = -1;
                     entry.y = -1;
                     entry.z = -1;

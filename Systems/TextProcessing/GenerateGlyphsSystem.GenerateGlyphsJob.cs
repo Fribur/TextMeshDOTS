@@ -562,6 +562,22 @@ namespace TextMeshDOTS
                 }
                 isFirstLine = false;
                 ApplyVerticalAlignmentToGlyphs(ref renderGlyphs, topAnchor, bottomAnchor, accumulatedVerticalOffset, textBaseConfiguration.verticalAlignment);
+
+                // Remove all zero-sized glyphs since we don't rasterize those.
+                {
+                    var glyphArray = renderGlyphs.AsNativeArray();
+                    int dst = 0;
+                    for (int src = 0; src < glyphArray.Length; src++)
+                    {
+                        var glyph = renderGlyphs[src];
+                        var entry = glyphTable.GetEntry(glyph.glyphEntryId);
+                        if (entry.width == 0 || entry.height == 0)
+                            continue;
+                        renderGlyphs[dst] = glyph;
+                        dst++;
+                    }
+                    renderGlyphs.Length = dst;
+                }
             }            
         }
     }

@@ -540,13 +540,16 @@ namespace TextMeshDOTS
                 if (shelf.y == y && shelf.z == z)
                 {
                     shelf.gaps.Add(new uint2((uint)x, (uint)width));
+                    shelf.requiresCoellescing = true;
                     shelf.usedX -= width;
-                    if (shelf.usedX <= 0)
-                    {
-                        // Shelf is empty now. Destroy it.
-                        shelf.gaps.Dispose();
-                        shelves.RemoveAt(i);
-                    }
+                    // Todo: We don't support reallocating removed shelves right now. So just leave it empty.
+                    //if (shelf.usedX <= 0)
+                    //{
+                    //    // Shelf is empty now. Destroy it.
+                    //    shelf.gaps.Dispose();
+                    //    shelves.RemoveAt(i);
+                    //}
+                    shelves[i] = shelf;
                     return;
                 }
             }
