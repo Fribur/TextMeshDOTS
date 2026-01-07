@@ -50,6 +50,8 @@ void UploadPixels(uint threadId : SV_GroupIndex, uint3 groupIds : SV_GroupID)
                 y = _flipOffset - y;
             _tmdSdf8[uint3(x, y, dstZ)] = a;
             i++;
+            if (i >= pixelCount)
+                continue;
             
             x = dstX + (i % width);
             y = (i / width) + dstY;
@@ -57,6 +59,8 @@ void UploadPixels(uint threadId : SV_GroupIndex, uint3 groupIds : SV_GroupID)
                 y = _flipOffset - y;
             _tmdSdf8[uint3(x, y, dstZ)] = b;
             i++;
+            if (i >= pixelCount)
+                continue;
             
             x = dstX + (i % width);
             y = (i / width) + dstY;
@@ -64,6 +68,8 @@ void UploadPixels(uint threadId : SV_GroupIndex, uint3 groupIds : SV_GroupID)
                 y = _flipOffset - y;
             _tmdSdf8[uint3(x, y, dstZ)] = c;
             i++;
+            if (i >= pixelCount)
+                continue;
             
             x = dstX + (i % width);
             y = (i / width) + dstY;
@@ -92,6 +98,8 @@ void UploadPixels(uint threadId : SV_GroupIndex, uint3 groupIds : SV_GroupID)
                 y = _flipOffset - y;
             _tmdSdf16[uint3(x, y, dstZ)] = a;
             i++;
+            if (i >= pixelCount)
+                continue;
             
             x = dstX + (i % width);
             y = (i / width) + dstY;
