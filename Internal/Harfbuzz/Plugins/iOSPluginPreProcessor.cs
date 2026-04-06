@@ -11,6 +11,9 @@ namespace TextMeshDOTS
     {
         const string k_PreCompiledLibrary1Name = "libharfbuzz";
         const string k_PreCompiledLibrary2Name = "libharfbuzz-subset";
+		const string k_PreCompiledLibrary3Name = "libharfbuzz-raster";
+		const string k_PreCompiledLibrary4Name = "libharfbuzz-vector";
+		const string k_PreCompiledLibrary5Name = "libharfbuzz-gpu";
 
         public int callbackOrder => 0;
 
@@ -33,7 +36,11 @@ namespace TextMeshDOTS
 
                 // Process pre-compiled library separately. Exactly one version should always be included in the build
                 // regardless of whether the loader is enabled. Otherwise, builds will fail in the linker stage
-                if (plugin.assetPath.Contains(k_PreCompiledLibrary1Name) || plugin.assetPath.Contains(k_PreCompiledLibrary2Name))
+                if (plugin.assetPath.Contains(k_PreCompiledLibrary1Name) || 
+					plugin.assetPath.Contains(k_PreCompiledLibrary2Name) || 
+					plugin.assetPath.Contains(k_PreCompiledLibrary3Name) || 
+					plugin.assetPath.Contains(k_PreCompiledLibrary4Name) || 
+					plugin.assetPath.Contains(k_PreCompiledLibrary5Name))
                 {
                     //Debug.Log($"{PlayerSettings.iOS.sdkVersion} plugin {plugin.assetPath}: {ShouldIncludePreCompiledLibraryInBuild(plugin.assetPath)}");
                     plugin.SetIncludeInBuildDelegate(ShouldIncludePreCompiledLibraryInBuild);
