@@ -4,6 +4,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Burst.Intrinsics;
 using System.IO;
+using UnityEngine;
 
 namespace TextMeshDOTS
 {

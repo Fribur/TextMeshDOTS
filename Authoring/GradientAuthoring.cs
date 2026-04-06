@@ -20,12 +20,7 @@ namespace TextMeshDOTS.Authoring
         {
             if (authoring.gradients == null)
                 return;
-
-            if (authoring.gradients.Count > 24) //160byte per gradient, stored in FixedList4096Bytes in shapeJob
-            {
-                Debug.Log("TextMeshDOTS supports currently only 24 gradients"); 
-                return;
-            }
+                       
             var entity = GetEntity(TransformUsageFlags.None);
             var textColorGradients = AddBuffer<TextColorGradient>(entity);
             for (int i = 0, ii = authoring.gradients.Count; i < ii; i++)

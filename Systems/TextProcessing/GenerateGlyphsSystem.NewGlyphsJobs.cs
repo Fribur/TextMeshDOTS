@@ -2,6 +2,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using UnityEngine;
 using Font = TextMeshDOTS.HarfBuzz.Font;
 
 namespace TextMeshDOTS
@@ -32,16 +33,16 @@ namespace TextMeshDOTS
                 }
 
                 missingGlyphsToAdd.Capacity = uniqueMissingGlyphSet.Count;
-                uint nextIndex = (uint)glyphTable.glyphHashToIdMap.Count;
+                uint nextIndex = (uint)glyphTable.glyphHashToGlyphEntryIDMap.Count;
                 foreach (var key in uniqueMissingGlyphSet)
                 {
                     missingGlyphsToAdd.AddNoResize(key);
-                    var nextId = nextIndex;
-                    Bits.SetBits(ref nextId, 30, 2, (uint)key.format);
-                    glyphTable.glyphHashToIdMap.Add(key, nextId);
+                    var nextGlyphEntryID = nextIndex;
+                    GlyphTable.EncodeGlyphEntryIDFlags(in key, ref nextGlyphEntryID);//decoded in shader by ExtractGlyphFlagsFromEntryID and in DispatchGlyphsSystem.Write
+                    glyphTable.glyphHashToGlyphEntryIDMap.Add(key, nextGlyphEntryID);
                     nextIndex++;
                 }
-                glyphTable.entries.AddReplicate(default, missingGlyphsToAdd.Length);
+                glyphTable.glyphEntries.AddReplicate(default, missingGlyphsToAdd.Length);
             }
         }
 
@@ -93,13 +94,7 @@ namespace TextMeshDOTS
                 // from font acceleration structures populated with each hb_font_get_glyph_extents call
                 font.GetGlyphExtents(missingGlyph.glyphIndex, out var extents);
 
-                var padding = missingGlyph.format switch
-                {
-                    RenderFormat.SDF8 => 9,     //determined via RenderTest Mono: padding of 9 works for both SPREAD 8 (SDF8) 
-                    RenderFormat.SDF16 => 9,    //and SPREAD 16 (SDF16), regardless if 64px or 128px
-                    RenderFormat.Bitmap8888 => 0,
-                    _ => 0,
-                };
+                var padding  = missingGlyph.GetSpread() + 1;
                 var newEntry = new GlyphTable.Entry
                 {
                     key = missingGlyph,

@@ -78,5 +78,5 @@ Phase 3 is currently in progress.
 - [ ] Figure out Harfbuzz threading hazards (and maybe updatin harfbuzz fixes these?)
 - [x] Optimize texture uploads after first frame (do we need to do sparse uploads with compute?)
 - [ ] Optimize job scheduling bubbles
-- [ ] Optimize SDF generation
-- [ ] Optimize rasterization
+- [x] Optimize SDF generation
+- [x] Optimize rasterization

@@ -18,7 +18,7 @@ namespace TextMeshDOTS
         public void OnCreate(ref SystemState state)
         {
             fontRequestQ = SystemAPI.QueryBuilder()
-                .WithAll<FontReference>()
+                .WithAll<FontLoadDescription>()
                 .Build();
             state.RequireForUpdate(fontRequestQ);        
         }
@@ -26,7 +26,7 @@ namespace TextMeshDOTS
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
-            var fontRequestBuffer = fontRequestQ.GetSingletonBuffer<FontReference>();            
+            var fontRequestBuffer = fontRequestQ.GetSingletonBuffer<FontLoadDescription>();            
             var newFontRequest = GetFontReference();
             if (!fontRequestBuffer.AsNativeArray().Contains(newFontRequest))
                 fontRequestBuffer.Add(newFontRequest);
@@ -38,11 +38,11 @@ namespace TextMeshDOTS
         {
         
         }
-        public FontReference GetFontReference()
+        public FontLoadDescription GetFontReference()
         {
             //use FontUtility Scriptable Object to extract the following needed information
             //see ReadMe for more details how
-            return new FontReference
+            return new FontLoadDescription
             {
                 filePath = "Notosans/NotoSansDisplay-Regular.ttf",
                 streamingAssetLocationValidated = true,

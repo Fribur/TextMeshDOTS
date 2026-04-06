@@ -20,9 +20,9 @@ desired character - so be sure the selected font contains the characters or emoj
 and TextCore (see section below for details). User selectable [opentype features](https://learn.microsoft.com/en-us/typography/opentype/spec/featurelist) 
 can be enabled using rich text tags such as \<sub\> (subscript), \<sup\> (superscript), \<frac\> (fractions), \<smcp\> (smallcaps).
 
-<b>Color Emoji :-)</b> TextMeshDOTS is as of version 0.9.0 capable to render [COLRv1](https://developer.chrome.com/blog/colrv1-fonts) 
-emoji fonts. Bitmap and svg emoji fonts are currently not supported as we did not yet find a BURST compatible 
-Unity method or small public cross platform library to decode them (please reach out if you know one or can implement it).
+<b>Color Emoji :-)</b> TextMeshDOTS is as of version 0.9.0 capable to render [COLR v0 and v1](https://developer.chrome.com/blog/colrv1-fonts) 
+emoji fonts. Version 0.9.7 added support for PNG anbd SVG based emoji fonts (and any kind of other bitmaps that come with fonts), 
+thanks to new harfbuzz internal rasterizer (that also happens to be 4-5x faster).
 
 # Technical Foundation
 
@@ -35,7 +35,7 @@ for rendering.
 for each font a static atlas textures, borrowed from the Unity `TextCore` `FontAsset`. As of version 0.9.0, TextMeshDOTS 
 generates all required glyph data and font textures dynamically using the [Harfbuzz](https://harfbuzz.github.io/) 
 library, was however limited to one 4k atlas texture per font. Handling multiple fonts remained challenging, 
-which prompted Dreaming381 to vastly simplify resource management by storing all SDF and color bitmaps in two 
+which prompted Dreaming381 to vastly simplify resource management by storing all SDF and color bitmaps in 
 global atlas texture arrays. Dreaming381 also implemented a GPU resident representation of the glyph vertex data. 
 These GPU resident buffer are automatically and incrementally updated when changes occur. 
 
@@ -49,9 +49,8 @@ text label (`TextRenderer`) that makes use of different fonts and emoji, TextMes
 just one entity and one material.
 
 # Autoring workflow
- -	**Import essential backend mesh and shader** Open the package manager, select "Samples", and import the 
-    backend mesh. Also import either the UDR or HDRP shader. The resources will be imported to the folder 
-    `Assets/Samples/TextMeshDOTS/Version/Sample Name`. You can move them anywhere you like. 
+ -	**Import shader** Open the package manager, select "Samples", and import either the UDR or HDRP shader.
+	The resources will be imported to the folder `Assets/Samples/TextMeshDOTS/Version/Sample Name`. You can move them anywhere you like. 
     Generate a material as usual (right click on desired shader --> Create --> Material)
     ![plot](./Documentation/SampleImport.png)
 
@@ -62,7 +61,7 @@ just one entity and one material.
    to enable TextMeshDOTS to automatically select the right font when you apply different `FontStyles`. 
    In TrueType Collection fonts, a number of pre-defined variants are stored within just one `ttc` file. 
    Variable fonts are similar to TrueType Collection fonts, however the files are much smaller because the 
-   variants are mathematically defined via parameters influencing the shape of the Bezier curves. TextMeshDOTS 
+   variants are mathematically defined via parameters influencing the shape of the bezier curves. TextMeshDOTS 
    can simulate bold and italic when those variants are missing, however this should be the exception and not the default.
       1. To use `System Fonts` (fonts that can be found on target device at runtime), drop the `ttf` `ttc` and `otf` files 
          into a folder of your choice under `Assets`. Click on the font asset and uncheck `Include Font Data` to ensure
@@ -91,7 +90,7 @@ just one entity and one material.
     - Drop a material of your choice (generated in the first step) into the respective field
     - Type in some text or rich text
     - You should now see the text
-    - Fontsyles are changed either using the buttons on the `TextRenderer`, or via rich text tags such as \<b\> (bold), 
+    - Font styles are changed either using the buttons on the `TextRenderer`, or via rich text tags such as \<b\> (bold), 
       \<i> (italic). The \<font\> rich text tag can be used to explicitly select a different font family.
       
   - **Optional use of Gradients**:

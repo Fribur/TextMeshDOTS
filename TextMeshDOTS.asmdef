@@ -1,6 +1,6 @@
 {
-    "name": "TextmeshDOTS",
-    "rootNamespace": "TextmeshDOTS",
+    "name": "TextMeshDOTS",
+    "rootNamespace": "TextMeshDOTS",
     "references": [
         "Unity.Entities",
         "Unity.Entities.Hybrid",

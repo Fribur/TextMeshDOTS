@@ -1,5 +1,6 @@
 ﻿using System;
 using TextMeshDOTS.HarfBuzz;
+using TextMeshDOTS.LatiosInterop;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -270,20 +271,41 @@ namespace TextMeshDOTS
             switch ((format, textureSize))
             {
                 case (RenderFormat.SDF8, FontTextureSize.Normal):
-                    return 64;
-                case (RenderFormat.SDF8, FontTextureSize.Big):
+                    return 96;
                 case (RenderFormat.SDF16, FontTextureSize.Big):
                 case (RenderFormat.Bitmap8888, FontTextureSize.Normal):
                     return 128;
                 case (RenderFormat.SDF16, FontTextureSize.Massive):
-                case (RenderFormat.SDF8, FontTextureSize.Massive):
                     return 256;
                 case (RenderFormat.Bitmap8888, FontTextureSize.Big):
                     return 512;
                 case (RenderFormat.Bitmap8888, FontTextureSize.Massive):
-                    return 4096;
+                    return 2048;
                 default:
                     return 64;
+            }
+        }
+        internal static int GetSpread(this GlyphTable.Key key)
+        {
+            return GetSpread(key.format, key.textureSize);
+        }
+        //keep in sync with TmdGlobaslApi.ExtractGlyphFlagsFromEntryID
+        internal static int GetSpread(RenderFormat format, FontTextureSize textureSize)
+        {
+            switch ((format, textureSize))
+            {
+                case (RenderFormat.SDF8, FontTextureSize.Normal):
+                    return 12;
+                case (RenderFormat.SDF16, FontTextureSize.Big):
+                    return 16;
+                case (RenderFormat.SDF16, FontTextureSize.Massive):
+                    return 32;
+                case (RenderFormat.Bitmap8888, FontTextureSize.Normal):
+                case (RenderFormat.Bitmap8888, FontTextureSize.Big):
+                case (RenderFormat.Bitmap8888, FontTextureSize.Massive):
+                    return -1;  // We add one to get padding
+                default:
+                    return 12;
             }
         }
     }

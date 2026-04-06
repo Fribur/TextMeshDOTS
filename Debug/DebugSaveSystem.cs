@@ -36,15 +36,15 @@ namespace TextMeshDOTS
             var atlasTable = SystemAPI.GetSingleton<AtlasTable>();
             var fontTable = SystemAPI.GetSingleton<FontTable>();
 
-            if (glyphTable.entries.Length == 0) 
+            if (glyphTable.glyphEntries.Length == 0) 
                 return;
 
             saveCount++;
 
             StreamWriter writer = new StreamWriter($"Atlas Debug {saveCount}.txt", false);
-            for (int i = 0, ii = glyphTable.entries.Length; i < ii; i++)
+            for (int i = 0, ii = glyphTable.glyphEntries.Length; i < ii; i++)
             {
-                var entry = glyphTable.entries[i];                
+                var entry = glyphTable.glyphEntries[i];                
                 var key = entry.key;
                 if(key.format != RenderFormat.SDF8)
                     continue;

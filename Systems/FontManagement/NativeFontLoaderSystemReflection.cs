@@ -22,7 +22,7 @@ namespace TextMeshDOTS
     [UpdateAfter(typeof(SceneSystemGroup))]
     partial class NativeFontLoaderSystem : SystemBase
     {
-        EntityQuery changedFontReferenceQ;
+        EntityQuery changedFontLoadDescriptionQ;
         MethodInfo methodInfo;
         FieldInfo[] fontReference;
         object m_fontRef;
@@ -38,17 +38,17 @@ namespace TextMeshDOTS
             {
                 faces = new NativeList<Face>(Allocator.Persistent),
                 perThreadFontCaches = perThreadFontCaches,
-                fontAssetRefs = new NativeList<FontAssetRef>(Allocator.Persistent),
-                fontAssetRefToFaceIndexMap = new NativeHashMap<FontAssetRef, int>(64, Allocator.Persistent),
-                fontAssetRefToNamedVariationIndexMap = new NativeHashMap<FontAssetRef, int>(64, Allocator.Persistent),
+                fontLookupKeys = new NativeList<FontLookupKey>(Allocator.Persistent),
+                fontLookupKeyToFaceIndexMap = new NativeHashMap<FontLookupKey, int>(64, Allocator.Persistent),
+                fontLookupKeyToNamedVariationIndexMap = new NativeHashMap<FontLookupKey, int>(64, Allocator.Persistent),
             });
 
-            changedFontReferenceQ = SystemAPI.QueryBuilder()
-                .WithAll<FontReference>()
+            changedFontLoadDescriptionQ = SystemAPI.QueryBuilder()
+                .WithAll<FontLoadDescription>()
                 .Build();
-            changedFontReferenceQ.SetChangedVersionFilter(ComponentType.ReadWrite<FontReference>());
+            changedFontLoadDescriptionQ.SetChangedVersionFilter(ComponentType.ReadWrite<FontLoadDescription>());
 
-            RequireForUpdate(changedFontReferenceQ);
+            RequireForUpdate(changedFontLoadDescriptionQ);
 
             GetSystemFontsMethod();
         }
@@ -56,21 +56,21 @@ namespace TextMeshDOTS
         //[BurstCompile]
         protected override void OnUpdate()
         {
-            if (changedFontReferenceQ.IsEmpty)
+            if (changedFontLoadDescriptionQ.IsEmpty)
                 return;
 
-            var changedFontReferenceBuffer = changedFontReferenceQ.GetSingletonBuffer<FontReference>();
+            var changedFontLoadDescriptionBuffer = changedFontLoadDescriptionQ.GetSingletonBuffer<FontLoadDescription>();
             var fontTable = SystemAPI.GetSingletonRW<FontTable>().ValueRW;
             CompleteDependency();
 
             //copy to nativeArray because LoadFont would invalidate DynamicBuffer due to structural changes
-            var fontReferences = CollectionHelper.CreateNativeArray<FontReference>(changedFontReferenceBuffer.AsNativeArray(), WorldUpdateAllocator);
+            var fontLoadDescriptions = CollectionHelper.CreateNativeArray<FontLoadDescription>(changedFontLoadDescriptionBuffer.AsNativeArray(), WorldUpdateAllocator);
 
-            for (int i = 0, ii = fontReferences.Length; i < ii; i++)
+            for (int i = 0, ii = fontLoadDescriptions.Length; i < ii; i++)
             {
-                var fontReference = fontReferences[i];
-                if (!fontTable.fontAssetRefToFaceIndexMap.ContainsKey(fontReference.fontAssetRef))
-                    LoadFont(fontReference, ref CheckedStateRef, ref fontTable);                
+                var fontReference = fontLoadDescriptions[i];
+                if (!fontTable.fontLookupKeyToFaceIndexMap.ContainsKey(fontReference.fontLookupKey))
+                    LoadFont(fontReference, ref CheckedStateRef, ref fontTable);
             }
         }
 
@@ -106,18 +106,18 @@ namespace TextMeshDOTS
             var f = (Func<string, string, U, bool>)Delegate.CreateDelegate(typeof(Func<string, string, U, bool>), methodInfo);
             return (a, b, c) => f(a, b, (U)c);
         }
-        void LoadFont(FontReference fontReference, ref SystemState state, ref FontTable fontTable)
+        void LoadFont(FontLoadDescription fontLoadDescription, ref SystemState state, ref FontTable fontTable)
         {
             Blob blob;
             string fontAssetPath;
 
-            if (fontReference.isSystemFont)
+            if (fontLoadDescription.isSystemFont)
             {
                 //loading rules: https://www.high-logic.com/fontcreator/manual15/fonttype.html
 
-                var typeographicFamilyDataMissing = (fontReference.typographicFamily.IsEmpty || fontReference.typographicSubfamily.IsEmpty);
-                var family = typeographicFamilyDataMissing ? fontReference.fontFamily : fontReference.typographicFamily;
-                var subFamily = typeographicFamilyDataMissing ? fontReference.fontSubFamily : fontReference.typographicSubfamily;
+                var typeographicFamilyDataMissing = (fontLoadDescription.typographicFamily.IsEmpty || fontLoadDescription.typographicSubfamily.IsEmpty);
+                var family = typeographicFamilyDataMissing ? fontLoadDescription.fontFamily : fontLoadDescription.typographicFamily;
+                var subFamily = typeographicFamilyDataMissing ? fontLoadDescription.fontSubFamily : fontLoadDescription.typographicSubfamily;
                 object[] args = new object[] { family.ToString(), subFamily.ToString(), m_fontRef };
                 var systemFontFound = (bool)methodInfo.Invoke(null, args);
                 var result = args[2];
@@ -127,16 +127,16 @@ namespace TextMeshDOTS
                 {
                     //Debug.Log($"Could not find system font {fontReference.fontFamily} {fontReference.fontSubFamily}");
                     return;
-                }                
+                }
                 //Debug.Log($"Found {fieldInfos[0].GetValue(result)} {fieldInfos[1].GetValue(result)} {fieldInfos[2].GetValue(result)} {fieldInfos[3].GetValue(result)}");
-                fontAssetPath = (string)this.fontReference[3].GetValue(result);                
+                fontAssetPath = (string)this.fontReference[3].GetValue(result);
             }
             else
             {
-                if (fontReference.streamingAssetLocationValidated)
-                    fontAssetPath = Path.Combine(Application.streamingAssetsPath, fontReference.filePath.ToString());
+                if (fontLoadDescription.streamingAssetLocationValidated)
+                    fontAssetPath = Path.Combine(Application.streamingAssetsPath, fontLoadDescription.filePath.ToString());
                 else
-                    fontAssetPath = fontReference.filePath.ToString();
+                    fontAssetPath = fontLoadDescription.filePath.ToString();
 
                 if (!File.Exists(fontAssetPath))
                 {
@@ -150,20 +150,20 @@ namespace TextMeshDOTS
 
             // in case font file is a collection font, chances are that none of the faces have been loaded yet
             // while file is open, load them all to avoid opening file again
-            var tempFontReferences = new NativeList<FontReference>(blob.FaceCount, Allocator.Temp);
+            var fontLoadDescriptions = new NativeList<FontLoadDescription>(blob.FaceCount, Allocator.Temp);
             var language = Language.English;
-            TextHelper.GetFaceInfo(blob, language, fontReference, tempFontReferences);
+            TextHelper.GetFaceInfo(blob, language, fontLoadDescription, fontLoadDescriptions);
 
-            for (int i = 0, ii = tempFontReferences.Length; i < ii; i++)
+            for (int i = 0, ii = fontLoadDescriptions.Length; i < ii; i++)
             {
-                var tempFontReference = tempFontReferences[i];
-                var tempFontAssetRef = tempFontReference.fontAssetRef;
-                if (!fontTable.fontAssetRefToFaceIndexMap.ContainsKey(tempFontAssetRef))
+                var tempFontLoadDescription = fontLoadDescriptions[i];
+                var fontLookupKey = tempFontLoadDescription.fontLookupKey;
+                if (!fontTable.fontLookupKeyToFaceIndexMap.ContainsKey(fontLookupKey))
                 {
-                    var id = fontTable.fontAssetRefToFaceIndexMap.Count;
-                    fontTable.fontAssetRefs.Add(tempFontAssetRef);
-                    fontTable.fontAssetRefToFaceIndexMap.Add(tempFontAssetRef, id);
-                    var face = new Face(blob, tempFontReference.faceIndexInFile);
+                    var id = fontTable.fontLookupKeyToFaceIndexMap.Count;
+                    fontTable.fontLookupKeys.Add(fontLookupKey);
+                    fontTable.fontLookupKeyToFaceIndexMap.Add(fontLookupKey, id);
+                    var face = new Face(blob, tempFontLoadDescription.faceIndexInFile);
                     face.MakeImmutable();
                     fontTable.faces.Add(face);
 
@@ -191,7 +191,7 @@ namespace TextMeshDOTS
                         for (int k = 0, kk = (int)face.NamedInstanceCount; k < kk; k++)
                         {
                             face.GetNamedInstanceDesignCoords(k, ref coords, out uint coordLength);
-                            var variableFontAssetRef = tempFontAssetRef;
+                            var variableFontLookupKey = fontLookupKey;
                             for (int f = 0, ff = (int)coordLength; f < ff; f++)
                             {
                                 //axisInfos and coords should be aligned in length and order
@@ -200,17 +200,17 @@ namespace TextMeshDOTS
                                 switch (axisInfo.axisTag)
                                 {
                                     case AxisTag.WIDTH:
-                                        variableFontAssetRef.width = coord; break;
+                                        variableFontLookupKey.width = coord; break;
                                     case AxisTag.WEIGHT:
-                                        variableFontAssetRef.weight = coord; break;
+                                        variableFontLookupKey.weight = coord; break;
                                     case AxisTag.ITALIC:
-                                        variableFontAssetRef.isItalic = (int)coord == 1; break;
+                                        variableFontLookupKey.isItalic = (int)coord == 1; break;
                                     case AxisTag.SLANT:
-                                        variableFontAssetRef.slant = coord; break;
+                                        variableFontLookupKey.slant = coord; break;
                                 }
-                                //Debug.Log($"Add FontAssetRef {tempFontAssetRef} for variation axis: {axisInfo.axisTag} {face.GetName(axisInfo.nameID, language)}, value = {coord}");
+                                //Debug.Log($"Add FontLookupKey {tempFontLookupKey} for variation axis: {axisInfo.axisTag} {face.GetName(axisInfo.nameID, language)}, value = {coord}");
                             }
-                            fontTable.fontAssetRefToNamedVariationIndexMap.Add(variableFontAssetRef, k);
+                            fontTable.fontLookupKeyToNamedVariationIndexMap.Add(variableFontLookupKey, k);
                         }
                     }
                 }

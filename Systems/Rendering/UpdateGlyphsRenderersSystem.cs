@@ -1,4 +1,5 @@
 using System;
+using TextMeshDOTS.LatiosInterop.Unsafe;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
@@ -343,10 +344,11 @@ namespace TextMeshDOTS
                     min        = math.min(min, math.min(top, bottom));
                     max        = math.max(max, math.max(top, bottom));
                 }
-                var aabb = new Aabb { Min = new float3(math.min(min.xy, min.zw), 0f), Max = new float3(math.max(max.xy, max.zw), 0f) };
+                var min2 = math.min(min.xy, min.zw);
+                var max2 = math.max(max.xy, max.zw);
 
-                var center  = aabb.Center;
-                var extents = aabb.Extents;
+                var center  = new float3(0.5f * (min2 + max2), 0f);
+                var extents = new float3((center.xy - min2), 0f);
                 if (glyphs.Length == 0)
                 {
                     center  = 0f;

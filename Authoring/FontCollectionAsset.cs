@@ -17,45 +17,45 @@ namespace TextMeshDOTS.Authoring
         public List<Object> systemFonts;
         [Tooltip("Drop here .otf .ttf .ttc files located in Asset/StreamingAssets(/subfolder)")]
         public List<Object> streamingAssetFonts;
-        public List<FontReference> fontReferences;
+        public List<FontLoadDescription> fontLoadDescriptions;
         public List<string> fontFamilies;
         public void ProcessFonts()
         {
             Debug.Log("Process Fonts");
-            if (this.fontReferences == null)
-                this.fontReferences = new List<FontReference>(streamingAssetFonts.Count + systemFonts.Count);
+            if (this.fontLoadDescriptions == null)
+                this.fontLoadDescriptions = new List<FontLoadDescription>(streamingAssetFonts.Count + systemFonts.Count);
             else
-                this.fontReferences.Clear();          
+                this.fontLoadDescriptions.Clear();          
 
-            var tempFontReferences = new NativeList<FontReference>(streamingAssetFonts.Count + systemFonts.Count, Allocator.Temp);
+            var tempFontLoadDescriptions = new NativeList<FontLoadDescription>(streamingAssetFonts.Count + systemFonts.Count, Allocator.Temp);
             var language = Language.English;
             
             for (int i = 0, ii = systemFonts.Count; i < ii; i++)
             {
                 var fontItem = systemFonts[i];
                 var fontAssetPath = AssetDatabase.GetAssetPath(fontItem);
-                TextHelper.GetFontInfo(fontAssetPath, true, language, tempFontReferences);
+                TextHelper.GetFontInfo(fontAssetPath, true, language, tempFontLoadDescriptions);
             }
 
             for (int i = 0, ii = streamingAssetFonts.Count; i < ii; i++)
             {
                 var fontItem = streamingAssetFonts[i];
                 var fontAssetPath = AssetDatabase.GetAssetPath(fontItem);
-                TextHelper.GetFontInfo(fontAssetPath, false, language, tempFontReferences);                
+                TextHelper.GetFontInfo(fontAssetPath, false, language, tempFontLoadDescriptions);                
             }
 
-            foreach (var fontItem in tempFontReferences)
-                fontReferences.Add(fontItem);
+            foreach (var fontItem in tempFontLoadDescriptions)
+                fontLoadDescriptions.Add(fontItem);
 
             if (fontFamilies == null)
-                fontFamilies = new List<string>(this.fontReferences.Count);
+                fontFamilies = new List<string>(this.fontLoadDescriptions.Count);
             else
                 fontFamilies.Clear();
 
-            for (int i = 0, ii = tempFontReferences.Length; i < ii; i++)
+            for (int i = 0, ii = tempFontLoadDescriptions.Length; i < ii; i++)
             {
-                var fontReference = tempFontReferences[i];
-                var fontFamily = fontReference.typographicFamily == String.Empty ? fontReference.fontFamily.ToString() : fontReference.typographicFamily.ToString();
+                var FontLoadDescription = tempFontLoadDescriptions[i];
+                var fontFamily = FontLoadDescription.typographicFamily == String.Empty ? FontLoadDescription.fontFamily.ToString() : FontLoadDescription.typographicFamily.ToString();
                 if (!fontFamilies.Contains(fontFamily))
                     fontFamilies.Add(fontFamily);
             }

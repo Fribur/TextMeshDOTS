@@ -96,7 +96,7 @@ namespace TextMeshDOTS
                 var calliString = new CalliString(calliBytesBuffer);
                 var characters = calliString.GetEnumerator();
 
-                var fontAssetRefs = fontTable.fontAssetRefs;
+                var fontAssetRefs = fontTable.fontLookupKeys;
                 var layoutConfig = new LayoutConfig(in textBaseConfiguration);
 
                 XMLTag currentTag = default;
@@ -123,8 +123,8 @@ namespace TextMeshDOTS
 
                 //var glyphOTF = glyphOTFBuffer[0];
                 var glyphOTF = glyphOTFStream.Peek<GlyphOTF>();
-                var glyphID = glyphTable.glyphHashToIdMap[glyphOTF.glyphKey];
-                var glyphEntry = glyphTable.GetEntry(glyphID);
+                var glyphEntryID = glyphTable.glyphHashToGlyphEntryIDMap[glyphOTF.glyphKey];
+                var glyphEntry = glyphTable.GetEntry(glyphEntryID);
 
                 var currentFaceIndex = glyphOTF.glyphKey.faceIndex;
                 var currentFace = fontTable.faces[currentFaceIndex];
@@ -136,7 +136,8 @@ namespace TextMeshDOTS
                 var currentFontWeigth = currentFont.GetStyleTag(StyleTag.WEIGHT);
                 var currentFontIsItalic = (byte)currentFont.GetStyleTag(StyleTag.ITALIC) == 1;
                 currentFont.SetScale(currentFontSamplingPointSize, currentFontSamplingPointSize);
-                currentFont.UpdateMetaData();
+                // Todo: Don't hardcode these when line-wrapping is moved to shaping
+                currentFont.UpdateMetaData(Direction.LTR, Script.LATIN, Language.English);
 
                 // Calculate the scale of the font based on selected font size and sampling point size.
                 // baseScale is calculated using the font asset assigned to the text object.            
@@ -154,8 +155,8 @@ namespace TextMeshDOTS
                 {
                     glyphOTF = glyphOTFStream.Read<GlyphOTF>();
                     //glyphOTF = glyphOTFBuffer[k];
-                    glyphID = glyphTable.glyphHashToIdMap[glyphOTF.glyphKey];
-                    glyphEntry = glyphTable.GetEntry(glyphID);
+                    glyphEntryID = glyphTable.glyphHashToGlyphEntryIDMap[glyphOTF.glyphKey];
+                    glyphEntry = glyphTable.GetEntry(glyphEntryID);
 
                     var cluster = (int)glyphOTF.cluster; //cluster is char index in cleaned text = aligned with glyphOTF buffer
                     if (currentFaceIndex != glyphOTF.glyphKey.faceIndex ||
@@ -173,7 +174,8 @@ namespace TextMeshDOTS
                         currentFontWeigth = currentFont.GetStyleTag(StyleTag.WEIGHT);
                         currentFontIsItalic = (byte)currentFont.GetStyleTag(StyleTag.ITALIC) == 1;
                         currentFont.SetScale(currentFontSamplingPointSize, currentFontSamplingPointSize);
-                        currentFont.UpdateMetaData();
+                        // Todo: Don't hardcode these when line-wrapping is moved to shaping
+                        currentFont.UpdateMetaData(Direction.LTR, Script.LATIN, Language.English);
                     }
                     
                     while (cluster >= nextTagPositionInCleanedText)
@@ -270,7 +272,7 @@ namespace TextMeshDOTS
 
                     var renderGlyph = new RenderGlyph();
                     renderGlyph.arrayIndex = (uint)k;
-                    renderGlyph.glyphEntryId = glyphID;
+                    renderGlyph.glyphEntryId = glyphEntryID;
 
                     // Determine the position of the vertices of the Character or Sprite.
                     #region Calculate Vertices Position

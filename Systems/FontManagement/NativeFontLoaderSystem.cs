@@ -23,11 +23,11 @@
 //    [RequireMatchingQueriesForUpdate]
 //    [UpdateInGroup(typeof(InitializationSystemGroup))]
 //    [UpdateAfter(typeof(SceneSystemGroup))]
-//    partial struct NativeFontLoaderSystem : ISystem
+//    partial struct NativeFontLoaderSystemOld : ISystem
 //    {
 //        EntityQuery changedFontRequestQ;
 //        NativeArray<FixedString512Bytes> systemFontsNative;
-//        NativeList<FontReference> systemFontReferences;
+//        NativeList<FontLoadDescription> systemFontReferences;
 //        JobHandle getFontMetadataJob;
 
 //        public void OnCreate(ref SystemState state)
@@ -39,7 +39,7 @@
 //            for (int i = 0, ii = systemFonts.Length; i < ii; i++)
 //                systemFontsNative[i] = new FixedString512Bytes(systemFonts[i]);
 
-//            systemFontReferences = new NativeList<FontReference>(systemFonts.Length, Allocator.Persistent);
+//            systemFontReferences = new NativeList<FontLoadDescription>(systemFonts.Length, Allocator.Persistent);
 //            getFontMetadataJob = new GetFontMetadataJob()
 //            {
 //                systemFonts = systemFontsNative,
@@ -55,15 +55,15 @@
 //            {
 //                faces = new NativeList<Face>(Allocator.Persistent),
 //                perThreadFontCaches = perThreadFontCaches,
-//                fontAssetRefs = new NativeList<FontAssetRef>(Allocator.Persistent),
-//                fontAssetRefToFaceIndexMap = new NativeHashMap<FontAssetRef, int>(64, Allocator.Persistent),
-//                fontAssetRefToNamedVariationIndexMap = new NativeHashMap<FontAssetRef, int>(64, Allocator.Persistent),
+//                fontLookupKeys = new NativeList<FontLookupKey>(Allocator.Persistent),
+//                fontLookupKeyToFaceIndexMap = new NativeHashMap<FontLookupKey, int>(64, Allocator.Persistent),
+//                fontLookupKeyToNamedVariationIndexMap = new NativeHashMap<FontLookupKey, int>(64, Allocator.Persistent),
 //            });
 
 //            changedFontRequestQ = SystemAPI.QueryBuilder()
-//                .WithAll<FontReference>()
+//                .WithAll<FontLoadDescription>()
 //                .Build();
-//            changedFontRequestQ.SetChangedVersionFilter(ComponentType.ReadWrite<FontReference>());
+//            changedFontRequestQ.SetChangedVersionFilter(ComponentType.ReadWrite<FontLoadDescription>());
 
 //            state.RequireForUpdate(changedFontRequestQ);
 //        }
@@ -76,17 +76,17 @@
 
 //            getFontMetadataJob.Complete();
 
-//            var changedFontRequestBuffer = changedFontRequestQ.GetSingletonBuffer<FontReference>();
+//            var changedFontRequestBuffer = changedFontRequestQ.GetSingletonBuffer<FontLoadDescription>();
 //            var fontTable = SystemAPI.GetSingletonRW<FontTable>().ValueRW;
 //            state.CompleteDependency();
 
 //            //copy to nativeArray because LoadFont would invalidate DynamicBuffer due to structural changes
-//            var fontRequests = CollectionHelper.CreateNativeArray<FontReference>(changedFontRequestBuffer.AsNativeArray(), state.WorldUpdateAllocator);
-//            for (int i = 0, ii = fontRequests.Length; i < ii; i++)
+//            var fontLoadDescriptions = CollectionHelper.CreateNativeArray<FontLoadDescription>(changedFontRequestBuffer.AsNativeArray(), state.WorldUpdateAllocator);
+//            for (int i = 0, ii = fontLoadDescriptions.Length; i < ii; i++)
 //            {
-//                var fontRequest = fontRequests[i];
-//                if (!fontTable.fontAssetRefToFaceIndexMap.ContainsKey(fontRequest.fontAssetRef))
-//                    LoadFont(fontRequest, ref state, ref fontTable);
+//                var fontLoadDescription = fontLoadDescriptions[i];
+//                if (!fontTable.fontLookupKeyToFaceIndexMap.ContainsKey(fontLoadDescription.fontLookupKey))
+//                    LoadFont(fontLoadDescription, ref state, ref fontTable);
 //            }
 //        }
 
@@ -97,27 +97,27 @@
 //            systemFontReferences.Dispose();
 //        }
 
-//        void LoadFont(FontReference fontReference, ref SystemState state, ref FontTable fontTable)
+//        void LoadFont(FontLoadDescription fontLoadDescription, ref SystemState state, ref FontTable fontTable)
 //        {
 //            Blob blob;
 //            string fontAssetPath;
-//            if (fontReference.isSystemFont)
+//            if (fontLoadDescription.isSystemFont)
 //            {
 //                //loading rules: https://www.high-logic.com/fontcreator/manual15/fonttype.html
-//                if (!TryGetSystemFontReference(fontReference, out FontReference systemFontReference))
+//                if (!TryGetSystemFontReference(fontLoadDescription, out FontLoadDescription systemFontLoadDescription))
 //                {
 //                    //Debug.Log($"Could not find system font {fontReference.fontFamily} {fontReference.fontSubFamily}");
 //                    return;
 //                }
 //                //Debug.Log($"Found system font {systemFontReference.fontFamily} {systemFontReference.fontSubFamily} {systemFontReference.filePath}");
-//                fontAssetPath = systemFontReference.filePath.ToString();
+//                fontAssetPath = systemFontLoadDescription.filePath.ToString();
 //            }
 //            else
 //            {
-//                if (fontReference.streamingAssetLocationValidated)
-//                    fontAssetPath = Path.Combine(Application.streamingAssetsPath, fontReference.filePath.ToString());
+//                if (fontLoadDescription.streamingAssetLocationValidated)
+//                    fontAssetPath = Path.Combine(Application.streamingAssetsPath, fontLoadDescription.filePath.ToString());
 //                else
-//                    fontAssetPath = fontReference.filePath.ToString();
+//                    fontAssetPath = fontLoadDescription.filePath.ToString();
 
 //                if (!File.Exists(fontAssetPath))
 //                {
@@ -132,19 +132,19 @@
 
 //            // in case font file is a collection font, chances are that none of the faces have been loaded yet
 //            // while file is open, load them all to avoid opening file again
-//            var tempFontReferences = new NativeList<FontReference>(blob.FaceCount, Allocator.Temp);
+//            var tempFontReferences = new NativeList<FontLoadDescription>(blob.FaceCount, Allocator.Temp);
 //            var language = Language.English;
-//            TextHelper.GetFaceInfo(blob, language, fontReference, tempFontReferences);
+//            TextHelper.GetFaceInfo(blob, language, fontLoadDescription, tempFontReferences);
 
 //            for (int i = 0, ii = tempFontReferences.Length; i < ii; i++)
 //            {
 //                var tempFontReference = tempFontReferences[i];
-//                var tempFontAssetRef = tempFontReference.fontAssetRef;
-//                if (!fontTable.fontAssetRefToFaceIndexMap.ContainsKey(tempFontAssetRef))
+//                var tempFontAssetRef = tempFontReference.fontLookupKey;
+//                if (!fontTable.fontLookupKeyToFaceIndexMap.ContainsKey(tempFontAssetRef))
 //                {
-//                    var id = fontTable.fontAssetRefToFaceIndexMap.Count;
-//                    fontTable.fontAssetRefs.Add(tempFontAssetRef);
-//                    fontTable.fontAssetRefToFaceIndexMap.Add(tempFontAssetRef, id);
+//                    var id = fontTable.fontLookupKeyToFaceIndexMap.Count;
+//                    fontTable.fontLookupKeys.Add(tempFontAssetRef);
+//                    fontTable.fontLookupKeyToFaceIndexMap.Add(tempFontAssetRef, id);
 //                    var face = new Face(blob, tempFontReference.faceIndexInFile);
 //                    face.MakeImmutable();
 //                    fontTable.faces.Add(face);
@@ -192,7 +192,7 @@
 //                                }
 //                                //Debug.Log($"Add FontAssetRef {tempFontAssetRef} for variation axis: {axisInfo.axisTag} {face.GetName(axisInfo.nameID, language)}, value = {coord}");
 //                            }
-//                            fontTable.fontAssetRefToNamedVariationIndexMap.Add(variableFontAssetRef, k);
+//                            fontTable.fontLookupKeyToNamedVariationIndexMap.Add(variableFontAssetRef, k);
 //                        }
 //                    }
 //                }
@@ -202,7 +202,7 @@
 //            blob.Dispose();
 //        }
 
-//        bool TryGetSystemFontReference(FontReference query, out FontReference fontReference)
+//        bool TryGetSystemFontReference(FontLoadDescription query, out FontLoadDescription fontReference)
 //        {
 //            int index;
 //            if ((index = systemFontReferences.IndexOf(query)) != -1)
@@ -217,7 +217,7 @@
 //        struct GetFontMetadataJob : IJob
 //        {
 //            [ReadOnly] public NativeArray<FixedString512Bytes> systemFonts;
-//            public NativeList<FontReference> fontReferences;
+//            public NativeList<FontLoadDescription> fontReferences;
 
 //            public void Execute()
 //            {

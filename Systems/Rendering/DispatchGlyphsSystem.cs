@@ -1,4 +1,4 @@
-using static Unity.Entities.SystemAPI;
+using TextMeshDOTS.LatiosInterop.Kinemation;
 using TextMeshDOTS.HarfBuzz;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -7,18 +7,29 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Rendering;
 using UnityEngine;
+using static Unity.Entities.SystemAPI;
 
 namespace TextMeshDOTS
 {
+    // Todo: Unity is really unstable with RenderTextures, and using UnityObjectRef with them seems to be especially flaky.
+    // So this system remains managed for now.
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateAfter(typeof(UpdateGlyphsRenderersSystem))]
     public unsafe partial class DispatchGlyphsSystem : SystemBase
     {
+        GraphicsBufferBroker broker;
+
         const int kTextureDimension = 4096;
         const int kShelfAlignment   = 16;
 
-        static readonly bool kEnableComputePixelUpload = true;
+        // Todo: Figure out if there are any platform differences to compensate for.
         static readonly bool kComputePixelUploadFlipY  = false;
+
+        static GraphicsBufferBroker.StaticID sGlyphBufferID = GraphicsBufferBroker.ReservePersistentBuffer();
+        static GraphicsBufferBroker.StaticID sGlyphUploadID = GraphicsBufferBroker.ReserveUploadPool();
+        static GraphicsBufferBroker.StaticID sPixelUploadID = GraphicsBufferBroker.ReserveUploadPool();
+        static GraphicsBufferBroker.StaticID sMetaUint3UploadID = GraphicsBufferBroker.ReserveUploadPool();
+        static GraphicsBufferBroker.StaticID sMetaUint4UploadID = GraphicsBufferBroker.ReserveUploadPool();
 
         EntityQuery m_query;
 
@@ -26,11 +37,11 @@ namespace TextMeshDOTS
         UnityObjectRef<ComputeShader> m_copyBytesShader;
         UnityObjectRef<ComputeShader> m_uploadPixelsShader;
 
-        PersistentBuffer         m_glyphsBuffer;
-        GraphicsBufferUploadPool m_glyphUploadBuffers;
-        GraphicsBufferUploadPool m_glyphMetaUploadBuffers;
-        GraphicsBufferUploadPool m_pixelUploadBuffers;
-        GraphicsBufferUploadPool m_pixelUploadMetaBuffers;
+        GraphicsBufferBroker.StaticID m_glyphBufferID;
+        GraphicsBufferBroker.StaticID m_glyphUploadID;
+        GraphicsBufferBroker.StaticID m_pixelUploadID;
+        GraphicsBufferBroker.StaticID m_metaUint3UploadID;
+        GraphicsBufferBroker.StaticID m_metaUint4UploadID;
 
         TextureAtlasArray<byte>    m_sdf8Array;
         TextureAtlasArray<ushort>  m_sdf16Array;
@@ -60,18 +71,23 @@ namespace TextMeshDOTS
 
             m_query = QueryBuilder().WithAll<MaterialMeshInfo>().WithAllRW<GpuState>().WithPresent<PreviousRenderGlyph>().WithPresentRW<ResidentRange>().Build();
 
+            broker = new GraphicsBufferBroker(Allocator.Persistent);           
+           
+            m_metaUint3UploadID = sMetaUint3UploadID;
+            broker.InitializeUploadPool(sMetaUint3UploadID, 4, GraphicsBuffer.Target.Raw);
+            m_metaUint4UploadID = sMetaUint4UploadID;
+            broker.InitializeUploadPool(sMetaUint4UploadID, 4, GraphicsBuffer.Target.Raw);
+
             m_uploadGlyphsShader = Resources.Load<ComputeShader>("UploadGlyphs");
             m_copyBytesShader    = Resources.Load<ComputeShader>("CopyBytes");
-            if (kEnableComputePixelUpload)
-            {
-                m_uploadPixelsShader     = Resources.Load<ComputeShader>("UploadPixels");
-                m_pixelUploadBuffers     = new GraphicsBufferUploadPool(1024 * 4, GraphicsBuffer.Target.Raw, 4);
-                m_pixelUploadMetaBuffers = new GraphicsBufferUploadPool(1024, GraphicsBuffer.Target.Raw, 4);
-            }
+            m_uploadPixelsShader = Resources.Load<ComputeShader>("UploadPixels");
+            m_pixelUploadID = sPixelUploadID;
+            broker.InitializeUploadPool(m_pixelUploadID, 4, GraphicsBuffer.Target.Raw);
 
-            m_glyphsBuffer           = new PersistentBuffer(1024 * 16 * 128, 4, GraphicsBuffer.Target.Raw, m_copyBytesShader);
-            m_glyphUploadBuffers     = new GraphicsBufferUploadPool(1024 * 8 * 4, GraphicsBuffer.Target.Raw, 4);
-            m_glyphMetaUploadBuffers = new GraphicsBufferUploadPool(1024, GraphicsBuffer.Target.Raw, 4);
+            m_glyphBufferID = sGlyphBufferID;
+            broker.InitializePersistentBuffer(m_glyphBufferID, 1024 * 16 * 128, 4, GraphicsBuffer.Target.Raw, m_copyBytesShader);
+            m_glyphUploadID = sGlyphUploadID;
+            broker.InitializeUploadPool(m_glyphUploadID, 4, GraphicsBuffer.Target.Raw);
 
             _src         = Shader.PropertyToID("_src");
             _dst         = Shader.PropertyToID("_dst");
@@ -83,13 +99,13 @@ namespace TextMeshDOTS
             _tmdSdf16  = Shader.PropertyToID("_tmdSdf16");
             _tmdBitmap = Shader.PropertyToID("_tmdBitmap");
             _tmdGlyphs = Shader.PropertyToID("_tmdGlyphs");
-            var dummyBuffer = m_glyphsBuffer.GetBuffer(0);
-            Shader.SetGlobalBuffer(_tmdGlyphs, dummyBuffer); // fix unbound _tmdGlyphs buffer issue
+            var dummyBuffer = broker.GetPersistentBufferNoResize(m_glyphBufferID);
+            GraphicsUnmanaged.SetGlobalBuffer(_tmdGlyphs, dummyBuffer);  // fix unbound _tmdGlyphs buffer issue
 
-            var initialAtlasArraySize = kEnableComputePixelUpload ? 1 : 2; // RenderTexture supports array size 1
-            m_sdf8Array   = new TextureAtlasArray<byte>(_tmdSdf8, kTextureDimension, initialAtlasArraySize, TextureFormat.R8, false, true, kEnableComputePixelUpload);
-            m_sdf16Array  = new TextureAtlasArray<ushort>(_tmdSdf16, kTextureDimension, initialAtlasArraySize, TextureFormat.R16, false, true, kEnableComputePixelUpload);
-            m_bitmapArray = new TextureAtlasArray<Color32>(_tmdBitmap, kTextureDimension, initialAtlasArraySize, TextureFormat.RGBA32, true, false, kEnableComputePixelUpload);
+            var initialAtlasArraySize = 1;  // RenderTexture supports array size 1
+            m_sdf8Array   = new TextureAtlasArray<byte>(_tmdSdf8, kTextureDimension, initialAtlasArraySize, RenderTextureFormat.R8, false, true);
+            m_sdf16Array  = new TextureAtlasArray<ushort>(_tmdSdf16, kTextureDimension, initialAtlasArraySize, RenderTextureFormat.R16, false, true);
+            m_bitmapArray = new TextureAtlasArray<Color32>(_tmdBitmap, kTextureDimension, initialAtlasArraySize, RenderTextureFormat.BGRA32, true, false); // Shader APIs will swizzle ARGB for us
 
             m_drawDelegates  = new DrawDelegates(true);
             m_paintDelegates = new PaintDelegates(true);
@@ -104,11 +120,14 @@ namespace TextMeshDOTS
                 residentGaps        = new NativeList<uint2>(Allocator.Persistent)
             };
             m_glyphGpuTableToDestroy = glyphGpuTable;
-            EntityManager.CreateSingleton(glyphGpuTable);
+            var graphicsEntity = EntityManager.CreateSingleton(glyphGpuTable);
+            EntityManager.AddComponentData(graphicsEntity, broker);
+            //EntityManager.AddComponentData(graphicsEntity, new GraphicsBufferBrokerDeferredDisposer { broker = broker });
         }
 
         protected override void OnUpdate()
         {
+            broker.Update();
             ref var state     = ref CheckedStateRef;
             var     collected = Collect(ref state);
             state.CompleteDependency();
@@ -119,6 +138,8 @@ namespace TextMeshDOTS
 
         protected override void OnDestroy()
         {
+            broker.Dispose();
+
             ref var state = ref CheckedStateRef;
 
             GraphicsBuffer b = null;
@@ -136,17 +157,7 @@ namespace TextMeshDOTS
             m_paintDelegates.Dispose();
 
             m_atlasToDestroy.TryDispose(default);
-            m_glyphGpuTableToDestroy.TryDispose(default);
-
-            m_glyphsBuffer.Dispose();
-            m_glyphUploadBuffers.Dispose();
-            m_glyphMetaUploadBuffers.Dispose();
-
-            if (kEnableComputePixelUpload)
-            {
-                m_pixelUploadBuffers.Dispose();
-                m_pixelUploadMetaBuffers.Dispose();
-            }
+            m_glyphGpuTableToDestroy.TryDispose(default);           
         }
 
         public CollectState Collect(ref SystemState state)
@@ -220,86 +231,65 @@ namespace TextMeshDOTS
 
             var glyphTable = SystemAPI.GetSingleton<GlyphTable>();
             var fontTable  = SystemAPI.GetSingleton<FontTable>();
+            var broker = SystemAPI.GetSingleton<GraphicsBufferBroker>();
+            writeState.broker = broker;
 
             var rasterizeJh    = state.Dependency;
             var uploadGlyphsJh = rasterizeJh;
 
             if (!collected.glyphEntryIDsToRasterize.IsEmpty)
             {
+                // atlasDirtyIDs are sorted, so extracting the upper 2 bit (encoding the GlyphEntryIDFlags enum) sorts atlas by type
                 int dirtySdf8Count;
                 for (dirtySdf8Count = 0; dirtySdf8Count < collected.atlasDirtyIDs.Length; dirtySdf8Count++)
                 {
                     var dirtyId = collected.atlasDirtyIDs[dirtySdf8Count];
-                    if (dirtyId >= 0x40000000u)
+                    var glyphEntryIDFlags = GlyphTable.DecodeGlyphEntryIDFlags(dirtyId);
+                    if (glyphEntryIDFlags >= GlyphEntryIDFlags.SDF16BigSize)
                         break;
                 }
                 int dirtySdf16Count;
                 for (dirtySdf16Count = dirtySdf8Count; dirtySdf16Count < collected.atlasDirtyIDs.Length; dirtySdf16Count++)
                 {
                     var dirtyId = collected.atlasDirtyIDs[dirtySdf16Count];
-                    if (dirtyId >= 0x80000000u)
+                    var glyphEntryIDFlags = GlyphTable.DecodeGlyphEntryIDFlags(dirtyId);
+                    if (glyphEntryIDFlags >= GlyphEntryIDFlags.Bitmap8888)
                         break;
                 }
                 dirtySdf16Count      -= dirtySdf8Count;
                 var dirtyBitmapCount  = collected.atlasDirtyIDs.Length - dirtySdf8Count - dirtySdf16Count;
 
-                var sdf8Ptrs = CollectionHelper.CreateNativeArray<TextureAtlasArray<byte>.AtlasPtr>(dirtySdf8Count,
-                                                                                                    state.WorldUpdateAllocator,
-                                                                                                    NativeArrayOptions.UninitializedMemory);
-                var sdf16Ptrs = CollectionHelper.CreateNativeArray<TextureAtlasArray<ushort>.AtlasPtr>(dirtySdf16Count,
-                                                                                                       state.WorldUpdateAllocator,
-                                                                                                       NativeArrayOptions.UninitializedMemory);
-                var bitmapPtrs = CollectionHelper.CreateNativeArray<TextureAtlasArray<Color32>.AtlasPtr>(dirtyBitmapCount,
-                                                                                                         state.WorldUpdateAllocator,
-                                                                                                         NativeArrayOptions.UninitializedMemory);
-
                 if (dirtySdf8Count > 0)
                 {
-                    m_sdf8Array.GetAtlasPtrsForDirtyIndices(collected.atlasDirtyIDs.AsArray().GetSubArray(0, dirtySdf8Count).AsSpan(), sdf8Ptrs.AsSpan());
+                    m_sdf8Array.ReportDirtyIndices(collected.atlasDirtyIDs.AsArray().GetSubArray(0, dirtySdf8Count).AsSpan());
                     writeState.isSdf8Dirty = true;
                 }
                 if (dirtySdf16Count > 0)
                 {
-                    m_sdf16Array.GetAtlasPtrsForDirtyIndices(collected.atlasDirtyIDs.AsArray().GetSubArray(dirtySdf8Count, dirtySdf16Count).AsSpan(), sdf16Ptrs.AsSpan());
+                    m_sdf16Array.ReportDirtyIndices(collected.atlasDirtyIDs.AsArray().GetSubArray(dirtySdf8Count, dirtySdf16Count).AsSpan());
                     writeState.isSdf16Dirty = true;
                 }
                 if (dirtyBitmapCount > 0)
                 {
-                    m_bitmapArray.GetAtlasPtrsForDirtyIndices(collected.atlasDirtyIDs.AsArray().GetSubArray(dirtySdf8Count + dirtySdf16Count, dirtyBitmapCount).AsSpan(),
-                                                              bitmapPtrs.AsSpan());
+                    m_bitmapArray.ReportDirtyIndices(collected.atlasDirtyIDs.AsArray().GetSubArray(dirtySdf8Count + dirtySdf16Count, dirtyBitmapCount).AsSpan());
                     writeState.isBitmapDirty = true;
                 }
 
-                GraphicsBuffer     uploadBuffer     = default;
-                GraphicsBuffer     uploadMetaBuffer = default;
-                NativeArray<byte>  uploadArray;
-                NativeArray<uint4> uploadMetaArray;
-                if (kEnableComputePixelUpload)
-                {
-                    uploadBuffer     = m_pixelUploadBuffers.Allocate(collected.pixelBytesCount.Value / 4);
-                    uploadArray      = uploadBuffer.LockBufferForWrite<byte>(0, collected.pixelBytesCount.Value);
-                    uploadMetaBuffer = m_pixelUploadMetaBuffers.Allocate(collected.glyphEntryIDsToRasterize.Length * 4);
-                    uploadMetaArray  = uploadMetaBuffer.LockBufferForWrite<uint4>(0, collected.glyphEntryIDsToRasterize.Length);
-                }
-                else
-                {
-                    uploadArray     = CollectionHelper.CreateNativeArray<byte>(1, state.WorldUpdateAllocator, NativeArrayOptions.UninitializedMemory);
-                    uploadMetaArray = CollectionHelper.CreateNativeArray<uint4>(1, state.WorldUpdateAllocator, NativeArrayOptions.UninitializedMemory);
-                }
+                var uploadBuffer = broker.GetUploadBuffer(m_pixelUploadID, (uint)collected.pixelBytesCount.Value / 4);
+                var uploadArray = uploadBuffer.LockBufferForWrite<byte>(0, collected.pixelBytesCount.Value);
+                var uploadMetaBuffer = broker.GetUploadBuffer(m_metaUint4UploadID, (uint)collected.glyphEntryIDsToRasterize.Length * 4);
+                var uploadMetaArray = uploadMetaBuffer.LockBufferForWrite<uint4>(0, collected.glyphEntryIDsToRasterize.Length);
+
                 rasterizeJh = new RasterizeJob
                 {
-                    bitmapPtrs                = bitmapPtrs,
                     drawDelegates             = m_drawDelegates,
                     fontTable                 = fontTable,
                     glyphEntryIDsToRasterize  = collected.glyphEntryIDsToRasterize.AsArray(),
                     glyphTable                = glyphTable,
                     paintDelegates            = m_paintDelegates,
-                    sdf16Ptrs                 = sdf16Ptrs,
-                    sdf8Ptrs                  = sdf8Ptrs,
                     pixelUploadOffsetsInBytes = collected.pixelUploadOffsetsInBytes.AsArray(),
                     uploadBuffer              = uploadArray,
                     uploadMetaBuffer          = uploadMetaArray,
-                    useComputeUpload          = kEnableComputePixelUpload,
                     atomicPrioritizer         = new NativeReference<int>(0, state.WorldUpdateAllocator),
                 }.ScheduleParallel(collected.glyphEntryIDsToRasterize.Length, 1, rasterizeJh);
 
@@ -310,13 +300,13 @@ namespace TextMeshDOTS
             }
             if (!collected.glyphsToUpload.IsEmpty)
             {
-                var lastCapture      = collected.glyphsToUpload[^1];
-                var glyphCount       = lastCapture.writeStart + lastCapture.glyphCount;
-                var uploadBuffer     = m_glyphUploadBuffers.Allocate(glyphCount * UnsafeUtility.SizeOf<RenderGlyph>() / 4);
-                var uploadArray      = uploadBuffer.LockBufferForWrite<RenderGlyph>(0, glyphCount);
-                var captureCount     = collected.glyphsToUpload.Length;
-                var uploadMetaBuffer = m_glyphMetaUploadBuffers.Allocate(captureCount * 3);
-                var uploadMetaArray  = uploadMetaBuffer.LockBufferForWrite<uint3>(0, captureCount);
+                var lastCapture = collected.glyphsToUpload[^1];
+                var glyphCount = lastCapture.writeStart + lastCapture.glyphCount;
+                var uploadBuffer = broker.GetUploadBuffer(m_glyphUploadID, (uint)(glyphCount * UnsafeUtility.SizeOf<RenderGlyph>() / 4));
+                var uploadArray = uploadBuffer.LockBufferForWrite<RenderGlyph>(0, glyphCount);
+                var captureCount = collected.glyphsToUpload.Length;
+                var uploadMetaBuffer = broker.GetUploadBuffer(m_metaUint3UploadID, (uint)captureCount * 3);
+                var uploadMetaArray = uploadMetaBuffer.LockBufferForWrite<uint3>(0, captureCount);
 
                 uploadGlyphsJh = new WriteRenderGlyphsToGpuJob
                 {
@@ -338,7 +328,7 @@ namespace TextMeshDOTS
 
         public void Dispatch(ref SystemState state, ref WriteState written)
         {
-            if (kEnableComputePixelUpload && (written.isSdf8Dirty || written.isSdf16Dirty || written.isBitmapDirty))
+            if (written.isSdf8Dirty || written.isSdf16Dirty || written.isBitmapDirty)
             {
                 written.pixelUploadBuffer.UnlockBufferAfterWrite<byte>(written.pixelUploadBufferWriteCount);
                 written.pixelUploadMetaBuffer.UnlockBufferAfterWrite<uint4>(written.pixelUploadMetaBufferWriteCount);
@@ -347,8 +337,8 @@ namespace TextMeshDOTS
                 shader.SetTexture(0, _tmdSdf8,   m_sdf8Array.GetRenderTextureForUpload());
                 shader.SetTexture(0, _tmdSdf16,  m_sdf16Array.GetRenderTextureForUpload());
                 shader.SetTexture(0, _tmdBitmap, m_bitmapArray.GetRenderTextureForUpload());
-                shader.SetBuffer(0, _src,  written.pixelUploadBuffer);
-                shader.SetBuffer(0, _meta, written.pixelUploadMetaBuffer);
+                m_uploadPixelsShader.SetBuffer(0, _src, written.pixelUploadBuffer);
+                m_uploadPixelsShader.SetBuffer(0, _meta, written.pixelUploadMetaBuffer);
                 shader.SetInt(_flipOffset, math.select(0, kTextureDimension - 1, kComputePixelUploadFlipY));
                 for (uint dispatchesRemaining = (uint)written.pixelUploadMetaBufferWriteCount, offset = 0; dispatchesRemaining > 0;)
                 {
@@ -374,22 +364,21 @@ namespace TextMeshDOTS
                 written.glyphUploadMetaBuffer.UnlockBufferAfterWrite<uint3>(written.glyphUploadMetaBufferWriteCount);
                 written.glyphUploadBuffer.UnlockBufferAfterWrite<RenderGlyph>(written.glyphUploadBufferWriteCount);
 
-                var persistentBuffer = m_glyphsBuffer.GetBuffer(glyphGpuTable.bufferSize.Value);
-                var shader           = m_uploadGlyphsShader.Value;
-                shader.SetBuffer(0, _dst,  persistentBuffer);
-                shader.SetBuffer(0, _src,  written.glyphUploadBuffer);
-                shader.SetBuffer(0, _meta, written.glyphUploadMetaBuffer);
+                var persistentBuffer = written.broker.GetPersistentBuffer(m_glyphBufferID, glyphGpuTable.bufferSize.Value);
+                m_uploadGlyphsShader.SetBuffer(0, _dst, persistentBuffer);
+                m_uploadGlyphsShader.SetBuffer(0, _src, written.glyphUploadBuffer);
+                m_uploadGlyphsShader.SetBuffer(0, _meta, written.glyphUploadMetaBuffer);
 
                 for (uint dispatchesRemaining = (uint)written.glyphUploadMetaBufferWriteCount, offset = 0; dispatchesRemaining > 0;)
                 {
                     uint dispatchCount = math.min(dispatchesRemaining, 65535);
-                    shader.SetInt(_startOffset, (int)offset);
-                    shader.Dispatch(0, (int)dispatchCount, 1, 1);
+                    m_uploadGlyphsShader.SetInt(_startOffset, (int)offset);
+                    m_uploadGlyphsShader.Dispatch(0, (int)dispatchCount, 1, 1);
                     offset              += dispatchCount;
                     dispatchesRemaining -= dispatchCount;
                 }
 
-                Shader.SetGlobalBuffer(_tmdGlyphs, persistentBuffer);
+                GraphicsUnmanaged.SetGlobalBuffer(_tmdGlyphs, persistentBuffer);
             }
         }
 
@@ -404,17 +393,18 @@ namespace TextMeshDOTS
 
         public struct WriteState
         {
+            internal GraphicsBufferBroker broker;
             internal bool isSdf8Dirty;
             internal bool isSdf16Dirty;
             internal bool isBitmapDirty;
 
-            internal GraphicsBuffer glyphUploadBuffer;
-            internal GraphicsBuffer glyphUploadMetaBuffer;
+            internal GraphicsBufferUnmanaged glyphUploadBuffer;
+            internal GraphicsBufferUnmanaged glyphUploadMetaBuffer;
             internal int            glyphUploadBufferWriteCount;
             internal int            glyphUploadMetaBufferWriteCount;
 
-            internal GraphicsBuffer pixelUploadBuffer;
-            internal GraphicsBuffer pixelUploadMetaBuffer;
+            internal GraphicsBufferUnmanaged pixelUploadBuffer;
+            internal GraphicsBufferUnmanaged pixelUploadMetaBuffer;
             internal int            pixelUploadBufferWriteCount;
             internal int            pixelUploadMetaBufferWriteCount;
         }
@@ -428,6 +418,12 @@ namespace TextMeshDOTS
             public bool             makeResident;
             public int              writeStart;
             public int              gpuStart;
+        }
+        partial struct GraphicsBufferBrokerDeferredDisposer : IComponentData
+        {
+            public GraphicsBufferBroker broker;
+
+            public void Dispose() => broker.Dispose();
         }
     }
 }

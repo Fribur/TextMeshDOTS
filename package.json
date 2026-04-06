@@ -1,7 +1,7 @@
 {
   "name": "com.textmeshdots",
   "description": "DOTS native world space text",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "unity": "2023.3",
   "displayName": "TextMeshDOTS",
   "dependencies": {
@@ -14,12 +14,7 @@
   "author": {
     "name": "DOTS Community"
   },
-  "samples": [
-  {
-      "displayName": "Backend mesh",
-      "description": "TextMeshDOTS backend mesh. Essential for rendering SDF text.",
-      "path": "Samples~/Backend mesh"
-    },
+  "samples": [  
 	{
       "displayName": "Fonts",
       "description": "TextMeshDOTS sample fonts",

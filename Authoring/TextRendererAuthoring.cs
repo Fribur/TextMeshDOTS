@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using TextMeshDOTS.Rendering.Authoring;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -47,7 +48,7 @@ namespace TextMeshDOTS.Authoring
             DependsOn(authoring.fontCollectionAsset);
             int fontCount = 0;
             if (authoring.fontCollectionAsset == null ||
-                (fontCount = authoring.fontCollectionAsset.fontReferences.Count) == 0 ||
+                (fontCount = authoring.fontCollectionAsset.fontLoadDescriptions.Count) == 0 ||
                 authoring.defaultFont == string.Empty ||
                 authoring.material == null ||
                 authoring.language.Length == 0)
@@ -57,7 +58,7 @@ namespace TextMeshDOTS.Authoring
             if (guids.Length == 0 || guids[0] == null)
                 return;
 
-            var backEndMesh = AssetDatabase.LoadAssetByGUID(new GUID(guids[0]), typeof(Mesh)) as Mesh;
+            var backendMesh = Resources.Load<Mesh>(TextBackendBakingUtility.kTextBackendMeshResource);
 
             //add MeshFilter and MeshRender on main entity to ensure it correctly converted 
             var meshRenderer = GetComponent<MeshRenderer>();
@@ -66,7 +67,7 @@ namespace TextMeshDOTS.Authoring
             var meshFilter = GetComponent<MeshFilter>();
             if (meshFilter == null)
                 meshFilter = authoring.gameObject.AddComponent<MeshFilter>();
-            meshFilter.sharedMesh = backEndMesh;
+            meshFilter.sharedMesh = backendMesh;
             meshRenderer.material = authoring.material;
 
             var entity = GetEntity(TransformUsageFlags.Renderable);

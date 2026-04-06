@@ -1,4 +1,5 @@
 #if UNITY_EDITOR
+using TextMeshDOTS.Rendering.Authoring;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Rendering;
@@ -26,18 +27,14 @@ namespace TextMeshDOTS.Authoring
             if (authoring.material ==null)
                 return;
 
-            string[] guids = AssetDatabase.FindAssets("TextBackendMesh t:mesh", null);
-            if (guids.Length == 0 || guids[0] == null)
-                return;
-
-            var backEndMesh = AssetDatabase.LoadAssetByGUID(new GUID(guids[0]), typeof(Mesh)) as Mesh;
+            var backendMesh = Resources.Load<Mesh>(TextBackendBakingUtility.kTextBackendMeshResource);
 
             var entity = GetEntity(TransformUsageFlags.None);
 
             var runtimeFontMaterial = new RuntimeFontMaterial
             {
                 material = authoring.material,
-                backendMesh = backEndMesh,
+                backendMesh = backendMesh,
                 materialMeshInfo = new MaterialMeshInfo(BatchMaterialID.Null, BatchMeshID.Null)
             };            
             AddComponent(entity, runtimeFontMaterial);

@@ -16,17 +16,16 @@ namespace TextMeshDOTS
         [BurstCompile]
         partial struct ShapeJob : IJobChunk
         {
-            [ReadOnly] public ProfilerMarker marker;
-            [ReadOnly] public ProfilerMarker marker2;
+            [ReadOnly] public ProfilerMarker shapeMarker;
+            [ReadOnly] public ProfilerMarker bufferMarker;
             
             public NativeStream.Writer missingGlyphsStream;
             [NativeDisableParallelForRestriction] public NativeStream.Writer glyphOTFStream;
             [ReadOnly] public NativeStream.Reader xmlTagStream;
             [ReadOnly] public NativeArray<int> firstEntityIndexInChunk;
 
-            [ReadOnly] internal FontTable fontTable;
-            //internal FontTable fontTable;
-            [ReadOnly] internal GlyphTable glyphTable;
+            [ReadOnly] public FontTable                                  fontTable;
+            [ReadOnly] public GlyphTable                                 glyphTable;
             [ReadOnly] public ComponentTypeHandle<TextBaseConfiguration> textBaseConfigurationHandle;
             [ReadOnly] public BufferTypeHandle<CalliByte> calliByteHandle;
          
@@ -61,7 +60,7 @@ namespace TextMeshDOTS
 
                 //shape plans can be cached..no use case found yet where there this makes a significant difference
                 //var shaperList = HB.hb_shape_list_shapers();
-                //var shapePlanCache = new NativeHashMap<FontAssetRef, ShapePlan>(16, Allocator.Temp);
+                //var shapePlanCache = new NativeHashMap<FontLookupKey, ShapePlan>(16, Allocator.Temp);
 
                 var cleanedString = new NativeText(1024, Allocator.Temp);
                 LayoutConfig layoutConfig = default;
@@ -169,7 +168,6 @@ namespace TextMeshDOTS
                         currentRune = rawCharacters.Current;
                         tagsCounter++;
                         nextTagPosition = tagsCounter < xmlTags.Length ? xmlTags[tagsCounter].startID : calliString.Length;
-                        //continue;
                     }
                     if (!keepGoing)
                         continue;
@@ -232,9 +230,10 @@ namespace TextMeshDOTS
                 if (face.HasVarData && font.currentVariableProfileIndex != namedVariationIndex)
                     font = fontTable.SetVariableProfile(faceIndex, threadIndex, namedVariationIndex);
 
-                var renderFormat = face.hasColor ? RenderFormat.Bitmap8888 : fontConfig.m_fontTextureSize != FontTextureSize.Normal ? RenderFormat.SDF16 : RenderFormat.SDF8;
+                var renderFormat = face.hasColor ? RenderFormat.Bitmap8888 : (fontConfig.m_fontTextureSize != FontTextureSize.Normal ? RenderFormat.SDF16 : RenderFormat.SDF8);
                 var samplingSize = FontEnumerationExtensions.GetSamplingSize(renderFormat, fontConfig.m_fontTextureSize);
                 font.SetScale(samplingSize, samplingSize);
+                //Debug.Log($"renderFormat {renderFormat} samplingSize {samplingSize}");
 
                 //Debug.Log($"shape {text} {startIndex} {length}");
                 //if (face.HasVarData)
@@ -242,23 +241,21 @@ namespace TextMeshDOTS
                 //else
                 //    Debug.Log($"faceIndex: {faceIndex} {face.GetName(NameID.FONT_FAMILY, Language.English)}, {face.GetName(NameID.FONT_SUBFAMILY, Language.English)}");
 
-                //if (!shapePlanCache.TryGetValue(fontAssetRef, out var shapePlan))
+                //if (!shapePlanCache.TryGetValue(lookupKey, out var shapePlan))
                 //{                        
                 //    shapePlan = new ShapePlan(nativeFontPointer.face, ref segmentProperties, features, shaperList);
-                //    shapePlanCache.Add(fontAssetRef, shapePlan);
+                //    shapePlanCache.Add(lookupKey, shapePlan);
                 //}
                 //marker.Begin();
                 //shapePlan.Execute(font, buffer, features);
                 //marker.End();
 
-                marker.Begin();
+                shapeMarker.Begin();
                 font.Shape(buffer, features);
-                marker.End();
+                shapeMarker.End();
 
                 var glyphInfos = buffer.GetGlyphInfosSpan();
                 var glyphPositions = buffer.GetGlyphPositionsSpan();
-                //var capacity = glyphOTFs.Length + glyphInfos.Length;
-                //glyphOTFs.Capacity = capacity; //2x speedup compared to allocating for each element
 
                 for (int i = 0, ii = glyphInfos.Length; i < ii; i++)
                 {
@@ -282,7 +279,7 @@ namespace TextMeshDOTS
                         xOffset = glyphPosition.xOffset,
                         yOffset = glyphPosition.yOffset,
                     };
-                    if (!glyphTable.glyphHashToIdMap.ContainsKey(glyphOTF.glyphKey))
+                    if (!glyphTable.glyphHashToGlyphEntryIDMap.ContainsKey(glyphOTF.glyphKey))
                     {
                         // We use the hashset to avoid redundantly adding the same glyph for this chunk.
                         // The missingGlyphsStream may still have redundancies between chunks, but this reduces
@@ -291,7 +288,6 @@ namespace TextMeshDOTS
                             missingGlyphsStream.Write(glyphOTF.glyphKey);
                     }
                     glyphOTFStream.Write(glyphOTF);
-                    //glyphOTFs.Add(glyphOTF);
                 }
                 buffer.ClearContent();
                 features.Clear();
