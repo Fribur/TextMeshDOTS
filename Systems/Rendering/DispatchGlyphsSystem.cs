@@ -1,5 +1,4 @@
 using TextMeshDOTS.LatiosInterop.Kinemation;
-using TextMeshDOTS.HarfBuzz;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -8,6 +7,7 @@ using Unity.Mathematics;
 using Unity.Rendering;
 using UnityEngine;
 using static Unity.Entities.SystemAPI;
+using TextMeshDOTS.HarfBuzz.Rasterizer;
 
 namespace TextMeshDOTS
 {
@@ -48,7 +48,6 @@ namespace TextMeshDOTS
         TextureAtlasArray<Color32> m_bitmapArray;
 
         DrawDelegates  m_drawDelegates;
-        PaintDelegates m_paintDelegates;
 
         // Shader bindings
         int _src;
@@ -108,7 +107,6 @@ namespace TextMeshDOTS
             m_bitmapArray = new TextureAtlasArray<Color32>(_tmdBitmap, kTextureDimension, initialAtlasArraySize, RenderTextureFormat.BGRA32, true, false); // Shader APIs will swizzle ARGB for us
 
             m_drawDelegates  = new DrawDelegates(true);
-            m_paintDelegates = new PaintDelegates(true);
 
             var atlas        = new AtlasTable(Allocator.Persistent, kTextureDimension, kShelfAlignment);
             m_atlasToDestroy = atlas;
@@ -154,7 +152,6 @@ namespace TextMeshDOTS
             m_bitmapArray.Dispose();
 
             m_drawDelegates.Dispose();
-            m_paintDelegates.Dispose();
 
             m_atlasToDestroy.TryDispose(default);
             m_glyphGpuTableToDestroy.TryDispose(default);           
@@ -286,7 +283,6 @@ namespace TextMeshDOTS
                     fontTable                 = fontTable,
                     glyphEntryIDsToRasterize  = collected.glyphEntryIDsToRasterize.AsArray(),
                     glyphTable                = glyphTable,
-                    paintDelegates            = m_paintDelegates,
                     pixelUploadOffsetsInBytes = collected.pixelUploadOffsetsInBytes.AsArray(),
                     uploadBuffer              = uploadArray,
                     uploadMetaBuffer          = uploadMetaArray,

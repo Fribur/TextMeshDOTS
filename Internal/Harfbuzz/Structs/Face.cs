@@ -1,5 +1,5 @@
 using System;
-using TextMeshDOTS.HarfBuzz.Bitmap;
+using TextMeshDOTS.HarfBuzz.Rasterizer;
 using Unity.Collections;
 
 namespace TextMeshDOTS.HarfBuzz

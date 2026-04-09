@@ -4,7 +4,7 @@ using Unity.Mathematics;
 using ClipType = TextMeshDOTS.Clipper2AoS.ClipType;
 using FillRule = TextMeshDOTS.Clipper2AoS.FillRule;
 
-namespace TextMeshDOTS.HarfBuzz
+namespace TextMeshDOTS.HarfBuzz.Rasterizer
 {
     internal class PolygonOperation
     {

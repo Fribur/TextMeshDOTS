@@ -1,4 +1,4 @@
-namespace TextMeshDOTS.HarfBuzz.Bitmap
+namespace TextMeshDOTS.HarfBuzz.Rasterizer
 {
     internal enum SDFOrientation
     {

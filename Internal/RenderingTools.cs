@@ -3,7 +3,7 @@ using Unity.Rendering;
 namespace TextMeshDOTS
 {
     internal static class RenderingTools
-    {
+    {        
         public static void SetSubMesh(int glyphCount, ref MaterialMeshInfo mmi)
         {
             switch (glyphCount)

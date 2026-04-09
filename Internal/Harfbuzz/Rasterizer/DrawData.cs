@@ -1,9 +1,8 @@
 using UnityEngine;
-using TextMeshDOTS.HarfBuzz.Bitmap;
 using Unity.Collections;
 using Unity.Mathematics;
 
-namespace TextMeshDOTS.HarfBuzz
+namespace TextMeshDOTS.HarfBuzz.Rasterizer
 {
     internal struct DrawData
     {

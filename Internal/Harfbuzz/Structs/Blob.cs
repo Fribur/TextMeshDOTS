@@ -1,7 +1,7 @@
 using System;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Collections;
-using static TextMeshDOTS.HarfBuzz.DrawDelegates;
+using static TextMeshDOTS.HarfBuzz.Rasterizer.DrawDelegates;
 using AOT;
 
 

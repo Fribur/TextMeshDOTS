@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using TextMeshDOTS.HarfBuzz;
-using TextMeshDOTS.HarfBuzz.Bitmap;
+using TextMeshDOTS.HarfBuzz.Rasterizer;
 using TextMeshDOTS.LatiosInterop.Unsafe;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
@@ -286,12 +286,9 @@ namespace TextMeshDOTS
             [NativeDisableParallelForRestriction] public NativeReference<int>                             atomicPrioritizer;
 
             [NativeDisableUnsafePtrRestriction] public DrawDelegates  drawDelegates;
-            [NativeDisableUnsafePtrRestriction] public PaintDelegates paintDelegates;
 
             [NativeDisableContainerSafetyRestriction] DrawData drawData;
             [NativeSetThreadIndex] int                         threadIndex;
-
-            static readonly Unity.Profiling.ProfilerMarker kPaintMarker = new Unity.Profiling.ProfilerMarker("Rasterize Paint");
 
             public unsafe void Execute(int workerIndex)
             {
@@ -351,7 +348,9 @@ namespace TextMeshDOTS
                         face.sdfOrientation = SDFOrientation.POSTSCRIPT;
                         PaintUtils.removeOverlapsMarker.End();
                     }
+                    PaintUtils.rasterizeSDFMarker.Begin();
                     SdfRasterizer.RasterizeSdf8(drawData, sdf8TextureSlice, paddedAtlasRect, glyphEntry.padding, glyphEntry.key.GetSpread());
+                    PaintUtils.rasterizeSDFMarker.End();
                 }
                 else if (glyphEntry.key.format == RenderFormat.SDF16)
                 {
@@ -381,49 +380,13 @@ namespace TextMeshDOTS
                         face.sdfOrientation = SDFOrientation.POSTSCRIPT;
                         PaintUtils.removeOverlapsMarker.End();
                     }
+                    PaintUtils.rasterizeSDFMarker.Begin();
                     SdfRasterizer.RasterizeSdf16(drawData, sdf16TextureSlice, paddedAtlasRect, glyphEntry.padding, glyphEntry.key.GetSpread());
+                    PaintUtils.rasterizeSDFMarker.End();
                 }
                 else if (glyphEntry.key.format == RenderFormat.Bitmap8888)
                 {
-                    //kPaintMarker.Begin();
-                    //PaintData paintData = default;
-                    //paintData.drawDelegates = drawDelegates;
-                    //paintData.clipGlyph = drawData;
-                    //paintData.Clear();
-
-                    //// harfbuzz is not pushing clipRects anymore for bounded glyphs as of https://github.com/harfbuzz/harfbuzz/pull/5294
-                    //// Boundedness calculation as per https://learn.microsoft.com/en-us/typography/opentype/spec/colr#glyph-metrics-and-boundedness
-                    //// is not quite clear. This fix here is  assuming the bound is the clipRect of the base glyph. Need to allocate paint surface here
-                    //// as it is not allocated via hb_paint_funcs_set_push_clip_rectangle_func for bounded glyphs
-                    //paintData.clipRect = glyphEntry.ClipRect;
-                    //paintData.clipRect.Expand(1);  //prevents rendering artifacts that occur for outlines that strech from minX to maxX of clipRect, reason unknown
-                    //paintData.paintSurface = new NativeArray<ColorBGRA>(paintData.clipRect.intWidth * paintData.clipRect.intHeight, Allocator.Temp);
-                    //font.PaintGlyph(glyphEntry.key.glyphIndex, ref paintData, paintDelegates, 0, new(0, 0, 0, 255));
-                    //if (paintData.paintSurface.Length > 0)
-                    //{
-                    //    var bitmapTextureSlice = GetBitmapUpload(glyphIndex, glyphEntry.width, glyphEntry.height);
-                    //    Debug.Log($"Allocated {bitmapTextureSlice.Length} {glyphEntry.width} {glyphEntry.height}");
-
-                    //    uint x                        = (uint)glyphEntry.z;
-                    //    x                            |= ((uint)glyphEntry.key.format) << 30;
-                    //    uint y                        = (uint)pixelUploadOffsetsInBytes[glyphIndex] / 4;
-                    //    uint z                        = (uint)glyphEntry.x;
-                    //    z                            |= ((uint)glyphEntry.y) << 16;
-                    //    uint w                        = (uint)glyphEntry.width;
-                    //    w                            |= ((uint)glyphEntry.height) << 16;
-                    //    uploadMetaBuffer[glyphIndex]  = new uint4(x, y, z, w);
-
-                    //    for (int i = 0; i < bitmapTextureSlice.Length; i++)
-                    //    {
-                    //        var bgra = paintData.paintSurface[i];
-                    //        bitmapTextureSlice[i] = new Color32(bgra.r, bgra.g, bgra.b, bgra.a);
-                    //    }                        
-                    //}
-                    //else
-                    //    uploadMetaBuffer[glyphIndex] = default;
-                    //kPaintMarker.End();
-
-                    kPaintMarker.Begin();
+                    PaintUtils.rasterizeCOLRMarker.Begin();
                     var foreground = new ColorBGRA(0, 0, 0, 255);
                     var paint = new Paint(true);
                     paint.SetScaleFactor(1, 1);
@@ -434,9 +397,9 @@ namespace TextMeshDOTS
 
                     var pen_x = 0f;
                     var pen_y = glyphExtents.height;
-                    var painted = paint.PaintGlyph(font, glyphEntry.key.glyphIndex, pen_x, pen_y, 0, foreground);
+                    var painted = paint.TryPaintGlyph(font, glyphEntry.key.glyphIndex, pen_x, pen_y, 0, foreground);
                     if (painted)
-                    { 
+                    {
                         var image = paint.Render();
                         if (image.ptr != System.IntPtr.Zero)
                         {
@@ -465,7 +428,7 @@ namespace TextMeshDOTS
                     }
                     else
                         uploadMetaBuffer[glyphIndex] = default;
-                    kPaintMarker.End();
+                    PaintUtils.rasterizeCOLRMarker.End();
                 }
             }
             NativeArray<byte> GetSdf8Upload(int glyphIndex, int width, int height)

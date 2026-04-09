@@ -2,7 +2,7 @@ using AOT;
 using System;
 using Unity.Burst;
 
-namespace TextMeshDOTS.HarfBuzz
+namespace TextMeshDOTS.HarfBuzz.Rasterizer
 {
     [BurstCompile]
     internal struct DrawDelegates : IDisposable

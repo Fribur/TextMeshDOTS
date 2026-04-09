@@ -1,7 +1,8 @@
-using System.Runtime.CompilerServices;
 using System;
-using UnityEngine;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace TextMeshDOTS.HarfBuzz
 {
