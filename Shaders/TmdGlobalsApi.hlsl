@@ -86,9 +86,9 @@ void GetGlyph(uint glyphIndex, uint glyphStartIndex, uint glyphCount,
         tlUVB = asfloat(load48_63.xy);
         trUVB = asfloat(load48_63.zw);
 
-        uint4 load64_79 = _tmdGlyphs.Load4(baseAddress + 64); //load half4 blColor and half4 brColor
-        blColor = UnpackHalfColor(load64_79.xy); //convert blColor from half4 to float4
-        brColor = UnpackHalfColor(load64_79.zw); //convert brColor from half4 to float4
+        uint4 load64_79 = _tmdGlyphs.Load4(baseAddress + 64);   //load half4 blColor and half4 brColor
+        blColor = UnpackHalfColor(load64_79.xy);                //convert blColor from half4 to float4
+        brColor = UnpackHalfColor(load64_79.zw);                //convert brColor from half4 to float4
         uint4 load80_95 = _tmdGlyphs.Load4(baseAddress + 80);
         tlColor = UnpackHalfColor(load80_95.xy);
         trColor = UnpackHalfColor(load80_95.zw);
@@ -98,7 +98,8 @@ void GetGlyph(uint glyphIndex, uint glyphStartIndex, uint glyphCount,
         trUVA = asfloat(load96_111.zw);
 
         uint4 load112_127 = _tmdGlyphs.Load4(baseAddress + 112);
-        arrayIndex = asfloat(load112_127.x);
+        //arrayIndex = asfloat(load112_127.x);
+        arrayIndex = (float)load112_127.x;
         glyphEntryId = load112_127.y;
         scale = asfloat(load112_127.z);
         reserved = load112_127.w;

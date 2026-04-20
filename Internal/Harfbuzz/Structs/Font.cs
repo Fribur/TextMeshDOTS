@@ -110,7 +110,6 @@ namespace TextMeshDOTS.HarfBuzz
         public bool GetGlyphExtents(uint glyph, out GlyphExtents extends)
         {
             var success = Harfbuzz.hb_font_get_glyph_extents(ptr, glyph, out extends);
-            extends.InvertY(); // For legacy reasons, Harfbuzz returns height as negative.
             return success;
         }
         public void GetFontExtentsForDirection(Direction direction, out FontExtents fontExtents)

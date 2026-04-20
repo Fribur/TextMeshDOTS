@@ -418,7 +418,7 @@ namespace TextMeshDOTS
                 {
                     ref var entry = ref glyphTable.GetEntryRW(id);
                     var doublePadding = 2 * entry.padding;
-                    atlasTable.Free(id, (short)(entry.width + doublePadding), (short)(entry.height + doublePadding), entry.x, entry.y, entry.z);
+                    atlasTable.Free(id, (short)(entry.width + doublePadding), (short)(entry.invertedHeight + doublePadding), entry.x, entry.y, entry.z);
                     //if (entry.key.format == RenderFormat.SDF8)
                     //    UnityEngine.Debug.Log($"Freeing {entry.x} {entry.y}, width {entry.width}");
                     entry.x = -1;

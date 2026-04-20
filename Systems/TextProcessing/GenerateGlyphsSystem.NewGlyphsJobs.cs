@@ -103,11 +103,12 @@ namespace TextMeshDOTS
                     y = -1,
                     z = -1,
                     width = (short)extents.width,
-                    height = (short)(extents.height),
+                    height = (short)extents.height,
                     xBearing = (short)extents.x_bearing,
-                    yBearing = (short)extents.y_bearing,  // Harfbuzz is y-up
+                    yBearing = (short)extents.y_bearing,
                     padding = (short)padding,
                 };
+
                 var baseIndex = glyphEntries.Length - missingGlyphs.Length;
                 glyphEntries[baseIndex + i] = newEntry;
             }

@@ -1,0 +1,25 @@
+#pragma kernel UploadGlyphBlobs
+
+StructuredBuffer<int2> _src;
+RWStructuredBuffer<int2> _dst;
+ByteAddressBuffer _meta;
+
+uint _startOffset;
+
+[numthreads(64, 1, 1)]
+void UploadGlyphBlobs(uint threadId : SV_GroupIndex, uint3 groupIds : SV_GroupID)
+{
+    uint3 m = _meta.Load3((groupIds.x + _startOffset) * 12);
+
+    uint srcTexelOffset = m.x / 8;
+    uint dstTexelOffset = m.y / 8;
+    uint texelCount     = (m.z + 7) / 8;
+
+    if (m.z == 0)
+        return;
+
+    for (uint i = threadId; i < texelCount; i += 64)
+    {
+        _dst[dstTexelOffset + i] = _src[srcTexelOffset + i];
+    }
+}

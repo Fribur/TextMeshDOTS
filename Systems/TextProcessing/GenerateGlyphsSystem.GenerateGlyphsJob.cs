@@ -31,6 +31,7 @@ namespace TextMeshDOTS
             public Entity textColorGradientEntity;
             [ReadOnly] public BufferLookup<TextColorGradient> textColorGradientLookup;
 
+            public bool useSlug;
             public uint lastSystemVersion;
 
             [NativeSetThreadIndex]
@@ -96,7 +97,6 @@ namespace TextMeshDOTS
                 var calliString = new CalliString(calliBytesBuffer);
                 var characters = calliString.GetEnumerator();
 
-                var fontAssetRefs = fontTable.fontLookupKeys;
                 var layoutConfig = new LayoutConfig(in textBaseConfiguration);
 
                 XMLTag currentTag = default;
@@ -114,8 +114,6 @@ namespace TextMeshDOTS
                 bool isFirstLine = true;
                 bool isLineStart = true;
                 float currentLineHeight = 0f;
-                float ascentLineDelta = 0;
-                float decentLineDelta = 0;
                 float accumulatedVerticalOffset = 0f;
                 float maxLineAscender = float.MinValue;
                 float maxLineDescender = float.MaxValue;
@@ -216,9 +214,9 @@ namespace TextMeshDOTS
                     // Cache glyph metrics
                     int x_bearing = glyphEntry.xBearing;
                     int y_bearing = glyphEntry.yBearing;
-                    int glyphHeight = glyphEntry.height;
+                    int glyphHeight = glyphEntry.invertedHeight;
                     int glyphWidth = glyphEntry.width;
-                    int padding = glyphEntry.padding;
+                    int padding = useSlug ? 0 : glyphEntry.padding;
 
                     float adjustedScale = layoutConfig.m_currentFontSize / currentFontSamplingPointSize * (textBaseConfiguration.isOrthographic ? 1 : 0.1f);
                     float elementAscentLine = currentFont.fontExtents.ascender;
@@ -274,28 +272,37 @@ namespace TextMeshDOTS
                     renderGlyph.arrayIndex = (uint)k;
                     renderGlyph.glyphEntryId = glyphEntryID;
 
+
                     // Determine the position of the vertices of the Character or Sprite.
                     #region Calculate Vertices Position
-
                     // top left is used to position the bottom left and top right
-                    float2 topLeft;
+                    float2 topLeft,bottomLeft,topRight,bottomRight;
+                 
                     topLeft.x = layoutConfig.m_xAdvance + (x_bearing * layoutConfig.m_fxScale - padding + glyphOTF.xOffset) * currentElementScale;
                     topLeft.y = baselineOffset + (y_bearing + padding + glyphOTF.yOffset) * currentElementScale + layoutConfig.m_baselineOffset + m_subAndSupscriptOffset;
 
-                    float2 bottomLeft;
                     bottomLeft.x = topLeft.x;
                     bottomLeft.y = topLeft.y - ((glyphHeight + padding * 2) * currentElementScale);
 
-                    float2 topRight;
                     topRight.x = bottomLeft.x + (glyphWidth * layoutConfig.m_fxScale + padding * 2) * currentElementScale;
                     topRight.y = topLeft.y;
 
-                    float2 bottomRight;
                     bottomRight.x = topRight.x;
                     bottomRight.y = bottomLeft.y;
                     #endregion
 
-                    // We don't set up UVA here, as that is the atlas texture coordinates.
+                    #region Setup UVA 
+                    // for TexturArray rendering we leave this empty as it is populated after atlas position is known
+                    // in WriteJob of DispatchGlyphSystem
+                    // for GPU blob rendering we store in GlyphExtent in em-space design units in UVA
+                    // we fix up the inverted height in the shader to have harfbuzz native GlyphExtends
+                    // which is essential to correctly sample the RGBAI16 texel in the glyph GPU blob
+                    // alternatively we could store GlyphExtends output from hb_gpu_draw_encode 
+                    // (should be identical to what we got here)
+                    renderGlyph.blUVA = useSlug ? new float2(x_bearing, y_bearing) : 0;
+                    renderGlyph.trUVA = new float2(x_bearing + glyphWidth, y_bearing + glyphHeight);
+                    #endregion
+
                     #region Setup UVB
                     //Setup UV2 based on Character Mapping Options Selected
                     //m_horizontalMapping case TextureMappingOptions.Character
@@ -447,8 +454,8 @@ namespace TextMeshDOTS
                     if (isLineStart)
                         isLineStart = false;
                     currentLineHeight = (currentFont.fontExtents.ascender - currentFont.fontExtents.descender) * baseScale;
-                    ascentLineDelta = maxLineAscender - currentFont.fontExtents.ascender * baseScale;
-                    decentLineDelta = currentFont.fontExtents.descender * baseScale - maxLineDescender;
+                    var ascentLineDelta = maxLineAscender - currentFont.fontExtents.ascender * baseScale;
+                    var decentLineDelta = currentFont.fontExtents.descender * baseScale - maxLineDescender;
                     //if (currentRune.value == 10 || currentRune.value == 11 || currentRune.value == 0x03 || currentRune.value == 0x2028 ||
                     //    currentRune.value == 0x2029 || textConfiguration.m_characterCount == calliString.Length - 1)
                     if (currentRune.value == 10)

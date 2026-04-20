@@ -13,6 +13,7 @@ namespace TextMeshDOTS
 {
     // Todo: Unity is really unstable with RenderTextures, and using UnityObjectRef with them seems to be especially flaky.
     // So this system remains managed for now.
+    [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateAfter(typeof(UpdateGlyphsRenderersSystem))]
     public unsafe partial class DispatchGlyphsSystem : SystemBase

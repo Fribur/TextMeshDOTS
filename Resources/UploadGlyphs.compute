@@ -1,27 +1,10 @@
-// Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel UploadGlyphs
 
 uniform ByteAddressBuffer _src;
 uniform RWByteAddressBuffer _dst;
-
 uniform ByteAddressBuffer _meta;
 
 uint _startOffset;
-
-void processGlyph(uint src, uint dst)
-{
-    _dst.Store4(dst, _src.Load4(src));
-    _dst.Store4(dst + 16, _src.Load4(src + 16));
-    _dst.Store4(dst + 32, _src.Load4(src + 32));
-    _dst.Store4(dst + 48, _src.Load4(src + 48));
-    _dst.Store4(dst + 64, _src.Load4(src + 64));
-    _dst.Store4(dst + 80, _src.Load4(src + 80));
-    _dst.Store4(dst + 96, _src.Load4(src + 96));
-    uint4 lastLoad = _src.Load4(src + 112);
-    float arrayIndex = (float) lastLoad.x;
-    lastLoad.x = asuint(arrayIndex);
-    _dst.Store4(dst + 112, lastLoad);
-}
 
 [numthreads(64, 1, 1)]
 void UploadGlyphs(uint threadId : SV_GroupIndex, uint3 groupIds : SV_GroupID)
@@ -32,18 +15,22 @@ void UploadGlyphs(uint threadId : SV_GroupIndex, uint3 groupIds : SV_GroupID)
     uint dstBase = m.y;
     uint elementCount = m.z;
 
-    uint i = 0;
-    for (i = 0; i + 64 < elementCount; i += 64)
+    for (uint i = threadId; i < elementCount; i += 64)
     {
-        uint src = (srcBase + i + threadId) * 128;
-        uint dst = (dstBase + i + threadId) * 128;
-        processGlyph(src, dst);
-    }
-
-    if (i + threadId < elementCount)
-    {
-        uint src = (srcBase + i + threadId) * 128;
-        uint dst = (dstBase + i + threadId) * 128;
-        processGlyph(src, dst);
+        uint src = (srcBase + i) * 128;
+        uint dst = (dstBase + i) * 128;
+        _dst.Store4(dst,       _src.Load4(src));
+        _dst.Store4(dst + 16,  _src.Load4(src + 16));
+        _dst.Store4(dst + 32,  _src.Load4(src + 32));
+        _dst.Store4(dst + 48,  _src.Load4(src + 48));
+        _dst.Store4(dst + 64,  _src.Load4(src + 64));
+        _dst.Store4(dst + 80,  _src.Load4(src + 80));
+        _dst.Store4(dst + 96,  _src.Load4(src + 96));
+        _dst.Store4(dst + 112, _src.Load4(src + 112));
+        //can also just do (float) cast in vertex shader (instead of "asflaot" to avoid this complexity?
+        //uint4 lastLoad = _src.Load4(src + 112);
+        //float arrayIndex = (float) lastLoad.x;
+        //lastLoad.x = asuint(arrayIndex);
+        //_dst.Store4(dst + 112, lastLoad);
     }
 }

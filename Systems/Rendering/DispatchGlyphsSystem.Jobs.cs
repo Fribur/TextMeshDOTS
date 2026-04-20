@@ -203,7 +203,7 @@ namespace TextMeshDOTS
                     ref var glyphEntry    = ref glyphTable.GetEntryRW(glyphEntryID);
                     var     doublePadding = 2 * glyphEntry.padding;
                     var     paddedWith    = glyphEntry.width + doublePadding;
-                    var     paddedHeight  = glyphEntry.height + doublePadding;
+                    var     paddedHeight  = glyphEntry.invertedHeight + doublePadding;
                     if (enableAtlasGC)
                     {
                         if (!atlasTable.TryAllocateNoNewSlice(glyphEntryID, (short)(paddedWith), (short)(paddedHeight), out glyphEntry.x, out glyphEntry.y, out glyphEntry.z))
@@ -265,7 +265,7 @@ namespace TextMeshDOTS
                 var c = ((byte)ey.key.format).CompareTo((byte)ex.key.format); // reverse order to prioritize bitmaps first, then SDF16, then SDF8.
                 if (c != 0) return c;
 
-                c = ey.height.CompareTo(ex.height); //reverse comparison (largest height goes first)
+                c = ey.invertedHeight.CompareTo(ex.invertedHeight); //reverse comparison (largest height goes first)
                 if (c != 0) return c;
 
                 return y.CompareTo(x); //reverse entry index comparison
@@ -396,7 +396,7 @@ namespace TextMeshDOTS
                     paint.SetGlyphExtents(ref glyphExtents);
 
                     var pen_x = 0f;
-                    var pen_y = glyphExtents.height;
+                    var pen_y = glyphExtents.invertedHeight;
                     var painted = paint.TryPaintGlyph(font, glyphEntry.key.glyphIndex, pen_x, pen_y, 0, foreground);
                     if (painted)
                     {
@@ -405,7 +405,7 @@ namespace TextMeshDOTS
                         {
                             image.GetExtents(out RasterExtents rasterExtents);
                             var imageBGRA = image.GetColorBGRA(rasterExtents);
-                            var bitmapTextureSlice = GetBitmapUpload(glyphIndex, glyphEntry.width, glyphEntry.height);
+                            var bitmapTextureSlice = GetBitmapUpload(glyphIndex, glyphEntry.width, glyphEntry.invertedHeight);
 
                             uint x                       = (uint)glyphEntry.z;
                             x                           |= ((uint)glyphEntry.key.format) << 30;
@@ -413,7 +413,7 @@ namespace TextMeshDOTS
                             uint z                       = (uint)glyphEntry.x;
                             z                           |= ((uint)glyphEntry.y) << 16;
                             uint w                       = (uint)glyphEntry.width;
-                            w                           |= ((uint)glyphEntry.height) << 16;
+                            w                           |= ((uint)glyphEntry.invertedHeight) << 16;
                             uploadMetaBuffer[glyphIndex] = new uint4(x, y, z, w);
 
                             for (int i = 0; i < bitmapTextureSlice.Length; i++)
@@ -475,7 +475,7 @@ namespace TextMeshDOTS
                     // Should we change that there? Or should we change the RenderGlyph comment?
 
                     glyph.blUVA = new float2(entry.x, entry.y) * kTextureResolutionFloatInverse;
-                    glyph.trUVA = glyph.blUVA + (new float2(entry.width, entry.height) + entry.padding * 2) * kTextureResolutionFloatInverse;
+                    glyph.trUVA = glyph.blUVA + (new float2(entry.width, entry.invertedHeight) + entry.padding * 2) * kTextureResolutionFloatInverse;
 
                     // Debug:
                     //if (i < 5 && entry.key.format == RenderFormat.SDF8)

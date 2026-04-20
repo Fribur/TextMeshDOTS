@@ -15,9 +15,11 @@ namespace TextMeshDOTS.HarfBuzz
 		//__Internal is a Unity pseudo-library
         private const string HarfBuzz = "__Internal"; 
 		private const string HarfBuzzRaster = "__Internal";
+        private const string HarfBuzzGPU = "__Internal";
 #else
         private const string HarfBuzz = "harfbuzz";
         private const string HarfBuzzRaster = "harfbuzz-raster";
+        private const string HarfBuzzGPU = "harfbuzz-gpu";
 #endif
         private const CallingConvention CallConvention = CallingConvention.Cdecl;
 
@@ -404,6 +406,71 @@ namespace TextMeshDOTS.HarfBuzz
         [DllImport(HarfBuzz, CallingConvention = CallConvention)]
         //internal static extern IntPtr hb_buffer_get_glyph_positions(IntPtr buffer, out uint length);
         internal static extern  GlyphPosition* hb_buffer_get_glyph_positions(IntPtr buffer, out uint length);
+
+        #endregion
+
+        #region gpu
+
+        // GPU shader language enum
+        public enum GpuShaderLang : int
+        {
+            GLSL = 0,
+            WGSL = 1,
+            MSL = 2,
+            HLSL = 3
+        }
+        public enum GpuShaderStage : int 
+        { 
+            Vertex = 0, 
+            Fragment = 1 
+        }
+
+        // Shader source retrieval
+        
+        [DllImport(HarfBuzzGPU, CallingConvention = CallConvention)]
+        public static extern IntPtr hb_gpu_shader_source(GpuShaderStage stage, GpuShaderLang lang);
+
+
+        // hb_gpu_draw_t lifecycle
+        [DllImport(HarfBuzzGPU, CallingConvention = CallConvention)]
+        public static extern IntPtr hb_gpu_draw_create_or_fail();
+
+        [DllImport(HarfBuzzGPU, CallingConvention = CallConvention)]
+        public static extern IntPtr hb_gpu_draw_reference(IntPtr draw);
+
+        [DllImport(HarfBuzzGPU, CallingConvention = CallConvention)]
+        public static extern void hb_gpu_draw_destroy(IntPtr draw);
+
+        [DllImport(HarfBuzzGPU, CallingConvention = CallConvention)]
+        public static extern bool hb_gpu_draw_set_user_data(IntPtr draw, IntPtr key, IntPtr data, IntPtr destroy, bool replace);
+
+        [DllImport(HarfBuzzGPU, CallingConvention = CallConvention)]
+        public static extern IntPtr hb_gpu_draw_get_user_data(IntPtr draw, IntPtr key);
+
+        // Scale
+        [DllImport(HarfBuzzGPU, CallingConvention = CallConvention)]
+        public static extern void hb_gpu_draw_set_scale(IntPtr draw, int x_scale, int y_scale);
+
+        // Draw functions
+        [DllImport(HarfBuzzGPU, CallingConvention = CallConvention)]
+        public static extern IntPtr hb_gpu_draw_get_funcs(IntPtr draw);
+
+        [DllImport(HarfBuzzGPU, CallingConvention = CallConvention)]
+        public static extern void hb_gpu_draw_glyph(IntPtr draw, IntPtr font, uint codepoint);
+
+        // Encode
+        [DllImport(HarfBuzzGPU, CallingConvention = CallConvention)]
+        public static extern IntPtr hb_gpu_draw_encode(IntPtr draw, out GlyphExtents extents);
+        
+        [DllImport(HarfBuzzGPU, CallingConvention = CallConvention)]
+        public static extern void hb_gpu_draw_reset(IntPtr draw);
+
+        [DllImport(HarfBuzzGPU, CallingConvention = CallConvention)]
+        public static extern void hb_gpu_draw_recycle_blob(IntPtr draw, IntPtr blob);
+
+        #endregion
+
+        #region buffer
 
         [DllImport(HarfBuzz, CallingConvention = CallConvention)]
         public static extern IntPtr hb_language_get_default();

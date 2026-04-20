@@ -62,7 +62,7 @@ namespace TextMeshDOTS
         public float2 blUVA;        //96
         public float2 trUVA;        //104
 
-        public uint arrayIndex;     //112  Converted to float in upload shader
+        public uint arrayIndex;     //112 
         public uint glyphEntryId;   //116
         public float scale;         //120
         public uint reserved;       //124

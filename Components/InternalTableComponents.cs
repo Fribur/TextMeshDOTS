@@ -296,25 +296,22 @@ namespace TextMeshDOTS
             public short xBearing;
             public short yBearing;
             public short padding;
+            public int   blobOffset;  // GPU blob offset in bytes (for GPU blob rendering path)
 
+            public readonly short invertedHeight => (short)-height;
             public bool isInAtlas => x >= 0;
             public GlyphRect PaddedAtlasRect
             {
                 get
                 {
                     var doublePadding = 2 * padding;
-                    return new GlyphRect(x, y, width + doublePadding, height + doublePadding);
+                    return new GlyphRect(x, y, width + doublePadding, invertedHeight + doublePadding);
                 }
-            }
-            public BBox ClipRect
-            {
-                get { return new BBox(xBearing, yBearing - height, xBearing + width, yBearing); }
             }
             public GlyphExtents GlyphExtents
             {
-                get { return new GlyphExtents {width =width, height = height, x_bearing = xBearing, y_bearing = yBearing }; }
+                get { return new GlyphExtents {width = width, height = height, x_bearing = xBearing, y_bearing = yBearing }; }
             }
-            // Todo:
         }
 
 

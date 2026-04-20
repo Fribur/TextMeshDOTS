@@ -141,6 +141,8 @@ namespace TextMeshDOTS
                 textColorGradientEntity = textColorGradientEntity,
                 textColorGradientLookup = SystemAPI.GetBufferLookup<TextColorGradient>(true),
 
+                useSlug = true,
+
                 lastSystemVersion = m_skipChangeFilter ? 0 : state.LastSystemVersion,
             }.ScheduleParallel(textRendererQ, state.Dependency);
         }

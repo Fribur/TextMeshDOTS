@@ -11,19 +11,17 @@ namespace TextMeshDOTS
         public int x_bearing;   //Distance from the x-origin to the left extremum of the glyph.
         public int y_bearing;   //Distance from the top extremum of the glyph to the y-origin.
         public int width;       //Distance from the left extremum of the glyph to the right extremum.
-        public int height;      //Distance from the top extremum of the glyph to the bottom extremum.           
-        public void InvertY()
-        {
-            height = -height; //Invert height for use in a coordinate systems that grows up.</ summary >
-        }
+        public int height;      //Distance from the top extremum of the glyph to the bottom extremum.
+        public readonly int invertedHeight => -height;
+
         public GlyphRect GetPaddedAtlasRect(int x, int y, int padding)
         {
             var doublePadding = 2 * padding;
-            return new GlyphRect(x, y, width + doublePadding, height + doublePadding);
+            return new GlyphRect(x, y, width + doublePadding, invertedHeight + doublePadding);
         }
         public BBox ClipRect
         {
-            get { return new BBox ( x_bearing, y_bearing - height, x_bearing + width, y_bearing); }
+            get { return new BBox ( x_bearing, y_bearing + height, x_bearing + width, y_bearing); }
         }
 
         public override string ToString()
