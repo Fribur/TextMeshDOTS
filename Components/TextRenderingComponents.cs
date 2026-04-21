@@ -120,8 +120,19 @@ namespace TextMeshDOTS
 
     internal struct ResidentRange : ICleanupComponentData
     {
-        public uint start;
-        public uint count;
+        public uint firstGlyphIndex;
+        public uint glyphCount;
+    }
+
+    /// <summary>
+    /// Tracks resident allocations in the _hbGpuAtlas buffer (glyph blob data).
+    /// Unlike ResidentRange which tracks glyph counts, this tracks byte offsets and sizes
+    /// since _hbGpuAtlas stores variable-length encoded glyph blobs.
+    /// </summary>
+    internal struct ResidentRangeInHbGPUAtlas : ICleanupComponentData
+    {
+        public uint blobOffset;   // Starting byte offset in _hbGpuAtlas buffer
+        public uint blobSize;     // Total size in bytes of all blobs for this entity
     }
 
     internal partial struct NewEntitiesArrays : ICollectionComponent

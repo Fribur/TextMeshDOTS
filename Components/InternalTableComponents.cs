@@ -296,10 +296,28 @@ namespace TextMeshDOTS
             public short xBearing;
             public short yBearing;
             public short padding;
-            public int   blobOffset;  // GPU blob offset in bytes (for GPU blob rendering path)
+            public int   blobOffset;        // GPU blob offset in bytes (for GPU blob rendering path), -1 if not encoded
+            public int   blobAlignedSize;   // GPU blob aligned size in bytes of the blob, 0 if not encoded
 
-            public readonly short invertedHeight => (short)-height;
+            public Entry(Key key, GlyphExtents extents, short padding)
+            {
+                this.key = key;
+                this.refCount = 0;
+                this.x = -1; // -1 means not encoded in HbGPUAtlas
+                this.y = -1;
+                this.z = -1;
+                this.width = (short)extents.width;
+                this.height = (short)extents.height;
+                this.xBearing = (short)extents.x_bearing;
+                this.yBearing = (short)extents.y_bearing;
+                this.padding = padding;
+                this.blobOffset = -1;  // -1 means not encoded in HbGPUAtlas
+                this.blobAlignedSize = 0;
+            }
+
+             public readonly short invertedHeight => (short)-height;
             public bool isInAtlas => x >= 0;
+            public bool isInHbGPUAtlas => blobOffset >= 0;  // blobOffset=-1 means not encoded, >=0 means encoded
             public GlyphRect PaddedAtlasRect
             {
                 get
@@ -368,15 +386,30 @@ namespace TextMeshDOTS
 
     internal partial struct GlyphGpuTable : ICollectionComponent
     {
+        // _tmdGlyphs buffer tracking (glyph index mappings)
         public NativeReference<uint> bufferSize;
         public NativeList<uint2>     residentGaps;
         public NativeList<uint2>     dispatchDynamicGaps;  // Deferred gaps when multiple dispatches need to skip over previous dynamic regions
+
+        // _hbGpuAtlas buffer tracking (glyph blob data in bytes)
+        public NativeReference<uint> bufferSizeHbGpuAtlas;
+        public NativeList<uint2>     hbGpuAtlasGaps;           // replaces residentHbGPUAtlasGaps + dispatchDynamicHbGPUAtlasGaps
+        public NativeHashSet<uint>   hbGpuAtlasGcCandidates;   // glyphEntryIDs with refCount==0, mirrors atlasRemovalCandidates
 
         public JobHandle TryDispose(JobHandle inputDeps)
         {
             if (bufferSize.IsCreated)
             {
-                return JobHandle.CombineDependencies(bufferSize.Dispose(inputDeps), residentGaps.Dispose(inputDeps), dispatchDynamicGaps.Dispose(inputDeps));
+                var jh = JobHandle.CombineDependencies(
+                    bufferSize.Dispose(inputDeps), 
+                    residentGaps.Dispose(inputDeps), 
+                    dispatchDynamicGaps.Dispose(inputDeps));
+                jh = JobHandle.CombineDependencies(
+                    jh, 
+                    bufferSizeHbGpuAtlas.Dispose(inputDeps), 
+                    hbGpuAtlasGaps.Dispose(inputDeps)
+                    );
+                return JobHandle.CombineDependencies(jh, hbGpuAtlasGcCandidates.Dispose(inputDeps));
             }
             return inputDeps;
         }

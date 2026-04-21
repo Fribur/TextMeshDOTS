@@ -373,7 +373,6 @@ float hb_gpu_stem_darken(float coverage, float brightness, float ppem)
  * pixelsPerEm out of fwidth() at uniform control flow before
  * calling the shared _hb_gpu_slug(). */
 
-//  original
 void hb_gpu_draw_float(float2 renderCoord, uint glyphLoc_, out float coverage)
 {
   float2 pixelsPerEm = 1.0 / fwidth (renderCoord);  

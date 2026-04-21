@@ -106,7 +106,7 @@ namespace TextMeshDOTS
                         writeBufferOffset  += capture.glyphCount;
                         if (capture.makeResident)
                         {
-                            if (capture.residentRangePtr->count != capture.glyphCount)
+                            if (capture.residentRangePtr->glyphCount != capture.glyphCount)
                             {
                                 GapAllocator.TryAllocate(glyphGpuTable.residentGaps, (uint)capture.glyphCount, ref residentBufferSize, out var newLocation);
                                 capture.gpuStart = (int)newLocation;
@@ -115,13 +115,13 @@ namespace TextMeshDOTS
                                     capture.textShaderIndexPtr->firstGlyphIndex = newLocation;
                                     capture.textShaderIndexPtr->glyphCount      = (uint)capture.glyphCount;
                                 }
-                                capture.residentRangePtr->start = newLocation;
-                                capture.residentRangePtr->count = (uint)capture.glyphCount;
+                                capture.residentRangePtr->firstGlyphIndex = newLocation;
+                                capture.residentRangePtr->glyphCount = (uint)capture.glyphCount;
                                 //UnityEngine.Debug.Log($"Allocated resident range: {capture.residentRangePtr->start}, {capture.residentRangePtr->count}");
                             }
                             else
                             {
-                                capture.gpuStart = (int)capture.residentRangePtr->start;
+                                capture.gpuStart = (int)capture.residentRangePtr->firstGlyphIndex;
                                 //UnityEngine.Debug.Log($"Updated resident range: {capture.residentRangePtr->start}, {capture.residentRangePtr->count}");
                             }
                         }

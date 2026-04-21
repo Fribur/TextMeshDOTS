@@ -116,7 +116,11 @@ namespace TextMeshDOTS
             {
                 bufferSize          = new NativeReference<uint>(Allocator.Persistent, NativeArrayOptions.ClearMemory),
                 dispatchDynamicGaps = new NativeList<uint2>(Allocator.Persistent),
-                residentGaps        = new NativeList<uint2>(Allocator.Persistent)
+                residentGaps        = new NativeList<uint2>(Allocator.Persistent),
+                //net needed by this system...temporary
+                bufferSizeHbGpuAtlas = new NativeReference<uint>(Allocator.Persistent, NativeArrayOptions.ClearMemory),
+                hbGpuAtlasGaps = new NativeList<uint2>(Allocator.Persistent),
+                hbGpuAtlasGcCandidates = new NativeHashSet<uint>(256, Allocator.Persistent),
             };
             m_glyphGpuTableToDestroy = glyphGpuTable;
             var graphicsEntity = EntityManager.CreateSingleton(glyphGpuTable);

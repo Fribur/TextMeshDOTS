@@ -70,7 +70,8 @@ void GetGlyphFromBuffer_float(
     out float3 position,
     out float2 renderCoord,
     out float4 color,
-    out float glyphLoc)
+    out float glyphLoc,
+	out bool isCOLR)
 {
     // Decode vertex ID to get glyph index and corner index (mirrors TmdGlobalsApi.hlsl)
     uint vertexID_Int = (uint)vertexID;
@@ -120,7 +121,9 @@ void GetGlyphFromBuffer_float(
     // Load GPU-specific data (112-127 bytes)
     uint4 load112_127 = _tmdGlyphs.Load4(baseAddress + 112);
     glyphLoc = (float)load112_127.x; //arrayIndex for TextureArray, glyphLoc for hbGpuAtlas
-    //glyphEntryId = load112_127.y;
+	uint glyphEntryID = load112_127.y;
+	uint format = glyphEntryID >> 30u;
+	isCOLR = format == 3;
     //scale = (float)load112_127.z;
     //reserved = load112_127.w;
 

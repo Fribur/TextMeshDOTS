@@ -1,15 +1,13 @@
 using System;
-using System.Threading;
 using TextMeshDOTS.HarfBuzz;
 using TextMeshDOTS.LatiosInterop.Unsafe;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
-using UnityEngine;
 using static TextMeshDOTS.DispatchGlyphsSystem;
 
 namespace TextMeshDOTS
@@ -46,11 +44,11 @@ namespace TextMeshDOTS
             {
                 renderGlyphCapturesStream.BeginForEachIndex(unfilteredChunkIndex);
 
-                var shaderPtr    = chunk.GetComponentDataPtrRW(ref textShaderIndexHandle);
-                var residentPtr  = (ResidentRange*)chunk.GetRequiredComponentDataPtrRW(ref residentRangeHandle);
-                var gpuStates    = (GpuState*)chunk.GetRequiredComponentDataPtrRW(ref gpuStateHandle);
-                var glyphBuffers = chunk.GetBufferAccessor(ref renderGlyphHandle);
-                var gpuStateMask = chunk.GetEnabledMask(ref gpuStateHandle);
+                var shaderPtr        = chunk.GetComponentDataPtrRW(ref textShaderIndexHandle);
+                var residentPtr      = (ResidentRange*)chunk.GetRequiredComponentDataPtrRW(ref residentRangeHandle);
+                var gpuStates        = (GpuState*)chunk.GetRequiredComponentDataPtrRW(ref gpuStateHandle);
+                var glyphBuffers     = chunk.GetBufferAccessor(ref renderGlyphHandle);
+                var gpuStateMask     = chunk.GetEnabledMask(ref gpuStateHandle);
 
                 var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
                 while (enumerator.NextEntityIndex(out var entityIndex))
@@ -60,6 +58,15 @@ namespace TextMeshDOTS
                                                 gpuStates[entityIndex].state == GpuState.State.ResidentUncommitted;
                     gpuStates[entityIndex].state = resident ? GpuState.State.Resident : GpuState.State.Dynamic;
                     var glyphs                   = glyphBuffers[entityIndex];
+
+                    foreach (var glyph in glyphs)
+                    {
+                        var entry = glyphTable.GetEntry(glyph.glyph.glyphEntryId);
+                        // Check if glyph blob is encoded in HbGPUAtlas (blobOffset > 0 means it's encoded)
+                        if (!entry.isInHbGPUAtlas)
+                            glyphEntryIDsToEncodeSet.Add(glyph.glyph.glyphEntryId);
+                    }
+
                     renderGlyphCapturesStream.Write(new RenderGlyphCapture
                     {
                         glyphBuffer        = glyphs.Length != 0 ? (RenderGlyph*)glyphs.GetUnsafeReadOnlyPtr() : null,
@@ -68,12 +75,6 @@ namespace TextMeshDOTS
                         residentRangePtr   = residentPtr + entityIndex,
                         textShaderIndexPtr = shaderPtr != null ? shaderPtr + entityIndex : null,
                     });
-                    foreach (var glyph in glyphs)
-                    {
-                        var entry = glyphTable.GetEntry(glyph.glyph.glyphEntryId);
-                        if (!entry.isInAtlas)
-                            glyphEntryIDsToEncodeSet.Add(glyph.glyph.glyphEntryId);
-                    }
                 }
 
                 renderGlyphCapturesStream.EndForEachIndex();
@@ -104,25 +105,38 @@ namespace TextMeshDOTS
         [BurstCompile]
         struct EncodeGlyphsToGpuBlobsJob : IJob
         {
-            [ReadOnly] [NativeDisableUnsafePtrRestriction] public IntPtr               gpuDrawContext;
             [ReadOnly] public NativeArray<uint>    glyphEntryIDsToEncode;
-            public GlyphTable           glyphTable;  // Made RW to store blobOffset
+            public GlyphTable                      glyphTable;
+            public GlyphGpuTable                   glyphGpuTable;
             [ReadOnly] public FontTable            fontTable;
 
-            public NativeArray<byte>               encodedBlobs;
+            public NativeList<byte>               encodedBlobs;
             public NativeArray<uint3>              blobMeta;
             public NativeReference<int>            totalSizeRef;
 
+            const uint kGcThresholdBytes = 268435456u; // 256 MB
+
             public void Execute()
             {
-                int runningOffset = 0;
+                var gpuDrawContext = Harfbuzz.hb_gpu_draw_create_or_fail(); //assume most glyphs are monochrome, so just create
+                IntPtr gpuPaintContext = IntPtr.Zero;
+                IntPtr blob;
+
+                int tempBufferOffset     = 0;
+                var hbGpuAtlasSize       = glyphGpuTable.bufferSizeHbGpuAtlas.Value;
+
+                // Run GC before allocating new blobs if buffer is over threshold
+                if (hbGpuAtlasSize > kGcThresholdBytes)
+                {
+                    hbGpuAtlasSize = CollectHbGpuAtlasGarbage(hbGpuAtlasSize);
+                    glyphGpuTable.bufferSizeHbGpuAtlas.Value = hbGpuAtlasSize;
+                }
 
                 for (int i = 0; i < glyphEntryIDsToEncode.Length; i++)
                 {
                     var glyphEntryID = glyphEntryIDsToEncode[i];
-                    var glyphEntry = glyphTable.GetEntry(glyphEntryID);                    
+                    var glyphEntry = glyphTable.GetEntry(glyphEntryID);
 
-                    // Skip zero-size glyphs
                     if (glyphEntry.width == 0 || glyphEntry.height == 0)
                     {
                         blobMeta[i] = default;
@@ -135,18 +149,21 @@ namespace TextMeshDOTS
                     if (face.HasVarData && font.currentVariableProfileIndex != glyphEntry.key.variableProfileIndex)
                         font = fontTable.SetVariableProfile(glyphEntry.key.faceIndex, 0, glyphEntry.key.variableProfileIndex);
 
-                    // Set scale for GPU encoding (use font UPem for design units)
                     int upem = (int)face.UnitsPerEM;
-                    Harfbuzz.hb_gpu_draw_set_scale(gpuDrawContext, upem, upem);                    
-
-                    // Reset draw context for new glyph
-                    Harfbuzz.hb_gpu_draw_reset(gpuDrawContext);
-
-                    // Draw glyph outline into GPU encoder
-                    Harfbuzz.hb_gpu_draw_glyph(gpuDrawContext, font.ptr, glyphEntry.key.glyphIndex);
-
-                    // Encode to blob
-                    IntPtr blob = Harfbuzz.hb_gpu_draw_encode(gpuDrawContext, out GlyphExtents glyphExtents);                    
+                    if (Hint.Unlikely(face.hasColor))
+                    {
+                        if (gpuPaintContext == IntPtr.Zero)
+                            gpuPaintContext = Harfbuzz.hb_gpu_paint_create_or_fail();
+                        Harfbuzz.hb_gpu_paint_set_scale(gpuPaintContext, upem, upem);
+                        Harfbuzz.hb_gpu_paint_glyph(gpuPaintContext, font.ptr, glyphEntry.key.glyphIndex);
+                        blob = Harfbuzz.hb_gpu_paint_encode(gpuPaintContext, out _);
+                    }
+                    else
+                    {
+                        Harfbuzz.hb_gpu_draw_set_scale(gpuDrawContext, upem, upem);
+                        Harfbuzz.hb_gpu_draw_glyph(gpuDrawContext, font.ptr, glyphEntry.key.glyphIndex);
+                        blob = Harfbuzz.hb_gpu_draw_encode(gpuDrawContext, out _);
+                    }
 
                     if (blob == IntPtr.Zero)
                     {
@@ -154,38 +171,65 @@ namespace TextMeshDOTS
                         continue;
                     }
 
-                    // Get blob data and length
+                    //get blob and store
                     uint blobLength = Harfbuzz.hb_blob_get_length(blob);
                     byte* blobData = Harfbuzz.hb_blob_get_data(blob, out _);
-
-                    // Store blob data
                     int alignedBlobSize = (int)((blobLength + 7) & ~7);
-                    UnsafeUtility.MemCpy(
-                        (byte*)encodedBlobs.GetUnsafePtr() + runningOffset,
-                        blobData,
-                        blobLength
-                    );
+                    GapAllocator.TryAllocate(glyphGpuTable.hbGpuAtlasGaps, (uint)alignedBlobSize, ref hbGpuAtlasSize, out var blobOffset);
+                    encodedBlobs.AddRange(blobData, (int)blobLength);
+                    int padding = alignedBlobSize - (int)blobLength;
+                    for (int p = 0; p < padding; p++) // pad to alignment boundary
+                        encodedBlobs.Add(0);
 
-                    // Store blob offset in glyph entry for later use in WriteRenderGlyphsToGpuJob_GPU
                     ref var entryRW = ref glyphTable.GetEntryRW(glyphEntryID);
-                    entryRW.blobOffset = runningOffset;
+                    entryRW.blobOffset = (int)blobOffset;
 
-                    // Store metadata: (arrayIndex, blobOffset, blobLength)
-                    // uint x = (uint)glyphEntry.z;
-                    // x |= ((uint)glyphEntry.key.format) << 30;
-                     uint y = (uint)runningOffset;
-                     uint z = blobLength;
-                    blobMeta[i] = new uint3(y, y, z);
+                    blobMeta[i] = new uint3((uint)tempBufferOffset, blobOffset, blobLength);
+                    tempBufferOffset += alignedBlobSize;
 
-                    runningOffset += alignedBlobSize;                    
-
-                    // Recycle blob for buffer reuse
-                    Harfbuzz.hb_gpu_draw_recycle_blob(gpuDrawContext, blob);
+                    if (Hint.Unlikely(face.hasColor))
+                    {
+                        Harfbuzz.hb_gpu_paint_recycle_blob(gpuPaintContext, blob);
+                        Harfbuzz.hb_gpu_paint_reset(gpuPaintContext);
+                    }
+                    else
+                    {
+                        Harfbuzz.hb_gpu_draw_recycle_blob(gpuDrawContext, blob);
+                        Harfbuzz.hb_gpu_draw_reset(gpuDrawContext);
+                    }
                 }
 
-                totalSizeRef.Value = runningOffset;
+                glyphGpuTable.bufferSizeHbGpuAtlas.Value = hbGpuAtlasSize;
+                totalSizeRef.Value = tempBufferOffset;
+
+                Harfbuzz.hb_gpu_draw_destroy(gpuDrawContext);
+                if (gpuPaintContext != IntPtr.Zero)
+                    Harfbuzz.hb_gpu_paint_destroy(gpuPaintContext);                       
             }
-        }
+
+            uint CollectHbGpuAtlasGarbage(uint currentSize)
+            {
+                // Free all zero-refcount glyph blobs into hbGpuAtlasGaps, then coalesce
+                foreach (var glyphEntryID in glyphGpuTable.hbGpuAtlasGcCandidates)
+                {
+                    ref var entry = ref glyphTable.GetEntryRW(glyphEntryID);
+                    if (entry.refCount > 0 || !entry.isInHbGPUAtlas)
+                        continue;
+
+                    // Recompute the aligned size to know how many bytes to free.
+                    // blobOffset is stored in the entry; we need the size. Since we don't
+                    // store size separately, we re-derive it from the gap allocator's perspective:
+                    // we record it now by storing alignedBlobSize in a separate field.
+                    // *** See note below about Entry.blobAlignedSize ***
+                    glyphGpuTable.hbGpuAtlasGaps.Add(new uint2((uint)entry.blobOffset, (uint)entry.blobAlignedSize));
+                    entry.blobOffset = -1;
+                    entry.blobAlignedSize = 0;
+                }
+                glyphGpuTable.hbGpuAtlasGcCandidates.Clear();
+
+                return GapAllocator.CoalesceGaps(glyphGpuTable.hbGpuAtlasGaps, currentSize);
+            }
+        }      
 
   
         [BurstCompile]
@@ -208,7 +252,7 @@ namespace TextMeshDOTS
                     // This is first texel index, a plain integer to access the RGBAI16 buffer
                     // because there is no I16 in HLSL, we use not StructuredBuffer<int4>, but StructuredBuffer<int2>
                     // and then decode the 4 I16 components via bit shifts
-                    glyph.arrayIndex = (uint)(entry.blobOffset / 8);                     
+                    glyph.arrayIndex = (uint)(entry.blobOffset / 8);
 
                     uploadArray[capture.writeStart + i] = glyph;              
                 }
@@ -223,6 +267,7 @@ namespace TextMeshDOTS
         {
             [ReadOnly] public NativeStream        renderGlyphCapturesStream;
             public NativeList<RenderGlyphCapture> captures;
+            public GlyphTable                     glyphTable;
             public GlyphGpuTable                  glyphGpuTable;
 
             public void Execute()
@@ -239,12 +284,14 @@ namespace TextMeshDOTS
                     var reader = renderGlyphCapturesStream.AsReader();
                     for (int i = reader.BeginForEachIndex(stream); i > 0; i--)
                     {
-                        var capture         = reader.Read<RenderGlyphCapture>();
-                        capture.writeStart  = writeBufferOffset;
-                        writeBufferOffset  += capture.glyphCount;
+                        var capture        = reader.Read<RenderGlyphCapture>();
+                        capture.writeStart = writeBufferOffset;
+                        writeBufferOffset += capture.glyphCount;
+
                         if (capture.makeResident)
                         {
-                            if (capture.residentRangePtr->count != capture.glyphCount)
+                            // Allocate _tmdGlyphs buffer space (glyph indices)
+                            if (capture.residentRangePtr->glyphCount != capture.glyphCount)
                             {
                                 GapAllocator.TryAllocate(glyphGpuTable.residentGaps, (uint)capture.glyphCount, ref residentBufferSize, out var newLocation);
                                 capture.gpuStart = (int)newLocation;
@@ -253,14 +300,12 @@ namespace TextMeshDOTS
                                     capture.textShaderIndexPtr->firstGlyphIndex = newLocation;
                                     capture.textShaderIndexPtr->glyphCount      = (uint)capture.glyphCount;
                                 }
-                                capture.residentRangePtr->start = newLocation;
-                                capture.residentRangePtr->count = (uint)capture.glyphCount;
-                                //UnityEngine.Debug.Log($"Allocated resident range: {capture.residentRangePtr->start}, {capture.residentRangePtr->count}");
+                                capture.residentRangePtr->firstGlyphIndex = newLocation;
+                                capture.residentRangePtr->glyphCount      = (uint)capture.glyphCount;
                             }
                             else
                             {
-                                capture.gpuStart = (int)capture.residentRangePtr->start;
-                                //UnityEngine.Debug.Log($"Updated resident range: {capture.residentRangePtr->start}, {capture.residentRangePtr->count}");
+                                capture.gpuStart = (int)capture.residentRangePtr->firstGlyphIndex;
                             }
                         }
                         else
@@ -271,10 +316,11 @@ namespace TextMeshDOTS
                     }
                     reader.EndForEachIndex();
                 }
+
+                // Allocate dynamic region for _tmdGlyphs
                 if (dynamicCount > 0)
                 {
                     GapAllocator.TryAllocate(glyphGpuTable.residentGaps, (uint)dynamicCount, ref residentBufferSize, out var dynamicStart);
-                    //UnityEngine.Debug.Log($"Allocated dynamic region: {dynamicStart}, {dynamicCount}");
                     glyphGpuTable.dispatchDynamicGaps.Add(new uint2(dynamicStart, (uint)dynamicCount));
                     for (int i = 0; i < captures.Length; i++)
                     {
@@ -282,19 +328,18 @@ namespace TextMeshDOTS
                         if (capture.makeResident)
                             continue;
                         capture.gpuStart = (int)dynamicStart;
-                        dynamicStart += (uint)capture.glyphCount;
+                        dynamicStart    += (uint)capture.glyphCount;
                         if (capture.textShaderIndexPtr != null)
                         {
                             capture.textShaderIndexPtr->firstGlyphIndex = (uint)capture.gpuStart;
-                            capture.textShaderIndexPtr->glyphCount = (uint)capture.glyphCount;
-                            //UnityEngine.Debug.Log($"Allocated dynamic range: {capture.textShaderIndexPtr->firstGlyphIndex}, {capture.textShaderIndexPtr->glyphCount}");
+                            capture.textShaderIndexPtr->glyphCount      = (uint)capture.glyphCount;
                         }
                     }
                 }
 
                 glyphGpuTable.bufferSize.Value = residentBufferSize;
 
-                // Remove empty buffers from upload list.
+                // Remove empty captures from upload list.
                 int dstIndex = 0;
                 for (int i = 0; i < captures.Length; i++)
                 {

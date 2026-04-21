@@ -43,8 +43,10 @@ namespace TextMeshDOTS
             var chunkCount                     = m_query.CalculateChunkCountWithoutFiltering();
             var refCountChangeBlocklistA       = new NativeStream(deadChunkCount, state.WorldUpdateAllocator);
             var residentDeallocationBlocklistA = new NativeStream(deadChunkCount, state.WorldUpdateAllocator);
+            var hbGpuAtlasDeallocationBlocklistA = new NativeStream(deadChunkCount, state.WorldUpdateAllocator);
             var refCountChangeBlocklistB       = new NativeStream(chunkCount, state.WorldUpdateAllocator);
             var residentDeallocationBlocklistB = new NativeStream(chunkCount, state.WorldUpdateAllocator);
+            var hbGpuAtlasDeallocationBlocklistB = new NativeStream(chunkCount, state.WorldUpdateAllocator);
 
             var newEntitiesArrays = GetSingleton<NewEntitiesArrays>();
             if (newEntitiesArrays.newGlyphEntities.Length > 0 && ChangeVersionUtility.DidChange(newEntitiesArrays.lastTouchedGlobalSystemVersion, state.LastSystemVersion))
@@ -65,9 +67,11 @@ namespace TextMeshDOTS
                     entityHandle                  = GetEntityTypeHandle(),
                     ecb                           = ecb.AsParallelWriter(),
                     rangeHandle                   = GetComponentTypeHandle<ResidentRange>(false),
+                    hbGpuAtlasRangeHandle         = GetComponentTypeHandle<ResidentRangeInHbGPUAtlas>(false),
                     previousRenderGlyphsHandle    = GetBufferTypeHandle<PreviousRenderGlyph>(true),
                     refCountChangeBlocklist       = refCountChangeBlocklistA.AsWriter(),
-                    residentDeallocationBlocklist = residentDeallocationBlocklistA.AsWriter()
+                    residentDeallocationBlocklist = residentDeallocationBlocklistA.AsWriter(),
+                    hbGpuAtlasDeallocationBlocklist = hbGpuAtlasDeallocationBlocklistA.AsWriter()
                 }.ScheduleParallel(m_deadQuery, state.Dependency);
             }
 
@@ -76,6 +80,8 @@ namespace TextMeshDOTS
                 animatedRenderGlyphHandle     = GetBufferTypeHandle<AnimatedRenderGlyph>(true),
                 entityHandle                  = GetEntityTypeHandle(),
                 gpuStateHandle                = GetComponentTypeHandle<GpuState>(false),
+                hbGpuAtlasDeallocationBlocklist = hbGpuAtlasDeallocationBlocklistB.AsWriter(),
+                hbGpuAtlasRangeHandle         = GetComponentTypeHandle<ResidentRangeInHbGPUAtlas>(false),
                 lastSystemVersion             = state.LastSystemVersion,
                 materialMeshInfoHandle        = GetComponentTypeHandle<MaterialMeshInfo>(false),
                 previousRenderGlyphHandle     = GetBufferTypeHandle<PreviousRenderGlyph>(false),
@@ -89,13 +95,14 @@ namespace TextMeshDOTS
 
             var atlasTable = GetSingletonRW<AtlasTable>().ValueRW;
             var glyphTable = GetSingletonRW<GlyphTable>().ValueRW;
-            var gpuTable   = GetSingletonRW<GlyphGpuTable>().ValueRW;
+            var glyphGpuTable   = GetSingletonRW<GlyphGpuTable>().ValueRW;
 
             
             var jhA = new ApplyRefCountDeltasToGlyphTableJob
             {
                 atlasTable = atlasTable,
                 glyphTable = glyphTable,
+                glyphGpuTable =  glyphGpuTable,
                 refCountChangeBlocklistA = refCountChangeBlocklistA.AsReader(),
                 refCountChangeBlocklistB = refCountChangeBlocklistB.AsReader(),
                 enableAtlasGC = true
@@ -103,12 +110,12 @@ namespace TextMeshDOTS
 
             var jhB = new DeallocateResidentsJob
             {
-                gpuTable = gpuTable,
+                glyphGpuTable = glyphGpuTable,
                 residentDeallocationBlocklistA = residentDeallocationBlocklistA.AsReader(),
-                residentDeallocationBlocklistB = residentDeallocationBlocklistB.AsReader()
-            }.Schedule(state.Dependency);
-
-            state.Dependency = JobHandle.CombineDependencies(jhA, jhB);
+                residentDeallocationBlocklistB = residentDeallocationBlocklistB.AsReader(),
+            }.Schedule(jhA);
+            state.Dependency = jhB;
+            //state.Dependency = JobHandle.CombineDependencies(jhA, jhB);
             m_twoAgoSystemVersion = state.LastSystemVersion;
         }
 
@@ -143,8 +150,10 @@ namespace TextMeshDOTS
         {
             [ReadOnly] public EntityTypeHandle entityHandle;
             [ReadOnly] public BufferTypeHandle<PreviousRenderGlyph> previousRenderGlyphsHandle;
-            public ComponentTypeHandle<ResidentRange> rangeHandle;
+            public ComponentTypeHandle<ResidentRange>               rangeHandle;
+            public ComponentTypeHandle<ResidentRangeInHbGPUAtlas>   hbGpuAtlasRangeHandle;
             public NativeStream.Writer                              residentDeallocationBlocklist;
+            public NativeStream.Writer                              hbGpuAtlasDeallocationBlocklist;
             public NativeStream.Writer                              refCountChangeBlocklist;
             public EntityCommandBuffer.ParallelWriter ecb;
 
@@ -156,21 +165,36 @@ namespace TextMeshDOTS
                 if (!threadRefCountChangeMap.IsCreated)
                     threadRefCountChangeMap = new UnsafeHashMap<uint, RefCountChangePtr>(1024, Allocator.Temp);
 
-                var typeSet = new ComponentTypeSet(ComponentType.ReadWrite<ResidentRange>(), ComponentType.ReadWrite<PreviousRenderGlyph>());
+                var typeSet = new ComponentTypeSet(ComponentType.ReadWrite<ResidentRange>(), ComponentType.ReadWrite<ResidentRangeInHbGPUAtlas>(), ComponentType.ReadWrite<PreviousRenderGlyph>());
                 ecb.RemoveComponent(unfilteredChunkIndex, chunk.GetNativeArray(entityHandle), in typeSet);
 
                 residentDeallocationBlocklist.BeginForEachIndex(unfilteredChunkIndex);
+                hbGpuAtlasDeallocationBlocklist.BeginForEachIndex(unfilteredChunkIndex);
                 refCountChangeBlocklist.BeginForEachIndex(unfilteredChunkIndex);
 
                 var ranges = (ResidentRange*)chunk.GetRequiredComponentDataPtrRO(ref rangeHandle);
                 for (int i = 0; i < chunk.Count; i++)
                 {
-                    if (ranges[i].count > 0)
+                    if (ranges[i].glyphCount > 0)
                     {
                         residentDeallocationBlocklist.Write(ranges[i]);
                         ranges[i] = default;
                     }
                 }
+
+                var hbGpuAtlasRanges = chunk.GetComponentDataPtrRW(ref hbGpuAtlasRangeHandle);
+                if (hbGpuAtlasRanges != null)
+                {
+                    for (int i = 0; i < chunk.Count; i++)
+                    {
+                        if (hbGpuAtlasRanges[i].blobSize > 0)
+                        {
+                            hbGpuAtlasDeallocationBlocklist.Write(hbGpuAtlasRanges[i]);
+                            hbGpuAtlasRanges[i] = default;
+                        }
+                    }
+                }
+
                 var glyphsBuffers = chunk.GetBufferAccessor(ref previousRenderGlyphsHandle);
                 for (int index = 0; index < chunk.Count; index++)
                 {
@@ -195,6 +219,7 @@ namespace TextMeshDOTS
                 }
 
                 residentDeallocationBlocklist.EndForEachIndex();
+                hbGpuAtlasDeallocationBlocklist.EndForEachIndex();
                 refCountChangeBlocklist.EndForEachIndex();
             }
         }
@@ -208,10 +233,12 @@ namespace TextMeshDOTS
             public BufferTypeHandle<PreviousRenderGlyph>            previousRenderGlyphHandle;
             public ComponentTypeHandle<GpuState>                    gpuStateHandle;
             public ComponentTypeHandle<ResidentRange>               residentRangeHandle;
+            public ComponentTypeHandle<ResidentRangeInHbGPUAtlas>   hbGpuAtlasRangeHandle;
             public ComponentTypeHandle<MaterialMeshInfo>            materialMeshInfoHandle;
             public ComponentTypeHandle<RenderBounds>                renderBoundsHandle;
             public NativeStream.Writer                              refCountChangeBlocklist;
             public NativeStream.Writer                              residentDeallocationBlocklist;
+            public NativeStream.Writer                              hbGpuAtlasDeallocationBlocklist;
 
             public uint lastSystemVersion;
             public uint twoAgoSystemVersion;
@@ -234,6 +261,7 @@ namespace TextMeshDOTS
 
                 refCountChangeBlocklist.BeginForEachIndex(unfilteredChunkIndex);
                 residentDeallocationBlocklist.BeginForEachIndex(unfilteredChunkIndex);
+                hbGpuAtlasDeallocationBlocklist.BeginForEachIndex(unfilteredChunkIndex);
                 
                 var glyphBuffers               = !hasAnimated ? chunk.GetBufferAccessor(ref renderGlyphHandle) : default;
                 var previousRenderGlyphBuffers = chunk.GetBufferAccessor(ref previousRenderGlyphHandle);
@@ -262,11 +290,13 @@ namespace TextMeshDOTS
                     }
                     refCountChangeBlocklist.EndForEachIndex();
                     residentDeallocationBlocklist.EndForEachIndex();
+                    hbGpuAtlasDeallocationBlocklist.EndForEachIndex();
                     return;
                 }
 
                 // Something got flagged as changed. These could be new glyphs, or the text was altered on one of the entities.
                 var residentRanges = previousRenderGlyphBuffers.Length > 0 ? chunk.GetComponentDataPtrRW(ref residentRangeHandle) : null;
+                var hbGpuAtlasRanges = chunk.GetComponentDataPtrRW(ref hbGpuAtlasRangeHandle);
 
                 {
                     var mmis         = (MaterialMeshInfo*)chunk.GetRequiredComponentDataPtrRW(ref materialMeshInfoHandle);
@@ -290,15 +320,21 @@ namespace TextMeshDOTS
                         }
 
                         // Something changed. Figure out if we need to deallocate or just do an update.
-                        if (glyphs.Length != previousGlyphs.Length && residentRanges[i].count != 0)
+                        if (glyphs.Length != previousGlyphs.Length && residentRanges != null && residentRanges[i].glyphCount != 0)
                         {
                             // We need to deallocate.
                             residentDeallocationBlocklist.Write(residentRanges[i]);
                             //UnityEngine.Debug.Log($"Deallocated resident range: {residentRanges[i].start}, {residentRanges[i].count}");
                             residentRanges[i] = default;
                         }
+                        if (glyphs.Length != previousGlyphs.Length && hbGpuAtlasRanges != null && hbGpuAtlasRanges[i].blobSize != 0)
+                        {
+                            // We need to deallocate HbGPUAtlas blob data.
+                            hbGpuAtlasDeallocationBlocklist.Write(hbGpuAtlasRanges[i]);
+                            hbGpuAtlasRanges[i] = default;
+                        }
                         // Reset the state, update ref counts, and copy previousGlyphs
-                        gpuStates[i].state = residentRanges[i].count != 0 ? GpuState.State.ResidentUncommitted : GpuState.State.Uncommitted;
+                        gpuStates[i].state = (residentRanges == null || residentRanges[i].glyphCount != 0) ? GpuState.State.ResidentUncommitted : GpuState.State.Uncommitted;
                         gpuStateMask[i]    = true;
                         UpdateRefCounts(previousGlyphs.Reinterpret<RenderGlyph>().AsNativeArray().AsReadOnlySpan(), -1);
                         UpdateRefCounts(glyphs.AsNativeArray().AsReadOnlySpan(),                                    1);
@@ -309,6 +345,7 @@ namespace TextMeshDOTS
                 }
                 refCountChangeBlocklist.EndForEachIndex();
                 residentDeallocationBlocklist.EndForEachIndex();
+                hbGpuAtlasDeallocationBlocklist.EndForEachIndex();
             }
 
             void UpdateRefCounts(ReadOnlySpan<RenderGlyph> glyphs, int delta)
@@ -366,6 +403,7 @@ namespace TextMeshDOTS
             [ReadOnly] public NativeStream.Reader refCountChangeBlocklistA;
             [ReadOnly] public NativeStream.Reader refCountChangeBlocklistB;
             public GlyphTable                     glyphTable;
+            public GlyphGpuTable                  glyphGpuTable;
             public AtlasTable                     atlasTable;
             public bool enableAtlasGC;
 
@@ -391,18 +429,26 @@ namespace TextMeshDOTS
                             //Debug.Log($"streamsource {streamSource}: Set ref count for glyph {delta.glyphEntryId}: {entry.refCount} + {delta.refCountDelta} = {entry.refCount + delta.refCountDelta} ");
                             //var     oldCount  = delta.refCountDelta;  // bug?
                             var oldCount = entry.refCount;              // fix for bug?
-                            entry.refCount   += delta.refCountDelta;                            
+                            entry.refCount   += delta.refCountDelta;
+                            bool wasEmpty = oldCount <= 0;
+                            bool isEmpty  = entry.refCount <= 0;
                             if (entry.isInAtlas)
                             {
                                 // There can be duplicate entry IDs. So it is possible we decrease the ref count to 0, only to increase it again.
                                 // Rather than preduplicate them, we add and remove from a hashset. We only consider entries in the atlas that
                                 // had a zero-nonzero change, which makes the set smaller and requires far fewer random accesses.
-                                bool wasEmpty = oldCount <= 0;
-                                bool isEmpty  = entry.refCount <= 0;
                                 if (wasEmpty && !isEmpty)
                                     atlasRemovalCandidates.Remove(delta.glyphEntryId);
                                 else if (!wasEmpty && isEmpty)
                                     atlasRemovalCandidates.Add(delta.glyphEntryId);
+                            }
+                            // Mirror for hbGpuAtlas blobs
+                            if (entry.isInHbGPUAtlas)
+                            {
+                                if (wasEmpty && !isEmpty)
+                                    glyphGpuTable.hbGpuAtlasGcCandidates.Remove(delta.glyphEntryId);
+                                else if (!wasEmpty && isEmpty)
+                                    glyphGpuTable.hbGpuAtlasGcCandidates.Add(delta.glyphEntryId);
                             }
                         }
                         stream.EndForEachIndex();
@@ -433,12 +479,13 @@ namespace TextMeshDOTS
         {
             [ReadOnly] public NativeStream.Reader residentDeallocationBlocklistA;
             [ReadOnly] public NativeStream.Reader residentDeallocationBlocklistB;
-            public GlyphGpuTable                  gpuTable;
+            public GlyphGpuTable                  glyphGpuTable;
 
             public void Execute()
             {
-                gpuTable.residentGaps.AddRange(gpuTable.dispatchDynamicGaps.AsArray());
-                gpuTable.dispatchDynamicGaps.Clear();
+                // Handle _tmdGlyphs buffer deallocation
+                glyphGpuTable.residentGaps.AddRange(glyphGpuTable.dispatchDynamicGaps.AsArray());
+                glyphGpuTable.dispatchDynamicGaps.Clear();
 
                 for (int streamSource = 0; streamSource < 2; streamSource++)
                 {
@@ -452,14 +499,15 @@ namespace TextMeshDOTS
                         for (int i = 0; i < elementsInIndex; i++)
                         {
                             var range = stream.Read<ResidentRange>();
-                            gpuTable.residentGaps.Add(new uint2(range.start, range.count));
+                            glyphGpuTable.residentGaps.Add(new uint2(range.firstGlyphIndex, range.glyphCount));
                         }
                     }
                 }
 
-                var totals                = gpuTable.bufferSize.Value;
-                totals                    = GapAllocator.CoalesceGaps(gpuTable.residentGaps, totals);
-                gpuTable.bufferSize.Value = totals;
+                var totals                = glyphGpuTable.bufferSize.Value;
+                totals                    = GapAllocator.CoalesceGaps(glyphGpuTable.residentGaps, totals);
+                glyphGpuTable.bufferSize.Value = totals;
+
             }
         }
     }

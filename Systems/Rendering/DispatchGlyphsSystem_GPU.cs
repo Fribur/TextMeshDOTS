@@ -7,9 +7,6 @@ using Unity.Mathematics;
 using Unity.Rendering;
 using UnityEngine;
 using static Unity.Entities.SystemAPI;
-using TextMeshDOTS.HarfBuzz;
-using TextMeshDOTS.HarfBuzz.Rasterizer;
-using System;
 using static TextMeshDOTS.DispatchGlyphsSystem;
 using Unity.Jobs.LowLevel.Unsafe;
 
@@ -44,7 +41,6 @@ namespace TextMeshDOTS
         GraphicsBufferBroker.StaticID m_hbGpuAtlasUploadID;
         GraphicsBufferBroker.StaticID m_metaUint3UploadID;
 
-        DrawDelegates m_drawDelegates;
 
         // Shader bindings for GPU blob approach
         int _src;
@@ -64,7 +60,7 @@ namespace TextMeshDOTS
         GlyphGpuTable m_glyphGpuTableToDestroy;
 
         // Per-thread GPU draw contexts for encoding
-        NativeArray<IntPtr> m_gpuDrawContexts;
+        //NativeArray<IntPtr> m_gpuDrawContexts;
         int m_numThreads;
 
         protected override void OnCreate()
@@ -114,24 +110,18 @@ namespace TextMeshDOTS
             dummyBuffer = broker.GetPersistentBufferNoResize(m_glyphIndexBufferID);
             GraphicsUnmanaged.SetGlobalBuffer(_tmdGlyphs, dummyBuffer);  // fix unbound _tmdGlyphs buffer issue
 
-            // Initialize per-thread GPU draw contexts
-            m_gpuDrawContexts = new NativeArray<IntPtr>(m_numThreads, Allocator.Persistent);
-            for (int i = 0; i < m_numThreads; i++)
-            {
-                m_gpuDrawContexts[i] = Harfbuzz.hb_gpu_draw_create_or_fail();
-            }
-
-            m_drawDelegates = new DrawDelegates(true);
-
             var atlas = new AtlasTable(Allocator.Persistent, 4096, 16);
             m_atlasToDestroy = atlas;
             EntityManager.CreateSingleton(atlas);
 
             var glyphGpuTable = new GlyphGpuTable
             {
-                bufferSize          = new NativeReference<uint>(Allocator.Persistent, NativeArrayOptions.ClearMemory),
-                dispatchDynamicGaps = new NativeList<uint2>(Allocator.Persistent),
-                residentGaps        = new NativeList<uint2>(Allocator.Persistent)
+                bufferSize                  = new NativeReference<uint>(Allocator.Persistent, NativeArrayOptions.ClearMemory),
+                dispatchDynamicGaps         = new NativeList<uint2>(Allocator.Persistent),
+                residentGaps                = new NativeList<uint2>(Allocator.Persistent),
+                bufferSizeHbGpuAtlas        = new NativeReference<uint>(Allocator.Persistent, NativeArrayOptions.ClearMemory),
+                hbGpuAtlasGaps            = new NativeList<uint2>(Allocator.Persistent),
+                hbGpuAtlasGcCandidates    = new NativeHashSet<uint>(256, Allocator.Persistent),
             };
             m_glyphGpuTableToDestroy = glyphGpuTable;
             var graphicsEntity = EntityManager.CreateSingleton(glyphGpuTable);
@@ -162,18 +152,6 @@ namespace TextMeshDOTS
             Shader.SetGlobalBuffer(_hbGpuAtlas, (GraphicsBuffer)null);
             Shader.SetGlobalBuffer(_tmdGlyphs, (GraphicsBuffer)null);
 
-            m_drawDelegates.Dispose();
-
-            // Destroy GPU draw contexts
-            for (int i = 0; i < m_gpuDrawContexts.Length; i++)
-            {
-                if (m_gpuDrawContexts[i] != IntPtr.Zero)
-                {
-                    Harfbuzz.hb_gpu_draw_destroy(m_gpuDrawContexts[i]);
-                }
-            }
-            m_gpuDrawContexts.Dispose();
-
             m_atlasToDestroy.TryDispose(default);
             m_glyphGpuTableToDestroy.TryDispose(default);
         }
@@ -182,7 +160,6 @@ namespace TextMeshDOTS
         {
             var glyphTable    = SystemAPI.GetSingletonRW<GlyphTable>().ValueRW;
             var glyphGpuTable = SystemAPI.GetSingletonRW<GlyphGpuTable>().ValueRW;
-            var atlasTable    = SystemAPI.GetSingletonRW<AtlasTable>().ValueRW;
 
             var glyphEntryIDsToEncodeSet = new NativeParallelHashSet<uint>(1, state.WorldUpdateAllocator);
             var allocateJh = new AllocateJob
@@ -208,6 +185,7 @@ namespace TextMeshDOTS
             var assignJh = new AssignShaderIndicesJob
             {
                 captures                  = captures,
+                glyphTable                = glyphTable,
                 glyphGpuTable             = glyphGpuTable,
                 renderGlyphCapturesStream = renderGlyphCapturesStream
             }.Schedule(captureJh);
@@ -245,9 +223,10 @@ namespace TextMeshDOTS
                 return writeState;
 
 
-            var glyphTable = SystemAPI.GetSingleton<GlyphTable>();
-            var fontTable  = SystemAPI.GetSingleton<FontTable>();
-            var broker = SystemAPI.GetSingleton<GraphicsBufferBroker>();
+            var glyphTable    = SystemAPI.GetSingleton<GlyphTable>();
+            var glyphGpuTable = SystemAPI.GetSingleton<GlyphGpuTable>();
+            var fontTable     = SystemAPI.GetSingleton<FontTable>();
+            var broker        = SystemAPI.GetSingleton<GraphicsBufferBroker>();
             writeState.broker = broker;
 
             var encodeJh    = state.Dependency;
@@ -255,20 +234,15 @@ namespace TextMeshDOTS
 
             if (hasGlyphsToEncode)
             {
-                // ... existing blob encoding code, unchanged ...
                 // Phase 1: Encode glyphs to temp buffer (single-threaded)
-                // Use a large temp buffer - 4KB per glyph is more than enough for any glyph
-                int tempBufferSize = collected.glyphEntryIDsToEncode.Length * 4096;
-                var encodedBlobs = CollectionHelper.CreateNativeArray<byte>(tempBufferSize, state.WorldUpdateAllocator, NativeArrayOptions.ClearMemory);
+                var encodedBlobs = new NativeList<byte>(collected.glyphEntryIDsToEncode.Length * 512, state.WorldUpdateAllocator); //cannot use NativeArray as gpu blobs have unpredictable size (SDF ~2-4k, COLR ~32-64k?)
                 var blobMeta = CollectionHelper.CreateNativeArray<uint3>(collected.glyphEntryIDsToEncode.Length, state.WorldUpdateAllocator);
-                
-
                 encodeJh = new EncodeGlyphsToGpuBlobsJob
                 {
-                    gpuDrawContext      = m_gpuDrawContexts[0],
                     fontTable           = fontTable,
                     glyphEntryIDsToEncode = collected.glyphEntryIDsToEncode.AsArray(),
                     glyphTable          = glyphTable,
+                    glyphGpuTable       = glyphGpuTable,
                     encodedBlobs        = encodedBlobs,
                     blobMeta            = blobMeta,
                     totalSizeRef        = totalSizeRef,
@@ -282,7 +256,7 @@ namespace TextMeshDOTS
                 writeState.hbGpuAtlasUploadMetaBufferWriteCount = collected.glyphEntryIDsToEncode.Length;
             }            
 
-            if (hasGlyphsToUpload)  // was: if (!collected.glyphsToUpload.IsEmpty)
+            if (hasGlyphsToUpload)
             {
                 // ... existing glyph upload code, unchanged ...
                 // uploadGlyphsJh must still wait on encodeJh so blobOffset is set
@@ -323,32 +297,37 @@ namespace TextMeshDOTS
             // Blob upload (only when new glyphs were encoded)
             if (hbGpuAtlasUploadBufferWriteCount > 0)
             {
-                //Debug.Log($"Dispatch new glyph blobs");
-                // ... all existing blob upload code ...
                 var lastMeta = written.blobMetaTemp[written.hbGpuAtlasUploadMetaBufferWriteCount - 1];
-                uint uploadTexelCount = (lastMeta.y + lastMeta.z + 7) / 8;
+                // Calculate max destination offset + size needed
+                uint maxDestOffset = lastMeta.y + lastMeta.z;
+                uint uploadTexelCount = (maxDestOffset + 7) / 8;
                 var uploadBuffer = written.broker.GetUploadBuffer(m_hbGpuAtlasUploadID, uploadTexelCount);
-                var uploadArray = uploadBuffer.LockBufferForWrite<byte>(0, (int)uploadTexelCount * 8);                
+                var uploadArray = uploadBuffer.LockBufferForWrite<byte>(0, (int)uploadTexelCount * 8);
 
                 var uploadMetaBuffer = written.broker.GetUploadBuffer(m_metaUint3UploadID, (uint)written.hbGpuAtlasUploadMetaBufferWriteCount * 3);
                 var uploadMetaArray = uploadMetaBuffer.LockBufferForWrite<uint3>(0, written.hbGpuAtlasUploadMetaBufferWriteCount);
 
-                // Copy encoded blobs to upload buffer
-                UnsafeUtility.MemCpy(
-                    (byte*)uploadArray.GetUnsafePtr() + written.blobMetaTemp[0].y,
-                    (byte*)written.encodedBlobsTemp.GetUnsafePtr(),
-                    hbGpuAtlasUploadBufferWriteCount
-                );
-
-                // Copy metadata
+                // Copy encoded blobs to upload buffer at their destination offsets
+                // blobMeta format: x=sourceOffset, y=destOffset, z=length
                 for (int i = 0; i < written.blobMetaTemp.Length; i++)
-                    uploadMetaArray[i] = written.blobMetaTemp[i];
+                {
+                    var meta = written.blobMetaTemp[i];
+                    if (meta.z > 0)  // Skip empty entries
+                    {
+                        UnsafeUtility.MemCpy(
+                            (byte*)uploadArray.GetUnsafePtr() + meta.y,
+                            (byte*)written.encodedBlobsTemp.GetUnsafePtr() + meta.x,
+                            (int)meta.z
+                        );
+                        uploadMetaArray[i] = meta;
+                    }
+                }
 
-                uploadBuffer.UnlockBufferAfterWrite<byte>(hbGpuAtlasUploadBufferWriteCount);
+                uploadBuffer.UnlockBufferAfterWrite<byte>((int)maxDestOffset);
                 uploadMetaBuffer.UnlockBufferAfterWrite<uint3>(written.hbGpuAtlasUploadMetaBufferWriteCount);
 
                 // Copy to persistent buffer
-                var persistentHbGpuAtlasBuffer = written.broker.GetPersistentBuffer(m_hbGpuAtlasBufferID, (uint)hbGpuAtlasUploadBufferWriteCount);
+                var persistentHbGpuAtlasBuffer = written.broker.GetPersistentBuffer(m_hbGpuAtlasBufferID, maxDestOffset);
 
                 m_uploadHbGpuAtlasShader.SetBuffer(0, _dst, persistentHbGpuAtlasBuffer);
                 m_uploadHbGpuAtlasShader.SetBuffer(0, _src, uploadBuffer);
@@ -413,7 +392,7 @@ namespace TextMeshDOTS
             internal int            glyphUploadMetaBufferWriteCount;
 
             // Temp buffers for encoded blobs (phase 1 output)
-            internal NativeArray<byte>   encodedBlobsTemp;
+            internal NativeList<byte>   encodedBlobsTemp;
             internal NativeArray<uint3>  blobMetaTemp;
             internal NativeReference<int> blobUploadBufferWriteCountRef;
             internal int            hbGpuAtlasUploadMetaBufferWriteCount;

@@ -94,20 +94,8 @@ namespace TextMeshDOTS
                 // from font acceleration structures populated with each hb_font_get_glyph_extents call
                 font.GetGlyphExtents(missingGlyph.glyphIndex, out var extents);
 
-                var padding  = missingGlyph.GetSpread() + 1;
-                var newEntry = new GlyphTable.Entry
-                {
-                    key = missingGlyph,
-                    refCount = 0,
-                    x = -1,
-                    y = -1,
-                    z = -1,
-                    width = (short)extents.width,
-                    height = (short)extents.height,
-                    xBearing = (short)extents.x_bearing,
-                    yBearing = (short)extents.y_bearing,
-                    padding = (short)padding,
-                };
+                var padding  = (short)(missingGlyph.GetSpread() + 1);
+                var newEntry = new GlyphTable.Entry(missingGlyph, extents, padding);
 
                 var baseIndex = glyphEntries.Length - missingGlyphs.Length;
                 glyphEntries[baseIndex + i] = newEntry;
