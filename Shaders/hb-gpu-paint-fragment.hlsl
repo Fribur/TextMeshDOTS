@@ -353,3 +353,17 @@ void hb_gpu_paint_float(float2 renderCoord, uint glyphLoc_, float4  foreground, 
 {
   color = hb_gpu_paint(renderCoord, glyphLoc_, foreground, coverage);
 }
+void hb_gpu_paint_or_draw_float(float2 renderCoord, uint glyphLoc_, float4  foreground, bool isCOLR, out float4 color)
+{
+  float coverage;
+
+  if(isCOLR)
+  {
+    color = hb_gpu_paint(renderCoord, glyphLoc_, foreground, coverage);
+  }
+  else
+  {
+    coverage = hb_gpu_draw(renderCoord, glyphLoc_);
+    color = float4 (foreground.rgb * foreground.a, foreground.a) * coverage;
+  }
+}

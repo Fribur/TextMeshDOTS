@@ -34,6 +34,7 @@
  */
 
 #include "TmdGlobalsApi_GPU.hlsl"
+#include "hb-gpu-fragment.hlsl"
 
 // HB_GPU_UNITS_PER_EM defines the precision of the encoding
 #ifndef HB_GPU_UNITS_PER_EM
@@ -372,6 +373,13 @@ float hb_gpu_stem_darken(float coverage, float brightness, float ppem)
  * this file only adds the thin hb_gpu_draw() wrapper that lifts
  * pixelsPerEm out of fwidth() at uniform control flow before
  * calling the shared _hb_gpu_slug(). */
+
+
+float hb_gpu_draw (float2 renderCoord, uint glyphLoc_)
+{
+  float2 pixelsPerEm = 1.0 / fwidth (renderCoord);
+  return _hb_gpu_slug (renderCoord, pixelsPerEm, glyphLoc_);
+}
 
 void hb_gpu_draw_float(float2 renderCoord, uint glyphLoc_, out float coverage)
 {

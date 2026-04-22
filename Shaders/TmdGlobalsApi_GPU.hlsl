@@ -91,6 +91,7 @@ void GetGlyphFromBuffer_float(
         renderCoord = nanVal.xy;
         color = 0;
         glyphLoc = 0;
+		isCOLR = false;
         return;
     }
 
@@ -169,7 +170,8 @@ void GetGlyphFromBufferForDilate_float(
     out float2 normal,    
     out float4 jacobian,
     out float4 color,
-    out float glyphLoc)
+    out float glyphLoc,
+    out bool isCOLR)
 {
     uint vertexID_Int = (uint)vertexID;
     uint glyphIndex;
@@ -188,6 +190,7 @@ void GetGlyphFromBufferForDilate_float(
         jacobian = nanVal;
         color = 0;
         glyphLoc = 0;
+        isCOLR = false;
         return;
     }
 
@@ -207,6 +210,11 @@ void GetGlyphFromBufferForDilate_float(
     float2 trUVA = asfloat(load96_111.zw);
     uint4 load112_127 = _tmdGlyphs.Load4(baseAddress + 112);
     glyphLoc = (float)load112_127.x;
+    uint glyphEntryID = load112_127.y;
+	uint format = glyphEntryID >> 30u;
+	isCOLR = format == 3;
+    //scale = (float)load112_127.z;
+    //reserved = load112_127.w;
 
     // Load Colors 
     float4 blColor = UnpackHalf4(_tmdGlyphs.Load4(baseAddress + 64).xy);
