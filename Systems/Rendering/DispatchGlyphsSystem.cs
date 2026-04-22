@@ -15,6 +15,7 @@ namespace TextMeshDOTS
     // So this system remains managed for now.
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateAfter(typeof(UpdateGlyphsRenderersSystem))]
+    [RequireMatchingQueriesForUpdate]
     public unsafe partial class DispatchGlyphsSystem : SystemBase
     {
         GraphicsBufferBroker broker;
