@@ -23,7 +23,7 @@ namespace TextMeshDOTS
         public void OnCreate(ref SystemState state)
         {
             textRendererQ = SystemAPI.QueryBuilder()
-                .WithAllRW<CalliByte>()           
+                .WithAllRW<CalliByte, RenderGlyph>()           
                 .WithAll<TextBaseConfiguration>()
                 .Build();
 
@@ -44,6 +44,8 @@ namespace TextMeshDOTS
             if (!SystemAPI.TryGetSingleton<FontTable>(out FontTable fontTable))
                 return;
 
+            if (fontTable.faces.Length == 0)
+            return;
             
             SystemAPI.TryGetSingletonEntity<TextColorGradient>(out Entity textColorGradientEntity);
             var glyphTable = SystemAPI.GetSingletonRW<GlyphTable>().ValueRW;
