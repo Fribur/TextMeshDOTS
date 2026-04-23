@@ -23,6 +23,7 @@ namespace TextMeshDOTS
     //[DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateAfter(typeof(UpdateGlyphsRenderersSystem))]
+    [RequireMatchingQueriesForUpdate]
     public unsafe partial class DispatchGlyphsSystem_GPU : SystemBase
     {
         GraphicsBufferBroker broker;
