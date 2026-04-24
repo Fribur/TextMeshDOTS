@@ -46,7 +46,7 @@ void GetGlyphIndexAndCornerFromQuadVertexID(uint vertexID, out uint glyphIndex, 
 }
 
 /*
- * GetGlyphFromBuffer_GPU
+ * GetGlyphFromBuffer_float
  *
  * Fetches glyph data from the _tmdGlyphs buffer for a given vertex.
  * This is the GPU-blob equivalent of GetGlyphFromBuffer in TmdGlobalsApi.hlsl.
@@ -57,12 +57,12 @@ void GetGlyphIndexAndCornerFromQuadVertexID(uint vertexID, out uint glyphIndex, 
  *
  * Outputs:
  *   position: Object-space position (float3) - transformed by MVP for screen position
- *   uvA: Em-space design unit coordinates (float2) - for blob lookup in fragment shader
- *         Contains glyph extents in font design units (e.g., 0-4096 for 4096 UPem font)
- *         blUVA = (x_bearing, y_bearing + height), trUVA = (x_bearing + width, y_bearing)
+ *   renderCoord: Em-space design unit coordinates (float2) — raw HarfBuzz extents
+ *         (Y-down, matching the GPU blob encoding). blUVA = (x_bearing, y_bearing),
+ *         trUVA = (x_bearing + width, y_bearing + height)
  *   color: Vertex color (float4)
  *   glyphLoc: Glyph blob location in atlas (float - will be uint in shader)
- *   scale: Glyph scale factor (float)
+ *   isCOLR: Whether this glyph uses COLR paint rendering
  */
 void GetGlyphFromBuffer_float(
     float2 textShaderIndex,
@@ -115,9 +115,12 @@ void GetGlyphFromBuffer_float(
     float4 trColor = UnpackHalf4(load80_95.zw);
 
     // Load UVA (96-111 bytes) - em-space design unit coordinates for GPU blob rendering
+    // gpu blob is encoded in Y-down ccordante system, so
+    // ... blUVA in y-up is tlUVA in y-down (origin = x_bearing, y_bearing)
+    // ... trUVA in y-up is brUVA in y-down (x_bearing + width, y_bearing + height) (height is negative!)
     uint4 load96_111 = _tmdGlyphs.Load4(baseAddress + 96);
-    float2 blUVA = asfloat(load96_111.xy);
-    float2 trUVA = asfloat(load96_111.zw);
+    float2 tlUVA = asfloat(load96_111.xy);
+    float2 brUVA = asfloat(load96_111.zw);
 
     // Load GPU-specific data (112-127 bytes)
     uint4 load112_127 = _tmdGlyphs.Load4(baseAddress + 112);
@@ -128,36 +131,35 @@ void GetGlyphFromBuffer_float(
     //scale = (float)load112_127.z;
     //reserved = load112_127.w;
 
-    // Select corner data (mirrors GetGlyphCorner in TmdGlobalsApi.hlsl)
+    // Select corner data — UVA stores raw HarfBuzz extents (Y-down)
+    // tlUVA = (xb, yb) [em-space top-left], brUVA = (xb+W, yb+H) [em-space bottom-right]
     // Corner order: bl=0, tl=1, tr=2, br=3
-    // harfbuzz blob is encoded top to bottom, so fix UVA bei substracting height
-    float height = trUVA.y - blUVA.y;
     if (cornerIndex == 0)
     {
         // bottom left
         position = float3(blPosition, 0);
-        renderCoord = float2(blUVA.x, blUVA.y - height);
+        renderCoord = float2(tlUVA.x, brUVA.y);
         color = blColor;
     }
     else if (cornerIndex == 1)
     {
         // top left
         position = float3(tlPosition, 0);
-        renderCoord = blUVA; 
+        renderCoord = tlUVA;
         color = tlColor;
     }
     else if (cornerIndex == 2)
     {
         // top right
         position = float3(trPosition, 0);
-        renderCoord = float2(trUVA.x, blUVA.y); 
+        renderCoord = float2(brUVA.x, tlUVA.y);
         color = trColor;
     }
     else
     {
         // bottom right
         position = float3(brPosition, 0);
-        renderCoord = float2(trUVA.x, blUVA.y - height); 
+        renderCoord = brUVA;
         color = brColor;
     }
 }
@@ -206,8 +208,8 @@ void GetGlyphFromBufferForDilate_float(
 
     // Load UVA and Glyph Data 
     uint4 load96_111 = _tmdGlyphs.Load4(baseAddress + 96);
-    float2 blUVA = asfloat(load96_111.xy);
-    float2 trUVA = asfloat(load96_111.zw);
+    float2 tlUVA = asfloat(load96_111.xy);
+    float2 brUVA = asfloat(load96_111.zw);
     uint4 load112_127 = _tmdGlyphs.Load4(baseAddress + 112);
     glyphLoc = (float)load112_127.x;
     uint glyphEntryID = load112_127.y;
@@ -224,32 +226,31 @@ void GetGlyphFromBufferForDilate_float(
 
     // 1. Calculate Jacobian (em-space size / object-space size)
     float2 objSize = trPos - blPos;
-    float2 emSize = trUVA - blUVA;
+    float2 emSize = brUVA - tlUVA;
     float2 ratio = emSize / max(objSize, 0.00001);
-    // Row-major 2x2 inverse [ratio.x, 0, 0, -ratio.y] for Y-flip
-    jacobian = float4(ratio.x, 0.0, 0.0, -ratio.y);
+    // Row-major 2x2 inverse — ratio.y is naturally negative because
+    // emSize.y > 0 (Y-down) and objSize.y < 0 (Y-up screen)
+    jacobian = float4(ratio.x, 0.0, 0.0, ratio.y);
 
     // 2. Select initial data and normal based on corner
-    float height = trUVA.y - blUVA.y;
-
     if (cornerIndex == 0) { // BL
         position = blPos;
-        renderCoord = float2(blUVA.x, blUVA.y - height);
+        renderCoord = float2(tlUVA.x, brUVA.y);
         normal = float2(-1.0, -1.0);
         color = blColor;
     } else if (cornerIndex == 1) { // TL
         position = tlPos;
-        renderCoord = blUVA;
+        renderCoord = tlUVA;
         normal = float2(-1.0, 1.0);
         color = tlColor;
     } else if (cornerIndex == 2) { // TR
         position = trPos;
-        renderCoord = float2(trUVA.x, blUVA.y);
+        renderCoord = float2(brUVA.x, tlUVA.y);
         normal = float2(1.0, 1.0);
         color = trColor;
     } else { // BR
         position = brPos;
-        renderCoord = float2(trUVA.x, blUVA.y - height);
+        renderCoord = brUVA;
         normal = float2(1.0, -1.0);
         color = brColor;
     }

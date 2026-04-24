@@ -291,16 +291,13 @@ namespace TextMeshDOTS
                     bottomRight.y = bottomLeft.y;
                     #endregion
 
-                    #region Setup UVA 
-                    // for TexturArray rendering we leave this empty as it is populated after atlas position is known
+                    #region Setup UVA
+                    // for TextureArray rendering we leave this empty as it is populated after atlas position is known
                     // in WriteJob of DispatchGlyphSystem
-                    // for GPU blob rendering we store in GlyphExtent in em-space design units in UVA
-                    // we fix up the inverted height in the shader to have harfbuzz native GlyphExtends
-                    // which is essential to correctly sample the RGBAI16 texel in the glyph GPU blob
-                    // alternatively we could store GlyphExtends output from hb_gpu_draw_encode 
-                    // (should be identical to what we got here)
-                    renderGlyph.blUVA = useSlug ? new float2(x_bearing, y_bearing) : 0;
-                    renderGlyph.trUVA = new float2(x_bearing + glyphWidth, y_bearing + glyphHeight);
+                    // for GPU blob rendering we store raw HarfBuzz glyph extents in em-space design units in UVA
+                    // (identical to hb_gpu_draw_encode output — Y-down coordinate system matching the blob encoding)
+                    renderGlyph.blUVA = new float2(x_bearing, y_bearing);
+                    renderGlyph.trUVA = new float2(x_bearing + glyphWidth, y_bearing + glyphEntry.height);
                     #endregion
 
                     #region Setup UVB
