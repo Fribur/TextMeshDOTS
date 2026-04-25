@@ -13,12 +13,13 @@ namespace TextMeshDOTS
 {
     // Todo: Unity is really unstable with RenderTextures, and using UnityObjectRef with them seems to be especially flaky.
     // So this system remains managed for now.
-    [DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateAfter(typeof(UpdateGlyphsRenderersSystem))]
+    [CreateAfter(typeof(NativeFontLoaderSystem))]
     [RequireMatchingQueriesForUpdate]
     public unsafe partial class DispatchGlyphsSystem : SystemBase
     {
+        bool useSlug;
         GraphicsBufferBroker broker;
 
         const int kTextureDimension = 4096;
@@ -68,6 +69,13 @@ namespace TextMeshDOTS
 
         protected override void OnCreate()
         {
+            useSlug = SystemAPI.GetSingleton<FontTable>().useSlug;
+            if (useSlug)
+            {
+                Enabled = false;
+                return;
+            }
+
             ref var state = ref CheckedStateRef;
 
             m_query = QueryBuilder().WithAll<MaterialMeshInfo>().WithAllRW<GpuState>().WithPresent<PreviousRenderGlyph>().WithPresentRW<ResidentRange>().Build();
@@ -142,6 +150,9 @@ namespace TextMeshDOTS
 
         protected override void OnDestroy()
         {
+            if(useSlug)
+                return;
+
             broker.Dispose();
 
             ref var state = ref CheckedStateRef;
@@ -169,18 +180,18 @@ namespace TextMeshDOTS
             var glyphGpuTable = SystemAPI.GetSingletonRW<GlyphGpuTable>().ValueRW;
             var atlasTable    = SystemAPI.GetSingletonRW<AtlasTable>().ValueRW;
 
-            var glyphEntryIDsToRasterizeSet = new NativeParallelHashSet<uint>(1, state.WorldUpdateAllocator);
+            var addToAtlasSet = new NativeParallelHashSet<uint>(1, state.WorldUpdateAllocator);
             var allocateJh                  = new AllocateJob
             {
                 glyphTable                  = glyphTable,
-                glyphEntryIDsToRasterizeSet = glyphEntryIDsToRasterizeSet,
+                addToAtlasSet               = addToAtlasSet,
             }.Schedule(state.Dependency);
 
             var chunkCount                = m_query.CalculateChunkCountWithoutFiltering();
             var renderGlyphCapturesStream = new NativeStream(chunkCount, state.WorldUpdateAllocator);
             var captureJh                 = new CaptureRenderGlyphsJob
             {
-                glyphEntryIDsToRasterizeSet = glyphEntryIDsToRasterizeSet.AsParallelWriter(),
+                addToAtlasSet               = addToAtlasSet.AsParallelWriter(),
                 glyphTable                  = glyphTable,
                 gpuStateHandle              = GetComponentTypeHandle<GpuState>(false),
                 renderGlyphCapturesStream   = renderGlyphCapturesStream.AsWriter(),
@@ -197,7 +208,7 @@ namespace TextMeshDOTS
                 renderGlyphCapturesStream = renderGlyphCapturesStream
             }.Schedule(captureJh);
 
-            var glyphEntryIDsToRasterize  = new NativeList<uint>(state.WorldUpdateAllocator);
+            var addToAtlas  = new NativeList<uint>(state.WorldUpdateAllocator);
             var atlasDirtyIDs             = new NativeList<uint>(state.WorldUpdateAllocator);
             var pixelUploadOffsetsInBytes = new NativeList<int>(state.WorldUpdateAllocator);
             var pixelBytesCount           = new NativeReference<int>(state.WorldUpdateAllocator);
@@ -205,8 +216,8 @@ namespace TextMeshDOTS
             {
                 atlasDirtyIDs               = atlasDirtyIDs,
                 atlasTable                  = atlasTable,
-                glyphEntryIDsToRasterize    = glyphEntryIDsToRasterize,
-                glyphEntryIDsToRasterizeSet = glyphEntryIDsToRasterizeSet,
+                addToAtlas                  = addToAtlas,
+                addToAtlasSet               = addToAtlasSet,
                 glyphTable                  = glyphTable,
                 pixelUploadOffsetsInBytes   = pixelUploadOffsetsInBytes,
                 pixelBytesCount             = pixelBytesCount,
@@ -218,7 +229,7 @@ namespace TextMeshDOTS
             return new CollectState
             {
                 atlasDirtyIDs             = atlasDirtyIDs,
-                glyphEntryIDsToRasterize  = glyphEntryIDsToRasterize,
+                addToAtlas                = addToAtlas,
                 glyphsToUpload            = captures,
                 pixelUploadOffsetsInBytes = pixelUploadOffsetsInBytes,
                 pixelBytesCount           = pixelBytesCount,
@@ -229,7 +240,10 @@ namespace TextMeshDOTS
         {
             WriteState writeState = default;
 
-            if (collected.glyphsToUpload.IsEmpty && collected.glyphEntryIDsToRasterize.IsEmpty)
+            bool hasGlyphsToUpload     = !collected.glyphsToUpload.IsEmpty;
+            bool hasGlyphsToAddToAtlas = !collected.addToAtlas.IsEmpty;
+
+            if (!hasGlyphsToUpload && !hasGlyphsToAddToAtlas)
                 return writeState;
 
             var glyphTable = SystemAPI.GetSingleton<GlyphTable>();
@@ -240,7 +254,7 @@ namespace TextMeshDOTS
             var rasterizeJh    = state.Dependency;
             var uploadGlyphsJh = rasterizeJh;
 
-            if (!collected.glyphEntryIDsToRasterize.IsEmpty)
+            if (hasGlyphsToAddToAtlas)
             {
                 // atlasDirtyIDs are sorted, so extracting the upper 2 bit (encoding the GlyphEntryIDFlags enum) sorts atlas by type
                 int dirtySdf8Count;
@@ -280,27 +294,27 @@ namespace TextMeshDOTS
 
                 var uploadBuffer = broker.GetUploadBuffer(m_pixelUploadID, (uint)collected.pixelBytesCount.Value / 4);
                 var uploadArray = uploadBuffer.LockBufferForWrite<byte>(0, collected.pixelBytesCount.Value);
-                var uploadMetaBuffer = broker.GetUploadBuffer(m_metaUint4UploadID, (uint)collected.glyphEntryIDsToRasterize.Length * 4);
-                var uploadMetaArray = uploadMetaBuffer.LockBufferForWrite<uint4>(0, collected.glyphEntryIDsToRasterize.Length);
+                var uploadMetaBuffer = broker.GetUploadBuffer(m_metaUint4UploadID, (uint)collected.addToAtlas.Length * 4);
+                var uploadMetaArray = uploadMetaBuffer.LockBufferForWrite<uint4>(0, collected.addToAtlas.Length);
 
                 rasterizeJh = new RasterizeJob
                 {
                     drawDelegates             = m_drawDelegates,
                     fontTable                 = fontTable,
-                    glyphEntryIDsToRasterize  = collected.glyphEntryIDsToRasterize.AsArray(),
+                    glyphEntryIDsToRasterize  = collected.addToAtlas.AsArray(),
                     glyphTable                = glyphTable,
                     pixelUploadOffsetsInBytes = collected.pixelUploadOffsetsInBytes.AsArray(),
                     uploadBuffer              = uploadArray,
                     uploadMetaBuffer          = uploadMetaArray,
                     atomicPrioritizer         = new NativeReference<int>(0, state.WorldUpdateAllocator),
-                }.ScheduleParallel(collected.glyphEntryIDsToRasterize.Length, 1, rasterizeJh);
+                }.ScheduleParallel(collected.addToAtlas.Length, 1, rasterizeJh);
 
                 writeState.pixelUploadBuffer               = uploadBuffer;
                 writeState.pixelUploadBufferWriteCount     = collected.pixelBytesCount.Value;
                 writeState.pixelUploadMetaBuffer           = uploadMetaBuffer;
-                writeState.pixelUploadMetaBufferWriteCount = collected.glyphEntryIDsToRasterize.Length;
+                writeState.pixelUploadMetaBufferWriteCount = collected.addToAtlas.Length;
             }
-            if (!collected.glyphsToUpload.IsEmpty)
+            if (hasGlyphsToUpload)
             {
                 var lastCapture = collected.glyphsToUpload[^1];
                 var glyphCount = lastCapture.writeStart + lastCapture.glyphCount;
@@ -387,7 +401,7 @@ namespace TextMeshDOTS
         public struct CollectState
         {
             internal NativeList<RenderGlyphCapture> glyphsToUpload;
-            internal NativeList<uint>               glyphEntryIDsToRasterize;
+            internal NativeList<uint>               addToAtlas;
             internal NativeList<uint>               atlasDirtyIDs;
             internal NativeList<int>                pixelUploadOffsetsInBytes;
             internal NativeReference<int>           pixelBytesCount;

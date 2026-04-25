@@ -20,12 +20,13 @@ namespace TextMeshDOTS
     /// Glyphs are encoded into compact RGBA16I blobs on the CPU and uploaded to a structured buffer.
     /// The GPU decodes and rasterizes glyphs directly in the fragment shader.
     /// </summary>
-    //[DisableAutoCreation]
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateAfter(typeof(UpdateGlyphsRenderersSystem))]
+    [CreateAfter(typeof(NativeFontLoaderSystem))]
     [RequireMatchingQueriesForUpdate]
     public unsafe partial class DispatchGlyphsSystem_GPU : SystemBase
     {
+        bool useSlug;
         GraphicsBufferBroker broker;
 
         static GraphicsBufferBroker.StaticID shbGpuAtlasBufferID = GraphicsBufferBroker.ReservePersistentBuffer();
@@ -66,6 +67,12 @@ namespace TextMeshDOTS
 
         protected override void OnCreate()
         {
+            useSlug = SystemAPI.GetSingleton<FontTable>().useSlug;
+            if (!useSlug)
+            {
+                Enabled = false;
+                return;
+            }
 
             m_numThreads = JobsUtility.MaxJobThreadCount;
             ref var state = ref CheckedStateRef;
@@ -144,6 +151,9 @@ namespace TextMeshDOTS
 
         protected override void OnDestroy()
         {
+            if(!useSlug)
+                return;
+
             broker.Dispose();
 
             ref var state = ref CheckedStateRef;
@@ -161,18 +171,18 @@ namespace TextMeshDOTS
             var glyphTable    = SystemAPI.GetSingletonRW<GlyphTable>().ValueRW;
             var glyphGpuTable = SystemAPI.GetSingletonRW<GlyphGpuTable>().ValueRW;
 
-            var glyphEntryIDsToEncodeSet = new NativeParallelHashSet<uint>(1, state.WorldUpdateAllocator);
+            var addToAtlasSet = new NativeParallelHashSet<uint>(1, state.WorldUpdateAllocator);
             var allocateJh = new AllocateJob
             {
                 glyphTable                  = glyphTable,
-                glyphEntryIDsToEncodeSet = glyphEntryIDsToEncodeSet,
+                addToAtlasSet    = addToAtlasSet,
             }.Schedule(state.Dependency);
 
             var chunkCount                = m_query.CalculateChunkCountWithoutFiltering();
             var renderGlyphCapturesStream = new NativeStream(chunkCount, state.WorldUpdateAllocator);
             var captureJh = new CaptureRenderGlyphsJob_GPU
             {
-                glyphEntryIDsToEncodeSet = glyphEntryIDsToEncodeSet.AsParallelWriter(),
+                addToAtlasSet               = addToAtlasSet.AsParallelWriter(),
                 glyphTable                  = glyphTable,
                 gpuStateHandle              = GetComponentTypeHandle<GpuState>(false),
                 renderGlyphCapturesStream   = renderGlyphCapturesStream.AsWriter(),
@@ -185,23 +195,22 @@ namespace TextMeshDOTS
             var assignJh = new AssignShaderIndicesJob
             {
                 captures                  = captures,
-                glyphTable                = glyphTable,
                 glyphGpuTable             = glyphGpuTable,
                 renderGlyphCapturesStream = renderGlyphCapturesStream
             }.Schedule(captureJh);
 
-            var glyphEntryIDsToEncode = new NativeList<uint>(state.WorldUpdateAllocator);            
+            var addToAtlas = new NativeList<uint>(state.WorldUpdateAllocator);            
             var copyJh = new CopyGlyphEntryIDsJob
             {
-                glyphEntryIDsToEncode  = glyphEntryIDsToEncode,
-                glyphEntryIDsToEncodeSet = glyphEntryIDsToEncodeSet,
+                addToAtlas                = addToAtlas,
+                addToAtlasSet             = addToAtlasSet,
             }.Schedule(captureJh);
 
             state.Dependency = JobHandle.CombineDependencies(assignJh, copyJh);
 
             return new CollectState
             {
-                glyphEntryIDsToEncode = glyphEntryIDsToEncode,
+                addToAtlas            = addToAtlas,
                 glyphsToUpload        = captures,
             };
         }
@@ -211,7 +220,7 @@ namespace TextMeshDOTS
             WriteState writeState = default;
 
             bool hasGlyphsToUpload = !collected.glyphsToUpload.IsEmpty;
-            bool hasGlyphsToEncode = !collected.glyphEntryIDsToEncode.IsEmpty;
+            bool hasGlyphsToEncode = !collected.addToAtlas.IsEmpty;
 
             if (!hasGlyphsToUpload && !hasGlyphsToEncode)
                 return writeState;
@@ -228,12 +237,12 @@ namespace TextMeshDOTS
             if (hasGlyphsToEncode)
             {
                 // Phase 1: Encode glyphs to temp buffer (single-threaded)
-                writeState.encodedBlobsTemp = new NativeList<byte>(collected.glyphEntryIDsToEncode.Length * 512, state.WorldUpdateAllocator); //cannot use NativeArray as gpu blobs have unpredictable size (SDF ~2-4k, COLR ~32-64k?)
-                writeState.blobMetaTemp = new NativeList<uint3>(collected.glyphEntryIDsToEncode.Length, state.WorldUpdateAllocator);
+                writeState.encodedBlobsTemp = new NativeList<byte>(collected.addToAtlas.Length * 512, state.WorldUpdateAllocator); //cannot use NativeArray as gpu blobs have unpredictable size (SDF ~2-4k, COLR ~32-64k?)
+                writeState.blobMetaTemp = new NativeList<uint3>(collected.addToAtlas.Length, state.WorldUpdateAllocator);
                 encodeJh = new EncodeGlyphsToGpuBlobsJob
                 {
                     fontTable           = fontTable,
-                    glyphEntryIDsToEncode = collected.glyphEntryIDsToEncode.AsArray(),
+                    glyphEntryIDsToEncode = collected.addToAtlas.AsArray(),
                     glyphTable          = glyphTable,
                     glyphGpuTable       = glyphGpuTable,
                     encodedBlobsTemp    = writeState.encodedBlobsTemp,
@@ -287,7 +296,6 @@ namespace TextMeshDOTS
                 for (int i = 0; i < written.blobMetaTemp.Length; i++)
                 {                    
                     var meta = written.blobMetaTemp[i];
-                    //Debug.Log($"DISPATCH: encodedBlobsOffset {meta.x} blobOffset {meta.y} alignedBlobSize {meta.z}"); 
                     UnsafeUtility.MemCpy(
                         (byte*)uploadArray.GetUnsafePtr() + meta.x, 
                         (byte*)written.encodedBlobsTemp.GetUnsafePtr() + meta.x,
@@ -303,7 +311,6 @@ namespace TextMeshDOTS
                 // Copy to persistent buffer
                 var glyphGpuTable = SystemAPI.GetSingleton<GlyphGpuTable>();
                 var persistentHbGpuAtlasBuffer = written.broker.GetPersistentBuffer(m_hbGpuAtlasBufferID, glyphGpuTable.bufferSizeHbGpuAtlas.Value / 8);
-                //var persistentHbGpuAtlasBuffer = written.broker.GetPersistentBuffer(m_hbGpuAtlasBufferID, uploadTexelCount);
 
                 m_uploadHbGpuAtlasShader.SetBuffer(0, _dst, persistentHbGpuAtlasBuffer);
                 m_uploadHbGpuAtlasShader.SetBuffer(0, _src, uploadBuffer);
@@ -350,7 +357,7 @@ namespace TextMeshDOTS
         public struct CollectState
         {
             internal NativeList<RenderGlyphCapture> glyphsToUpload;
-            internal NativeList<uint>               glyphEntryIDsToEncode;
+            internal NativeList<uint>               addToAtlas;
         }
 
         public struct WriteState

@@ -416,7 +416,7 @@ namespace TextMeshDOTS
                             entry.refCount   += delta.refCountDelta;
                             bool wasEmpty = oldCount <= 0;
                             bool isEmpty  = entry.refCount <= 0;
-                            if (entry.isInAtlas)
+                            if (entry.isInTextureAtlas)
                             {
                                 // There can be duplicate entry IDs. So it is possible we decrease the ref count to 0, only to increase it again.
                                 // Rather than preduplicate them, we add and remove from a hashset. We only consider entries in the atlas that

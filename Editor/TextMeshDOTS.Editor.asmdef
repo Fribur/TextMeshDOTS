@@ -1,0 +1,16 @@
+{
+    "name": "TextMeshDOTS.Editor",
+    "rootNamespace": "TextMeshDOTS.Editor",
+    "references": [
+        "TextMeshDOTS"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

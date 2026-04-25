@@ -317,7 +317,7 @@ namespace TextMeshDOTS
             }
 
              public readonly short invertedHeight => (short)-height;
-            public bool isInAtlas => x >= 0;
+            public bool isInTextureAtlas => x >= 0;
             public bool isInHbGPUAtlas => blobOffset >= 0;  // blobOffset=-1 means not encoded, >=0 means encoded
             public GlyphRect PaddedAtlasRect
             {

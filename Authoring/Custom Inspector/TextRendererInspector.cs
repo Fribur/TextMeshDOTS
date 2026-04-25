@@ -25,6 +25,7 @@ namespace TextMeshDOTS
 
             fontCollectionAssetProperty = container.Q<PropertyField>("fontCollectionAsset");
             fonts = container.Q<DropdownField>();
+            fonts.AddToClassList("unity-base-field__aligned");
 
             //try to add dropdown
             AddFontDropDown();
