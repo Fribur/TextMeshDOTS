@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Reflection;
+using TextMeshDOTS.Authoring;
 using TextMeshDOTS.HarfBuzz;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -41,7 +42,7 @@ namespace TextMeshDOTS
                 fontLookupKeys = new NativeList<FontLookupKey>(Allocator.Persistent),
                 fontLookupKeyToFaceIndexMap = new NativeHashMap<FontLookupKey, int>(64, Allocator.Persistent),
                 fontLookupKeyToNamedVariationIndexMap = new NativeHashMap<FontLookupKey, int>(64, Allocator.Persistent),
-                useSlug = true,
+                useSlug = TextMeshDOTSSettings.Loaded?.useGPURendering ?? false,
             });
 
             changedFontLoadDescriptionQ = SystemAPI.QueryBuilder()

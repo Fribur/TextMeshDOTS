@@ -21,12 +21,12 @@ namespace TextMeshDOTS
         struct AllocateJob : IJob
         {
             [ReadOnly] public GlyphTable       glyphTable;
-            public NativeParallelHashSet<uint> glyphEntryIDsToRasterizeSet;
+            public NativeParallelHashSet<uint> addToAtlasSet;
 
             public void Execute()
             {
                 // set 3x larger than needed because of https://discussions.unity.com/t/hashmap-is-full-error-before-hashmap-is-full/809238
-                glyphEntryIDsToRasterizeSet.Capacity = 3 * math.max(glyphTable.glyphEntries.Length, glyphEntryIDsToRasterizeSet.Capacity);
+                addToAtlasSet.Capacity = 3 * math.max(glyphTable.glyphEntries.Length, addToAtlasSet.Capacity);
             }
         }
 
@@ -40,7 +40,7 @@ namespace TextMeshDOTS
             public ComponentTypeHandle<GpuState>                    gpuStateHandle;
 
             [NativeDisableParallelForRestriction] public NativeStream.Writer renderGlyphCapturesStream;
-            public NativeParallelHashSet<uint>.ParallelWriter                glyphEntryIDsToRasterizeSet;
+            public NativeParallelHashSet<uint>.ParallelWriter                addToAtlasSet;
 
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
@@ -71,8 +71,8 @@ namespace TextMeshDOTS
                     foreach (var glyph in glyphs)
                     {
                         var entry = glyphTable.GetEntry(glyph.glyph.glyphEntryId);
-                        if (!entry.isInAtlas)
-                            glyphEntryIDsToRasterizeSet.Add(glyph.glyph.glyphEntryId);
+                        if (!entry.isInTextureAtlas)
+                            addToAtlasSet.Add(glyph.glyph.glyphEntryId);
                     }
                 }
 
@@ -133,6 +133,7 @@ namespace TextMeshDOTS
                     }
                     reader.EndForEachIndex();
                 }
+
                 if (dynamicCount > 0)
                 {
                     GapAllocator.TryAllocate(glyphGpuTable.residentGaps, (uint)dynamicCount, ref residentBufferSize, out var dynamicStart);
@@ -156,7 +157,7 @@ namespace TextMeshDOTS
 
                 glyphGpuTable.bufferSize.Value = residentBufferSize;
 
-                // Remove empty buffers from upload list.
+                // Remove empty captures from upload list.
                 int dstIndex = 0;
                 for (int i = 0; i < captures.Length; i++)
                 {
@@ -173,8 +174,8 @@ namespace TextMeshDOTS
         [BurstCompile]
         struct AllocateGlyphsInAtlasJob : IJob
         {
-            [ReadOnly] public NativeParallelHashSet<uint> glyphEntryIDsToRasterizeSet;
-            public NativeList<uint>                       glyphEntryIDsToRasterize;
+            [ReadOnly] public NativeParallelHashSet<uint> addToAtlasSet;
+            public NativeList<uint>                       addToAtlas;
             public NativeList<uint>                       atlasDirtyIDs;
             public NativeList<int>                        pixelUploadOffsetsInBytes;
             public NativeReference<int>                   pixelBytesCount;
@@ -184,21 +185,21 @@ namespace TextMeshDOTS
 
             public void Execute()
             {
-                var count                         = glyphEntryIDsToRasterizeSet.Count();
-                glyphEntryIDsToRasterize.Capacity = count;
-                foreach (var glyph in glyphEntryIDsToRasterizeSet)
-                    glyphEntryIDsToRasterize.AddNoResize(glyph);
+                var count                         = addToAtlasSet.Count();
+                addToAtlas.Capacity = count;
+                foreach (var glyph in addToAtlasSet)
+                    addToAtlas.AddNoResize(glyph);
                 // We sort in reverse order, because higher values of the top two bits tend to be the most expensive,
                 // so we want to have those earlier in the list when we rasterize them.
                 if(enableAtlasGC)
-                    glyphEntryIDsToRasterize.Sort(new GlyphEntryComparer(in glyphTable));
+                    addToAtlas.Sort(new GlyphEntryComparer(in glyphTable));
                 else
-                    glyphEntryIDsToRasterize.Sort(new ReverseComparer());
+                    addToAtlas.Sort(new ReverseComparer());
 
                 UnsafeHashSet<uint> dirtyAtlasIDSet = new UnsafeHashSet<uint>(32, Allocator.Temp);
                 int                 runningOffset   = 0;
 
-                foreach (var glyphEntryID in glyphEntryIDsToRasterize)
+                foreach (var glyphEntryID in addToAtlas)
                 {
                     ref var glyphEntry    = ref glyphTable.GetEntryRW(glyphEntryID);
                     var     doublePadding = 2 * glyphEntry.padding;

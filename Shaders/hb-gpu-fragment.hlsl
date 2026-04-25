@@ -53,74 +53,59 @@ int4 hb_gpu_fetch(int offset)
         data.y >> 16
     );
 }
-/*
- * Calculate root code for quadratic curve intersection
- */
-uint _hb_gpu_calc_root_code(float y1, float y2, float y3)
+uint _hb_gpu_calc_root_code (float y1, float y2, float y3)
 {
-    uint i1 = asuint(y1) >> 31u;
-    uint i2 = asuint(y2) >> 30u;
-    uint i3 = asuint(y3) >> 29u;
+  uint i1 = asuint (y1) >> 31u;
+  uint i2 = asuint (y2) >> 30u;
+  uint i3 = asuint (y3) >> 29u;
 
-    uint shift = (i2 & 2u) | (i1 & ~2u);
-    shift = (i3 & 4u) | (shift & ~4u);
+  uint shift = (i2 & 2u) | (i1 & ~2u);
+  shift = (i3 & 4u) | (shift & ~4u);
 
-    return (0x2E74u >> shift) & 0x0101u;
+  return (0x2E74u >> shift) & 0x0101u;
 }
 
-/*
- * Solve horizontal quadratic polynomial for curve intersections
- */
-float2 _hb_gpu_solve_horiz_poly(float2 a, float2 b, float2 p1)
+float2 _hb_gpu_solve_horiz_poly (float2 a, float2 b, float2 p1)
 {
-    float ra = 1.0 / a.y;
-    float rb = 0.5 / b.y;
+  float ra = 1.0 / a.y;
+  float rb = 0.5 / b.y;
 
-    float d = sqrt(max(b.y * b.y - a.y * p1.y, 0.0));
-    float t1 = (b.y - d) * ra;
-    float t2 = (b.y + d) * ra;
+  float d = sqrt (max (b.y * b.y - a.y * p1.y, 0.0));
+  float t1 = (b.y - d) * ra;
+  float t2 = (b.y + d) * ra;
 
-    if (a.y == 0.0)
-        t1 = t2 = p1.y * rb;
+  if (a.y == 0.0)
+    t1 = t2 = p1.y * rb;
 
-    return float2((a.x * t1 - b.x * 2.0) * t1 + p1.x,
-                  (a.x * t2 - b.x * 2.0) * t2 + p1.x);
+  return float2 ((a.x * t1 - b.x * 2.0) * t1 + p1.x,
+                 (a.x * t2 - b.x * 2.0) * t2 + p1.x);
 }
 
-/*
- * Solve vertical quadratic polynomial for curve intersections
- */
-float2 _hb_gpu_solve_vert_poly(float2 a, float2 b, float2 p1)
+float2 _hb_gpu_solve_vert_poly (float2 a, float2 b, float2 p1)
 {
-    float ra = 1.0 / a.x;
-    float rb = 0.5 / b.x;
+  float ra = 1.0 / a.x;
+  float rb = 0.5 / b.x;
 
-    float d = sqrt(max(b.x * b.x - a.x * p1.x, 0.0));
-    float t1 = (b.x - d) * ra;
-    float t2 = (b.x + d) * ra;
+  float d = sqrt (max (b.x * b.x - a.x * p1.x, 0.0));
+  float t1 = (b.x - d) * ra;
+  float t2 = (b.x + d) * ra;
 
-    if (a.x == 0.0)
-        t1 = t2 = p1.x * rb;
+  if (a.x == 0.0)
+    t1 = t2 = p1.x * rb;
 
-    return float2((a.y * t1 - b.y * 2.0) * t1 + p1.y,
-                  (a.y * t2 - b.y * 2.0) * t2 + p1.y);
+  return float2 ((a.y * t1 - b.y * 2.0) * t1 + p1.y,
+                 (a.y * t2 - b.y * 2.0) * t2 + p1.y);
 }
 
-/*
- * Calculate coverage from horizontal and vertical ray casting
- */
-float _hb_gpu_calc_coverage(float xcov, float ycov, float xwgt, float ywgt)
+float _hb_gpu_calc_coverage (float xcov, float ycov, float xwgt, float ywgt)
 {
-    float coverage = max(abs(xcov * xwgt + ycov * ywgt) /
-                        max(xwgt + ywgt, 1.0 / 65536.0),
-                        min(abs(xcov), abs(ycov)));
+  float coverage = max (abs (xcov * xwgt + ycov * ywgt) /
+                        max (xwgt + ywgt, 1.0 / 65536.0),
+                        min (abs (xcov), abs (ycov)));
 
-    return clamp(coverage, 0.0, 1.0);
+  return clamp (coverage, 0.0, 1.0);
 }
 
-/*
- * Glyph info structure decoded from blob header
- */
 struct _hb_gpu_glyph_info
 {
     int glyphLoc;     // Texel offset of glyph blob in atlas
@@ -131,38 +116,28 @@ struct _hb_gpu_glyph_info
     float2 scale;     // Scale factor for this glyph
 };
 
-/*
- * Decode glyph header from blob
- *
- * renderCoord: em-space sample position
- * glyphLoc: byte offset of glyph blob in atlas (divided by 8 internally to get texel offset)
- */
-_hb_gpu_glyph_info _hb_gpu_decode_glyph(float2 renderCoord, uint glyphLoc)
+_hb_gpu_glyph_info _hb_gpu_decode_glyph (float2 renderCoord, uint glyphLoc_)
 {
-    _hb_gpu_glyph_info gi;
-    gi.glyphLoc = (int)glyphLoc;
+  _hb_gpu_glyph_info gi;
+  gi.glyphLoc = (int) glyphLoc_;
 
-    // Read glyph header (first 2 texels)
-    int4 header0 = hb_gpu_fetch(gi.glyphLoc);
-    int4 header1 = hb_gpu_fetch(gi.glyphLoc + 1);
+  int4 header0 = hb_gpu_fetch (gi.glyphLoc);
+  int4 header1 = hb_gpu_fetch (gi.glyphLoc + 1);
+  float4 ext = (float4) header0 * HB_GPU_INV_UNITS;
+  gi.numHBands = header1.r;
+  gi.numVBands = header1.g;
+  gi.scale = float2 ((float) header1.b, (float) header1.a);
 
-    // Extents in font design units
-    float4 ext = (float4)header0 * HB_GPU_INV_UNITS;
-    gi.numHBands = header1.r;
-    gi.numVBands = header1.g;
-    gi.scale = float2((float)header1.b, (float)header1.a);
+  float2 extSize = ext.zw - ext.xy;
+  float2 bandScale = float2 ((float) gi.numVBands, (float) gi.numHBands) / max (extSize, float2 (1.0 / 65536.0, 1.0 / 65536.0));
+  float2 bandOffset = -ext.xy * bandScale;
 
-    // Calculate band indices for this render coordinate
-    float2 extSize = ext.zw - ext.xy;
-    float2 bandScale = float2((float)gi.numVBands, (float)gi.numHBands) / max(extSize, float2(1.0 / 65536.0, 1.0 / 65536.0));
-    float2 bandOffset = -ext.xy * bandScale;
+  gi.bandIndex = clamp ((int2) (renderCoord * bandScale + bandOffset),
+                        int2 (0, 0),
+                        int2 (gi.numVBands - 1, gi.numHBands - 1));
 
-    gi.bandIndex = clamp((int2)(renderCoord * bandScale + bandOffset),
-                         int2(0, 0),
-                         int2(gi.numVBands - 1, gi.numHBands - 1));
-
-    gi.bandBase = gi.glyphLoc + 2;
-    return gi;
+  gi.bandBase = gi.glyphLoc + 2;
+  return gi;
 }
 
 /* Return pixels per em at this fragment.
@@ -178,138 +153,126 @@ float hb_gpu_ppem (float2 renderCoord, uint glyphLoc_)
 	 max (emsPerPixel.x, emsPerPixel.y);
 }
 
-/*
- * Single-sample coverage rendering
- *
- * renderCoord: em-space sample position
- * pixelsPerEm: pixels per em at this fragment
- * glyphLoc: texel offset of glyph blob in atlas
- */
-float _hb_gpu_slug_single(float2 renderCoord, float2 pixelsPerEm, uint glyphLoc)
+int2 _hb_gpu_curve_counts (float2 renderCoord, uint glyphLoc_)
 {
-    _hb_gpu_glyph_info gi = _hb_gpu_decode_glyph(renderCoord, glyphLoc);
-    int glyphLocInt = gi.glyphLoc;
-    int bandBase = gi.bandBase;
-    int numHBands = gi.numHBands;
+  _hb_gpu_glyph_info gi = _hb_gpu_decode_glyph (renderCoord, glyphLoc_);
+  int hCount = hb_gpu_fetch (gi.bandBase + gi.bandIndex.y).r;
+  int vCount = hb_gpu_fetch (gi.bandBase + gi.numHBands + gi.bandIndex.x).r;
+  return int2 (hCount, vCount);
+}
 
-    // Horizontal ray casting
-    float xcov = 0.0;
-    float xwgt = 0.0;
+/* Single-sample coverage in [0, 1]. */
+float _hb_gpu_slug_single (float2 renderCoord, float2 pixelsPerEm, uint glyphLoc_)
+{
 
-    int4 hbandData = hb_gpu_fetch(bandBase + gi.bandIndex.y);
-    int hCurveCount = hbandData.r;
-    float hSplit = (float)hbandData.a * HB_GPU_INV_UNITS;
-    bool hLeftRay = (renderCoord.x < hSplit);
-    int hDataOffset = (hLeftRay ? hbandData.b : hbandData.g) + 32768;
+  _hb_gpu_glyph_info gi = _hb_gpu_decode_glyph (renderCoord, glyphLoc_);
+  int glyphLoc = gi.glyphLoc;
+  int bandBase = gi.bandBase;
+  int numHBands = gi.numHBands;
 
-    int ci=0;
-    for (ci = 0; ci < hCurveCount; ci++)
-    {
-        int curveOffset = hb_gpu_fetch(glyphLocInt + hDataOffset + ci).r + 32768;
+  float xcov = 0.0;
+  float xwgt = 0.0;
 
-        int4 raw12 = hb_gpu_fetch(glyphLocInt + curveOffset);
-        int4 raw3 = hb_gpu_fetch(glyphLocInt + curveOffset + 1);
+  int4 hbandData = hb_gpu_fetch (bandBase + gi.bandIndex.y);
+  int hCurveCount = hbandData.r;
+  float hSplit = (float) hbandData.a * HB_GPU_INV_UNITS;
+  bool hLeftRay = (renderCoord.x < hSplit);
+  int hDataOffset = (hLeftRay ? hbandData.b : hbandData.g) + 32768;
 
-        float4 q12 = (float4)raw12 * HB_GPU_INV_UNITS;
-        float2 q3 = (float2)raw3.rg * HB_GPU_INV_UNITS;
+  for (int ci = 0; ci < hCurveCount; ci++)
+  {
+    int curveOffset = hb_gpu_fetch (glyphLoc + hDataOffset + ci).r + 32768;
 
-        float4 p12 = q12 - float4(renderCoord, renderCoord);
-        float2 p3 = q3 - renderCoord;
+    int4 raw12 = hb_gpu_fetch (glyphLoc + curveOffset);
+    int4 raw3 = hb_gpu_fetch (glyphLoc + curveOffset + 1);
 
-        // Early exit based on curve bounds
-        if (hLeftRay)
-        {
-            if (min(min(p12.x, p12.z), p3.x) * pixelsPerEm.x > 0.5)
-                break;
-        }
-        else
-        {
-            if (max(max(p12.x, p12.z), p3.x) * pixelsPerEm.x < -0.5)
-                break;
-        }
+    float4 q12 = (float4) raw12 * HB_GPU_INV_UNITS;
+    float2 q3 = (float2) raw3.rg * HB_GPU_INV_UNITS;
 
-        uint code = _hb_gpu_calc_root_code(p12.y, p12.w, p3.y);
-        if (code != 0u)
-        {
-            float2 a = q12.xy - q12.zw * 2.0 + q3;
-            float2 b = q12.xy - q12.zw;
-            float2 r = _hb_gpu_solve_horiz_poly(a, b, p12.xy) * pixelsPerEm.x;
-            float2 cov = hLeftRay ? clamp(float2(0.5, 0.5) - r, 0.0, 1.0)
-                                  : clamp(r + float2(0.5, 0.5), 0.0, 1.0);
+    float4 p12 = q12 - float4 (renderCoord, renderCoord);
+    float2 p3 = q3 - renderCoord;
 
-            if ((code & 1u) != 0u)
-            {
-                xcov += cov.x;
-                xwgt = max(xwgt, clamp(1.0 - abs(r.x) * 2.0, 0.0, 1.0));
-            }
-
-            if (code > 1u)
-            {
-                xcov -= cov.y;
-                xwgt = max(xwgt, clamp(1.0 - abs(r.y) * 2.0, 0.0, 1.0));
-            }
-        }
+    if (hLeftRay) {
+      if (min (min (p12.x, p12.z), p3.x) * pixelsPerEm.x > 0.5) break;
+    } else {
+      if (max (max (p12.x, p12.z), p3.x) * pixelsPerEm.x < -0.5) break;
     }
 
-    // Vertical ray casting
-    float ycov = 0.0;
-    float ywgt = 0.0;
-
-    int4 vbandData = hb_gpu_fetch(bandBase + numHBands + gi.bandIndex.x);
-    int vCurveCount = vbandData.r;
-    float vSplit = (float)vbandData.a * HB_GPU_INV_UNITS;
-    bool vLeftRay = (renderCoord.y < vSplit);
-    int vDataOffset = (vLeftRay ? vbandData.b : vbandData.g) + 32768;
-
-    for (ci = 0; ci < vCurveCount; ci++)
+    uint code = _hb_gpu_calc_root_code (p12.y, p12.w, p3.y);
+    if (code != 0u)
     {
-        int curveOffset = hb_gpu_fetch(glyphLocInt + vDataOffset + ci).r + 32768;
+      float2 a = q12.xy - q12.zw * 2.0 + q3;
+      float2 b = q12.xy - q12.zw;
+      float2 r = _hb_gpu_solve_horiz_poly (a, b, p12.xy) * pixelsPerEm.x;
+      float2 cov = hLeftRay ? clamp (float2 (0.5, 0.5) - r, 0.0, 1.0)
+                            : clamp (r + float2 (0.5, 0.5), 0.0, 1.0);
 
-        int4 raw12 = hb_gpu_fetch(glyphLocInt + curveOffset);
-        int4 raw3 = hb_gpu_fetch(glyphLocInt + curveOffset + 1);
+      if ((code & 1u) != 0u)
+      {
+        xcov += cov.x;
+        xwgt = max (xwgt, clamp (1.0 - abs (r.x) * 2.0, 0.0, 1.0));
+      }
 
-        float4 q12 = (float4)raw12 * HB_GPU_INV_UNITS;
-        float2 q3 = (float2)raw3.rg * HB_GPU_INV_UNITS;
+      if (code > 1u)
+      {
+        xcov -= cov.y;
+        xwgt = max (xwgt, clamp (1.0 - abs (r.y) * 2.0, 0.0, 1.0));
+      }
+    }
+  }
 
-        float4 p12 = q12 - float4(renderCoord, renderCoord);
-        float2 p3 = q3 - renderCoord;
+  float ycov = 0.0;
+  float ywgt = 0.0;
 
-        // Early exit based on curve bounds
-        if (vLeftRay)
-        {
-            if (min(min(p12.y, p12.w), p3.y) * pixelsPerEm.y > 0.5)
-                break;
-        }
-        else
-        {
-            if (max(max(p12.y, p12.w), p3.y) * pixelsPerEm.y < -0.5)
-                break;
-        }
+  int4 vbandData = hb_gpu_fetch (bandBase + numHBands + gi.bandIndex.x);
+  int vCurveCount = vbandData.r;
+  float vSplit = (float) vbandData.a * HB_GPU_INV_UNITS;
+  bool vLeftRay = (renderCoord.y < vSplit);
+  int vDataOffset = (vLeftRay ? vbandData.b : vbandData.g) + 32768;
 
-        uint code = _hb_gpu_calc_root_code(p12.x, p12.z, p3.x);
-        if (code != 0u)
-        {
-            float2 a = q12.xy - q12.zw * 2.0 + q3;
-            float2 b = q12.xy - q12.zw;
-            float2 r = _hb_gpu_solve_vert_poly(a, b, p12.xy) * pixelsPerEm.y;
-            float2 cov = vLeftRay ? clamp(float2(0.5, 0.5) - r, 0.0, 1.0)
-                                  : clamp(r + float2(0.5, 0.5), 0.0, 1.0);
+  for (int ci = 0; ci < vCurveCount; ci++)
+  {
+    int curveOffset = hb_gpu_fetch (glyphLoc + vDataOffset + ci).r + 32768;
 
-            if ((code & 1u) != 0u)
-            {
-                ycov -= cov.x;
-                ywgt = max(ywgt, clamp(1.0 - abs(r.x) * 2.0, 0.0, 1.0));
-            }
+    int4 raw12 = hb_gpu_fetch (glyphLoc + curveOffset);
+    int4 raw3 = hb_gpu_fetch (glyphLoc + curveOffset + 1);
 
-            if (code > 1u)
-            {
-                ycov += cov.y;
-                ywgt = max(ywgt, clamp(1.0 - abs(r.y) * 2.0, 0.0, 1.0));
-            }
-        }
+    float4 q12 = (float4) raw12 * HB_GPU_INV_UNITS;
+    float2 q3 = (float2) raw3.rg * HB_GPU_INV_UNITS;
+
+    float4 p12 = q12 - float4 (renderCoord, renderCoord);
+    float2 p3 = q3 - renderCoord;
+
+    if (vLeftRay) {
+      if (min (min (p12.y, p12.w), p3.y) * pixelsPerEm.y > 0.5) break;
+    } else {
+      if (max (max (p12.y, p12.w), p3.y) * pixelsPerEm.y < -0.5) break;
     }
 
-    return _hb_gpu_calc_coverage(xcov, ycov, xwgt, ywgt);
+    uint code = _hb_gpu_calc_root_code (p12.x, p12.z, p3.x);
+    if (code != 0u)
+    {
+      float2 a = q12.xy - q12.zw * 2.0 + q3;
+      float2 b = q12.xy - q12.zw;
+      float2 r = _hb_gpu_solve_vert_poly (a, b, p12.xy) * pixelsPerEm.y;
+      float2 cov = vLeftRay ? clamp (float2 (0.5, 0.5) - r, 0.0, 1.0)
+                            : clamp (r + float2 (0.5, 0.5), 0.0, 1.0);
+
+      if ((code & 1u) != 0u)
+      {
+        ycov -= cov.x;
+        ywgt = max (ywgt, clamp (1.0 - abs (r.x) * 2.0, 0.0, 1.0));
+      }
+
+      if (code > 1u)
+      {
+        ycov += cov.y;
+        ywgt = max (ywgt, clamp (1.0 - abs (r.y) * 2.0, 0.0, 1.0));
+      }
+    }
+  }
+
+  return _hb_gpu_calc_coverage (xcov, ycov, xwgt, ywgt);
 }
 
 /* Return coverage in [0, 1].
@@ -322,12 +285,10 @@ float _hb_gpu_slug_single(float2 renderCoord, float2 pixelsPerEm, uint glyphLoc)
 /* The MSAA-aware implementation.  Caller supplies pixelsPerEm so
  * this function can be invoked from non-uniform control flow (for
  * example from a paint op-stream branch). */
-//  original
 float _hb_gpu_slug (float2 renderCoord, float2 pixelsPerEm, uint glyphLoc_)
 {
+  float c = _hb_gpu_slug_single (renderCoord, pixelsPerEm, glyphLoc_);
 
-    float c = _hb_gpu_slug_single (renderCoord, pixelsPerEm, glyphLoc_);
- 
 #ifndef HB_GPU_NO_MSAA
   float ppem = hb_gpu_ppem (renderCoord, glyphLoc_);
 
@@ -345,21 +306,19 @@ float _hb_gpu_slug (float2 renderCoord, float2 pixelsPerEm, uint glyphLoc_)
   }
 #endif
 
-    return c;
+  return c;
 }
-
-/*
- * Stem darkening for small sizes
+/* Stem darkening for small sizes.
  *
- * coverage: output of _hb_gpu_slug
- * brightness: foreground brightness in [0, 1]
- * ppem: pixels per em at this fragment
+ * coverage:    output of hb_gpu_draw
+ * brightness:  foreground brightness in [0, 1]
+ * ppem:        pixels per em at this fragment
  */
-float hb_gpu_stem_darken(float coverage, float brightness, float ppem)
+float hb_gpu_stem_darken (float coverage, float brightness, float ppem)
 {
-    return pow(coverage,
-               lerp(pow(2.0, brightness - 0.5), 1.0,
-                    smoothstep(8.0, 48.0, ppem)));
+  return pow (coverage,
+	      lerp (pow (2.0, brightness - 0.5), 1.0,
+		    smoothstep (8.0, 48.0, ppem)));
 }
 
 // ============================================================================

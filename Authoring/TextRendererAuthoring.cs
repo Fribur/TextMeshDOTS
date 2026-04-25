@@ -54,10 +54,6 @@ namespace TextMeshDOTS.Authoring
                 authoring.language.Length == 0)
                 return;
 
-            string[] guids = AssetDatabase.FindAssets("TextBackendMesh t:mesh", null);
-            if (guids.Length == 0 || guids[0] == null)
-                return;
-
             var backendMesh = Resources.Load<Mesh>(TextBackendBakingUtility.kTextBackendMeshResource);
 
             //add MeshFilter and MeshRender on main entity to ensure it correctly converted 
