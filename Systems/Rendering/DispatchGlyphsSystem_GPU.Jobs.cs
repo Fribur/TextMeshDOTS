@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TextMeshDOTS.HarfBuzz;
 using TextMeshDOTS.LatiosInterop.Unsafe;
 using Unity.Burst;
@@ -8,6 +9,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
+using UnityEngine;
 using static TextMeshDOTS.DispatchGlyphsSystem;
 
 namespace TextMeshDOTS
@@ -62,7 +64,6 @@ namespace TextMeshDOTS
                     foreach (var glyph in glyphs)
                     {
                         var entry = glyphTable.GetEntry(glyph.glyph.glyphEntryId);
-                        // Check if glyph blob is encoded in HbGPUAtlas (blobOffset > 0 means it's encoded)
                         if (!entry.isInHbGPUAtlas)
                             glyphEntryIDsToEncodeSet.Add(glyph.glyph.glyphEntryId);
                     }
@@ -110,9 +111,8 @@ namespace TextMeshDOTS
             public GlyphGpuTable                   glyphGpuTable;
             [ReadOnly] public FontTable            fontTable;
 
-            public NativeList<byte>               encodedBlobs;
-            public NativeArray<uint3>              blobMeta;
-            public NativeReference<int>            totalSizeRef;
+            public NativeList<byte>  encodedBlobsTemp;
+            public NativeList<uint3> blobMeta;
 
             const uint kGcThresholdBytes = 268435456u; // 256 MB
 
@@ -122,7 +122,7 @@ namespace TextMeshDOTS
                 IntPtr gpuPaintContext = IntPtr.Zero;
                 IntPtr blob;
 
-                int tempBufferOffset     = 0;
+                int encodedBlobsOffset     = 0;
                 var hbGpuAtlasSize       = glyphGpuTable.bufferSizeHbGpuAtlas.Value;
 
                 // Run GC before allocating new blobs if buffer is over threshold
@@ -138,10 +138,7 @@ namespace TextMeshDOTS
                     var glyphEntry = glyphTable.GetEntry(glyphEntryID);
 
                     if (glyphEntry.width == 0 || glyphEntry.height == 0)
-                    {
-                        blobMeta[i] = default;
                         continue;
-                    }
 
                     var face = fontTable.faces[glyphEntry.key.faceIndex];
                     var font = fontTable.GetOrCreateFont(glyphEntry.key.faceIndex, 0);
@@ -166,26 +163,23 @@ namespace TextMeshDOTS
                     }
 
                     if (blob == IntPtr.Zero)
-                    {
-                        blobMeta[i] = default;
                         continue;
-                    }
 
                     //get blob and store
-                    uint blobLength = Harfbuzz.hb_blob_get_length(blob);
-                    byte* blobData = Harfbuzz.hb_blob_get_data(blob, out _);
+                    byte* blobData = Harfbuzz.hb_blob_get_data(blob, out uint blobLength);
                     int alignedBlobSize = (int)((blobLength + 7) & ~7);
                     GapAllocator.TryAllocate(glyphGpuTable.hbGpuAtlasGaps, (uint)alignedBlobSize, ref hbGpuAtlasSize, out var blobOffset);
-                    encodedBlobs.AddRange(blobData, (int)blobLength);
+                    encodedBlobsTemp.AddRange(blobData, (int)blobLength);
                     int padding = alignedBlobSize - (int)blobLength;
                     for (int p = 0; p < padding; p++) // pad to alignment boundary
-                        encodedBlobs.Add(0);
+                        encodedBlobsTemp.Add(0);
 
                     ref var entryRW = ref glyphTable.GetEntryRW(glyphEntryID);
                     entryRW.blobOffset = (int)blobOffset;
+                    entryRW.blobAlignedSize = alignedBlobSize;
 
-                    blobMeta[i] = new uint3((uint)tempBufferOffset, blobOffset, blobLength);
-                    tempBufferOffset += alignedBlobSize;
+                    blobMeta.Add(new uint3((uint)encodedBlobsOffset, blobOffset, (uint)alignedBlobSize));
+                    encodedBlobsOffset += alignedBlobSize;
 
                     if (Hint.Unlikely(face.hasColor))
                     {
@@ -200,7 +194,6 @@ namespace TextMeshDOTS
                 }
 
                 glyphGpuTable.bufferSizeHbGpuAtlas.Value = hbGpuAtlasSize;
-                totalSizeRef.Value = tempBufferOffset;
 
                 Harfbuzz.hb_gpu_draw_destroy(gpuDrawContext);
                 if (gpuPaintContext != IntPtr.Zero)
@@ -209,6 +202,7 @@ namespace TextMeshDOTS
 
             uint CollectHbGpuAtlasGarbage(uint currentSize)
             {
+                Debug.Log("Collect garbage in HbGPUAtlas");
                 // Free all zero-refcount glyph blobs into hbGpuAtlasGaps, then coalesce
                 foreach (var glyphEntryID in glyphGpuTable.hbGpuAtlasGcCandidates)
                 {
@@ -227,7 +221,17 @@ namespace TextMeshDOTS
                 }
                 glyphGpuTable.hbGpuAtlasGcCandidates.Clear();
 
+                // sort by start offset before coalescing, so TryAllocate is deterministic
+                glyphGpuTable.hbGpuAtlasGaps.Sort(new GapStartOffsetComparer());
+
                 return GapAllocator.CoalesceGaps(glyphGpuTable.hbGpuAtlasGaps, currentSize);
+            }
+            struct GapStartOffsetComparer : IComparer<uint2>
+            {
+                public int Compare(uint2 a, uint2 b)
+                {
+                    return a.x.CompareTo(b.x);
+                }
             }
         }      
 

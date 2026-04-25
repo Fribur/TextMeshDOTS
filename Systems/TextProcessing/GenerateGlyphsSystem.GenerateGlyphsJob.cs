@@ -269,7 +269,6 @@ namespace TextMeshDOTS
                     #endregion Handle Style Padding
 
                     var renderGlyph = new RenderGlyph();
-                    renderGlyph.arrayIndex = (uint)k;
                     renderGlyph.glyphEntryId = glyphEntryID;
 
 

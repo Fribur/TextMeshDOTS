@@ -34,7 +34,6 @@
  */
 
 #include "TmdGlobalsApi_GPU.hlsl"
-#include "hb-gpu-fragment.hlsl"
 
 // HB_GPU_UNITS_PER_EM defines the precision of the encoding
 #ifndef HB_GPU_UNITS_PER_EM
