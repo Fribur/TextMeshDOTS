@@ -24,6 +24,7 @@ namespace TextMeshDOTS
         //and map it to index of named instance in face. Use this to lookup instance profile via FontAssetRef
         public NativeHashMap<FontLookupKey, int> fontLookupKeyToNamedVariationIndexMap;
         public NativeList<FontLookupKey>         fontLookupKeys;
+        public bool useSlug;
 
         public Font SetVariableProfile(int faceIndex, int threadIndex, int variableProfileIndex)
         {            

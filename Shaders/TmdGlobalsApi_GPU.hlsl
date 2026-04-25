@@ -5,6 +5,7 @@
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Common.hlsl"
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Texture.hlsl"
+#pragma enable_d3d11_debug_symbols
 
 uniform ByteAddressBuffer _tmdGlyphs; //ByteAddressBuffer that mirrors the RenderGlyph layout.
 StructuredBuffer<int2> _hbGpuAtlas; // GPU blob atlas - ByteAddressBuffer of RGBA16I data (8 bytes per texel)

@@ -285,8 +285,9 @@ namespace TextMeshDOTS
                 var uploadMetaArray = uploadMetaBuffer.LockBufferForWrite<uint3>(0, written.blobMetaTemp.Length);
 
                 for (int i = 0; i < written.blobMetaTemp.Length; i++)
-                {
+                {                    
                     var meta = written.blobMetaTemp[i];
+                    //Debug.Log($"DISPATCH: encodedBlobsOffset {meta.x} blobOffset {meta.y} alignedBlobSize {meta.z}"); 
                     UnsafeUtility.MemCpy(
                         (byte*)uploadArray.GetUnsafePtr() + meta.x, 
                         (byte*)written.encodedBlobsTemp.GetUnsafePtr() + meta.x,
@@ -300,7 +301,9 @@ namespace TextMeshDOTS
                 uploadMetaBuffer.UnlockBufferAfterWrite<uint3>(written.blobMetaTemp.Length);
 
                 // Copy to persistent buffer
-                var persistentHbGpuAtlasBuffer = written.broker.GetPersistentBuffer(m_hbGpuAtlasBufferID, uploadTexelCount);
+                var glyphGpuTable = SystemAPI.GetSingleton<GlyphGpuTable>();
+                var persistentHbGpuAtlasBuffer = written.broker.GetPersistentBuffer(m_hbGpuAtlasBufferID, glyphGpuTable.bufferSizeHbGpuAtlas.Value / 8);
+                //var persistentHbGpuAtlasBuffer = written.broker.GetPersistentBuffer(m_hbGpuAtlasBufferID, uploadTexelCount);
 
                 m_uploadHbGpuAtlasShader.SetBuffer(0, _dst, persistentHbGpuAtlasBuffer);
                 m_uploadHbGpuAtlasShader.SetBuffer(0, _src, uploadBuffer);

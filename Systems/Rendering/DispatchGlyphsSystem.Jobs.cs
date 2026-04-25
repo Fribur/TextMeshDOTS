@@ -311,8 +311,11 @@ namespace TextMeshDOTS
                 if (face.HasVarData && font.currentVariableProfileIndex != glyphEntry.key.variableProfileIndex)
                     font = fontTable.SetVariableProfile(glyphEntry.key.faceIndex, threadIndex, glyphEntry.key.variableProfileIndex);
 
-                var samplingSize = glyphEntry.key.GetSamplingSize();
-                font.SetScale(samplingSize, samplingSize);
+                if (!fontTable.useSlug)
+                {
+                    var samplingSize = glyphEntry.key.GetSamplingSize();
+                    font.SetScale(samplingSize, samplingSize);
+                }
                 var maxDeviation = BezierMath.GetMaxDeviation(font.GetScale().x);
                 if (!drawData.edges.IsCreated)
                     drawData = new DrawData(256, 16, maxDeviation, Allocator.Temp);
@@ -494,4 +497,3 @@ namespace TextMeshDOTS
         #endregion
     }
 }
-

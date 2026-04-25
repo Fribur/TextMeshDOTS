@@ -41,6 +41,7 @@ namespace TextMeshDOTS
                 fontLookupKeys = new NativeList<FontLookupKey>(Allocator.Persistent),
                 fontLookupKeyToFaceIndexMap = new NativeHashMap<FontLookupKey, int>(64, Allocator.Persistent),
                 fontLookupKeyToNamedVariationIndexMap = new NativeHashMap<FontLookupKey, int>(64, Allocator.Persistent),
+                useSlug = true,
             });
 
             changedFontLoadDescriptionQ = SystemAPI.QueryBuilder()

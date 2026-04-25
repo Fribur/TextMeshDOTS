@@ -31,7 +31,6 @@ namespace TextMeshDOTS
             public Entity textColorGradientEntity;
             [ReadOnly] public BufferLookup<TextColorGradient> textColorGradientLookup;
 
-            public bool useSlug;
             public uint lastSystemVersion;
 
             [NativeSetThreadIndex]
@@ -130,10 +129,21 @@ namespace TextMeshDOTS
                 if (currentFace.HasVarData && currentFont.currentVariableProfileIndex != glyphEntry.key.variableProfileIndex)
                     currentFont = fontTable.SetVariableProfile(currentFaceIndex, threadIndex, glyphEntry.key.variableProfileIndex);
 
-                var currentFontSamplingPointSize = glyphOTF.glyphKey.GetSamplingSize();
+                
                 var currentFontWeigth = currentFont.GetStyleTag(StyleTag.WEIGHT);
                 var currentFontIsItalic = (byte)currentFont.GetStyleTag(StyleTag.ITALIC) == 1;
-                currentFont.SetScale(currentFontSamplingPointSize, currentFontSamplingPointSize);
+                int currentFontSamplingPointSize;
+                if (fontTable.useSlug)
+                {
+                    currentFontSamplingPointSize = (int)currentFace.UnitsPerEM;
+                }
+                else
+                {
+                    currentFontSamplingPointSize = glyphOTF.glyphKey.GetSamplingSize();
+                    currentFont.SetScale(currentFontSamplingPointSize, currentFontSamplingPointSize);
+                }
+                 
+                
                 // Todo: Don't hardcode these when line-wrapping is moved to shaping
                 currentFont.UpdateMetaData(Direction.LTR, Script.LATIN, Language.English);
 
@@ -157,25 +167,33 @@ namespace TextMeshDOTS
                     glyphEntry = glyphTable.GetEntry(glyphEntryID);
 
                     var cluster = (int)glyphOTF.cluster; //cluster is char index in cleaned text = aligned with glyphOTF buffer
+
+                    int newSamplingsize = currentFontSamplingPointSize;
+                    bool samplingSizeChanged = fontTable.useSlug ? false : currentFontSamplingPointSize != (newSamplingsize = glyphOTF.glyphKey.GetSamplingSize());
+                    bool variableIndexChanged = currentFace.HasVarData ? currentFont.currentVariableProfileIndex != glyphOTF.glyphKey.variableProfileIndex : false;
                     if (currentFaceIndex != glyphOTF.glyphKey.faceIndex ||
-                         (currentFace.HasVarData && currentFont.currentVariableProfileIndex != glyphOTF.glyphKey.variableProfileIndex) ||
-                         currentFontSamplingPointSize != glyphOTF.glyphKey.GetSamplingSize())
+                         (currentFace.HasVarData && variableIndexChanged) ||
+                         samplingSizeChanged)
                     {
                         //Debug.Log($"Switching font from {currentFaceIndex} to {glyphOTF.glyphKey.faceIndex}");
                         currentFaceIndex = glyphOTF.glyphKey.faceIndex;
                         currentFace = fontTable.faces[currentFaceIndex];
                         currentFont = fontTable.GetOrCreateFont(currentFaceIndex, threadIndex);
-                        if(currentFace.HasVarData && currentFont.currentVariableProfileIndex != glyphOTF.glyphKey.variableProfileIndex)
+                        if (variableIndexChanged)
                             currentFont = fontTable.SetVariableProfile(currentFaceIndex, threadIndex, glyphOTF.glyphKey.variableProfileIndex);
 
-                        currentFontSamplingPointSize = glyphOTF.glyphKey.GetSamplingSize();
+                        if (!fontTable.useSlug && samplingSizeChanged)
+                        {
+                            currentFontSamplingPointSize = newSamplingsize;
+                            currentFont.SetScale(currentFontSamplingPointSize, currentFontSamplingPointSize);
+                        }
                         currentFontWeigth = currentFont.GetStyleTag(StyleTag.WEIGHT);
                         currentFontIsItalic = (byte)currentFont.GetStyleTag(StyleTag.ITALIC) == 1;
-                        currentFont.SetScale(currentFontSamplingPointSize, currentFontSamplingPointSize);
+                        
                         // Todo: Don't hardcode these when line-wrapping is moved to shaping
                         currentFont.UpdateMetaData(Direction.LTR, Script.LATIN, Language.English);
                     }
-                    
+
                     while (cluster >= nextTagPositionInCleanedText)
                     {
                         if (tagsCounter < xmlTags.Length)
@@ -216,7 +234,7 @@ namespace TextMeshDOTS
                     int y_bearing = glyphEntry.yBearing;
                     int glyphHeight = glyphEntry.invertedHeight;
                     int glyphWidth = glyphEntry.width;
-                    int padding = useSlug ? 0 : glyphEntry.padding;
+                    int padding = fontTable.useSlug ? 0 : glyphEntry.padding;
 
                     float adjustedScale = layoutConfig.m_currentFontSize / currentFontSamplingPointSize * (textBaseConfiguration.isOrthographic ? 1 : 0.1f);
                     float elementAscentLine = currentFont.fontExtents.ascender;
@@ -240,6 +258,7 @@ namespace TextMeshDOTS
 
                     currentElementScale = adjustedScale * fontScaleMultiplier;
                     float baselineOffset = currentFont.baseLine * adjustedScale * fontScaleMultiplier;
+                    
                     #endregion
 
                     // Optimization to avoid calling this more than once per character.

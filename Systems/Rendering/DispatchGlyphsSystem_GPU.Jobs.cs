@@ -146,18 +146,18 @@ namespace TextMeshDOTS
                     if (face.HasVarData && font.currentVariableProfileIndex != glyphEntry.key.variableProfileIndex)
                         font = fontTable.SetVariableProfile(glyphEntry.key.faceIndex, 0, glyphEntry.key.variableProfileIndex);
 
-                    int upem = (int)face.UnitsPerEM;
+                    // note: for best quality slug rendering, do NOT scale font at all, and do not use hb_gpu_draw_set_scale
+                    // otherwise ensure font object is scaled identically in all jobs doing so, and set hb_gpu_draw_set_scale to upem                    
+
                     if (Hint.Unlikely(face.hasColor))
                     {
                         if (gpuPaintContext == IntPtr.Zero)
                             gpuPaintContext = Harfbuzz.hb_gpu_paint_create_or_fail();
-                        Harfbuzz.hb_gpu_paint_set_scale(gpuPaintContext, upem, upem);
                         Harfbuzz.hb_gpu_paint_glyph(gpuPaintContext, font.ptr, glyphEntry.key.glyphIndex);
                         blob = Harfbuzz.hb_gpu_paint_encode(gpuPaintContext, out _);
                     }
                     else
                     {
-                        Harfbuzz.hb_gpu_draw_set_scale(gpuDrawContext, upem, upem);
                         Harfbuzz.hb_gpu_draw_glyph(gpuDrawContext, font.ptr, glyphEntry.key.glyphIndex);
                         blob = Harfbuzz.hb_gpu_draw_encode(gpuDrawContext, out _);
                     }
@@ -210,11 +210,6 @@ namespace TextMeshDOTS
                     if (entry.refCount > 0 || !entry.isInHbGPUAtlas)
                         continue;
 
-                    // Recompute the aligned size to know how many bytes to free.
-                    // blobOffset is stored in the entry; we need the size. Since we don't
-                    // store size separately, we re-derive it from the gap allocator's perspective:
-                    // we record it now by storing alignedBlobSize in a separate field.
-                    // *** See note below about Entry.blobAlignedSize ***
                     glyphGpuTable.hbGpuAtlasGaps.Add(new uint2((uint)entry.blobOffset, (uint)entry.blobAlignedSize));
                     entry.blobOffset = -1;
                     entry.blobAlignedSize = 0;
@@ -258,7 +253,7 @@ namespace TextMeshDOTS
                     // and then decode the 4 I16 components via bit shifts
                     glyph.arrayIndex = (uint)(entry.blobOffset / 8);
 
-                    uploadArray[capture.writeStart + i] = glyph;              
+                    uploadArray[capture.writeStart + i] = glyph; 
                 }
                 uploadMetaArray[index] = new uint3((uint)capture.writeStart, (uint)capture.gpuStart, (uint)capture.glyphCount);
             }

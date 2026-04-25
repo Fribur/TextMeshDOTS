@@ -79,8 +79,11 @@ namespace TextMeshDOTS
                     if (fontTable.faces[missingGlyph.faceIndex].HasVarData && font.currentVariableProfileIndex != missingGlyph.variableProfileIndex)
                         font = fontTable.SetVariableProfile(missingGlyph.faceIndex, threadIndex, missingGlyph.variableProfileIndex);
 
-                    var samplingSize = missingGlyph.GetSamplingSize();
-                    font.SetScale(samplingSize, samplingSize);
+                    if (!fontTable.useSlug)
+                    {
+                        var samplingSize = missingGlyph.GetSamplingSize();
+                        font.SetScale(samplingSize, samplingSize);
+                    }
                     initialized = true;
                     lastFont = font;
                     lastKey = missingGlyph;

@@ -231,8 +231,11 @@ namespace TextMeshDOTS
                     font = fontTable.SetVariableProfile(faceIndex, threadIndex, namedVariationIndex);
 
                 var renderFormat = face.hasColor ? RenderFormat.Bitmap8888 : (fontConfig.m_fontTextureSize != FontTextureSize.Normal ? RenderFormat.SDF16 : RenderFormat.SDF8);
-                var samplingSize = FontEnumerationExtensions.GetSamplingSize(renderFormat, fontConfig.m_fontTextureSize);
-                font.SetScale(samplingSize, samplingSize);
+                if (!fontTable.useSlug) //Do NOT set scale for slug
+                {
+                    var samplingSize = FontEnumerationExtensions.GetSamplingSize(renderFormat, fontConfig.m_fontTextureSize);
+                    font.SetScale(samplingSize, samplingSize);
+                }
                 //Debug.Log($"renderFormat {renderFormat} samplingSize {samplingSize}");
 
                 //Debug.Log($"shape {text} {startIndex} {length}");
