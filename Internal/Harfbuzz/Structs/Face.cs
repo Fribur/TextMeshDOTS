@@ -52,7 +52,7 @@ namespace TextMeshDOTS.HarfBuzz
         }
         public NameID GetNamedInstancePostscriptNameID(int instanceIndex)
         {
-            return Harfbuzz.hb_ot_var_named_instance_get_subfamily_name_id(ptr, (uint)instanceIndex);
+            return Harfbuzz.hb_ot_var_named_instance_get_postscript_name_id(ptr, (uint)instanceIndex);
         }
 
         public void GetNamedInstanceDesignCoords(int instanceIndex, ref Span<float> coords, out uint coordLength)

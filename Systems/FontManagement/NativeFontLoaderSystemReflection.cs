@@ -210,7 +210,7 @@ namespace TextMeshDOTS
                                     case AxisTag.SLANT:
                                         variableFontLookupKey.slant = coord; break;
                                 }
-                                //Debug.Log($"Add FontLookupKey {tempFontLookupKey} for variation axis: {axisInfo.axisTag} {face.GetName(axisInfo.nameID, language)}, value = {coord}");
+                                //Debug.Log($"Add FontLookupKey {variableFontLookupKey} for variation axis: {axisInfo.axisTag} {face.GetName(axisInfo.nameID, language)}, value = {coord}");
                             }
                             fontTable.fontLookupKeyToNamedVariationIndexMap.Add(variableFontLookupKey, k);
                         }
