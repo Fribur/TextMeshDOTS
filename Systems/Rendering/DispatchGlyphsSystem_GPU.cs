@@ -61,9 +61,7 @@ namespace TextMeshDOTS
         AtlasTable    m_atlasToDestroy;
         GlyphGpuTable m_glyphGpuTableToDestroy;
 
-        // Per-thread GPU draw contexts for encoding
-        //NativeArray<IntPtr> m_gpuDrawContexts;
-        int m_numThreads;
+        //int m_numThreads;
 
         protected override void OnCreate()
         {
@@ -74,7 +72,7 @@ namespace TextMeshDOTS
                 return;
             }
 
-            m_numThreads = JobsUtility.MaxJobThreadCount;
+            //m_numThreads = JobsUtility.MaxJobThreadCount;
             ref var state = ref CheckedStateRef;
 
             m_query = QueryBuilder()

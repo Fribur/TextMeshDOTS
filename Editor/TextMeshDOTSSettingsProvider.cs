@@ -11,8 +11,8 @@ namespace TextMeshDOTS.Editor
     /// </summary>
     sealed class TextMeshDOTSSettingsProvider : SettingsProvider
     {
-        const string kAssetPath = "Assets/TextMeshDOTSSettings.asset";
         const string kSettingsPath = "Project/TextMeshDOTS";
+        const string kDefaultAssetPath = "Assets/TextMeshDOTSSettings.asset";
 
         TextMeshDOTSSettingsProvider(string path, SettingsScope scope, params string[] keywords)
             : base(path, scope, keywords)
@@ -38,14 +38,20 @@ namespace TextMeshDOTS.Editor
 
         static void EnsureSettingsAssetExists()
         {
-            if (AssetDatabase.LoadAssetAtPath<TextMeshDOTSSettings>(kAssetPath) != null)
+            var guids = AssetDatabase.FindAssets("t:TextMeshDOTSSettings");
+            if (guids.Length > 0)
+            {
+                if (guids.Length > 1)
+                    Debug.LogWarning("Multiple TextMeshDOTSSettings assets found. Delete the extras.");
                 return;
+            }
 
             AssetDatabase.Refresh();
 
             var settings = ScriptableObject.CreateInstance<TextMeshDOTSSettings>();
-            AssetDatabase.CreateAsset(settings, kAssetPath);
+            AssetDatabase.CreateAsset(settings, kDefaultAssetPath);
             AssetDatabase.SaveAssets();
+            Debug.Log("TextMeshDOTSSettings created at " + kDefaultAssetPath);
         }
 
         [SettingsProvider]

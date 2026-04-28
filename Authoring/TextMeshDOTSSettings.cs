@@ -1,4 +1,7 @@
 using UnityEngine;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace TextMeshDOTS.Authoring
 {
@@ -8,12 +11,6 @@ namespace TextMeshDOTS.Authoring
     /// </summary>
     public class TextMeshDOTSSettings : ScriptableObject
     {
-#if UNITY_EDITOR
-        const string kAssetPath = "Assets/TextMeshDOTSSettings.asset";
-#else
-        const string kAssetPath = "TextMeshDOTSSettings.asset";
-#endif
-
         [Tooltip("GPU Rendering (Slug): Rasterize glyphs on the GPU using the Slug algorithm. CPU Rendering: Rasterize glyphs on the CPU into texture atlases.")]
         public bool useGPURendering = false;
 
@@ -27,7 +24,10 @@ namespace TextMeshDOTS.Authoring
                     return s_Loaded;
 
 #if UNITY_EDITOR
-                s_Loaded = UnityEditor.AssetDatabase.LoadAssetAtPath<TextMeshDOTSSettings>(kAssetPath);
+                var guids = AssetDatabase.FindAssets("t:TextMeshDOTSSettings");
+                if (guids.Length > 0)
+                    s_Loaded = AssetDatabase.LoadAssetAtPath<TextMeshDOTSSettings>(
+                        AssetDatabase.GUIDToAssetPath(guids[0]));
 #else
                 s_Loaded = Resources.Load<TextMeshDOTSSettings>("TextMeshDOTSSettings");
 #endif
