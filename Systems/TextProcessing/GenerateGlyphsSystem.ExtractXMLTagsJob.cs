@@ -25,8 +25,9 @@ namespace TextMeshDOTS
                 if (!(chunk.DidChange(ref calliByteHandle, lastSystemVersion)))
                     return;
 
-                var firstEntityIndex = firstEntityIndexInChunk[unfilteredChunkIndex];
                 //Debug.Log("Extract text segments job");
+
+                var firstEntityIndex = firstEntityIndexInChunk[unfilteredChunkIndex];                
                 var calliBytesBuffers = chunk.GetBufferAccessor(ref calliByteHandle);
 
                 var m_htmlTag = new FixedString128Bytes();

@@ -41,9 +41,10 @@ namespace TextMeshDOTS
                 if (!(chunk.DidChange(ref calliByteHandle, lastSystemVersion) ||
                       chunk.DidChange(ref textBaseConfigurationHandle, lastSystemVersion)))
                     return;
+                
+                //Debug.Log("Generate RenderGlyphs");
 
                 var firstEntityIndex = firstEntityIndexInChunk[unfilteredChunkIndex];
-                //Debug.Log("Generate glyphs job");
                 var calliBytesBuffers = chunk.GetBufferAccessor(ref calliByteHandle);
                 var renderGlyphBuffers = chunk.GetBufferAccessor(ref renderGlyphHandle);
                 var previousRenderGlyphBuffers = chunk.GetBufferAccessor(ref previousRenderGlyphHandle);
@@ -91,8 +92,7 @@ namespace TextMeshDOTS
                                            ref NativeArray<XMLTag> xmlTags,
                                            in TextBaseConfiguration textBaseConfiguration,
                                            ref TextColorGradientArray textColorGradientArray)
-            {
-                //Debug.Log("CreateRenderGlyphs");
+            {                
                 var calliString = new CalliString(calliBytesBuffer);
                 var characters = calliString.GetEnumerator();
 
