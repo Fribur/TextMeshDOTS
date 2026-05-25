@@ -9,6 +9,7 @@ using Unity.Entities;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Scenes;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.TextCore.LowLevel;
 
 using Font = TextMeshDOTS.HarfBuzz.Font;
@@ -24,9 +25,9 @@ namespace TextMeshDOTS
     partial class NativeFontLoaderSystem : SystemBase
     {
         EntityQuery changedFontLoadDescriptionQ;
-        MethodInfo methodInfo;
-        FieldInfo[] fontReference;
-        object m_fontRef;
+        static MethodInfo sMethodInfo;
+        static FieldInfo[] sFontLoadDescription;
+        static object sFontRef;
 
         protected override void OnCreate()
         {
@@ -68,11 +69,16 @@ namespace TextMeshDOTS
             //copy to nativeArray because LoadFont would invalidate DynamicBuffer due to structural changes
             var fontLoadDescriptions = CollectionHelper.CreateNativeArray<FontLoadDescription>(changedFontLoadDescriptionBuffer.AsNativeArray(), WorldUpdateAllocator);
 
+            // avoid opening the same collection file multiple times in one update
+            var processedPaths = new NativeHashSet<FixedString512Bytes>(8, WorldUpdateAllocator);
+
             for (int i = 0, ii = fontLoadDescriptions.Length; i < ii; i++)
             {
-                var fontReference = fontLoadDescriptions[i];
-                if (!fontTable.fontLookupKeyToFaceIndexMap.ContainsKey(fontReference.fontLookupKey))
-                    LoadFont(fontReference, ref CheckedStateRef, ref fontTable);
+                var fontLoadDescription = fontLoadDescriptions[i];
+                if (fontTable.fontLookupKeyToFaceIndexMap.ContainsKey(fontLoadDescription.fontLookupKey))
+                    continue;
+
+                LoadFont(fontLoadDescription, ref CheckedStateRef, ref fontTable, ref processedPaths);
             }
         }
 
@@ -96,22 +102,22 @@ namespace TextMeshDOTS
                 }
             }
             var fontReferenceType = textCoreFontEngineModule.GetType("UnityEngine.TextCore.LowLevel.FontReference");
-            fontReference = fontReferenceType.GetFields();
-            var m_fontRef = Activator.CreateInstance(fontReferenceType);
+            sFontLoadDescription = fontReferenceType.GetFields();
+            sFontRef = Activator.CreateInstance(fontReferenceType);
 
             BindingFlags bindingFlags = BindingFlags.NonPublic | BindingFlags.Static;
-            methodInfo = typeof(FontEngine).GetMethod("TryGetSystemFontReference", bindingFlags);
-            //MakeDelegate<fontReference>(methodInfo);
+            sMethodInfo = typeof(FontEngine).GetMethod("TryGetSystemFontReference", bindingFlags);
+            //MakeDelegate<sFontLoadDescription>(sMethodInfo);
         }
         public static Func<string, string, object, bool> MakeDelegate<U>(MethodInfo methodInfo)
         {
             var f = (Func<string, string, U, bool>)Delegate.CreateDelegate(typeof(Func<string, string, U, bool>), methodInfo);
             return (a, b, c) => f(a, b, (U)c);
         }
-        void LoadFont(FontLoadDescription fontLoadDescription, ref SystemState state, ref FontTable fontTable)
+       
+        void LoadFont(FontLoadDescription fontLoadDescription, ref SystemState state, ref FontTable fontTable, ref NativeHashSet<FixedString512Bytes> processedPaths)
         {
             Blob blob;
-            string fontAssetPath;
 
             if (fontLoadDescription.isSystemFont)
             {
@@ -120,34 +126,41 @@ namespace TextMeshDOTS
                 var typeographicFamilyDataMissing = (fontLoadDescription.typographicFamily.IsEmpty || fontLoadDescription.typographicSubfamily.IsEmpty);
                 var family = typeographicFamilyDataMissing ? fontLoadDescription.fontFamily : fontLoadDescription.typographicFamily;
                 var subFamily = typeographicFamilyDataMissing ? fontLoadDescription.fontSubFamily : fontLoadDescription.typographicSubfamily;
-                object[] args = new object[] { family.ToString(), subFamily.ToString(), m_fontRef };
-                var systemFontFound = (bool)methodInfo.Invoke(null, args);
+                object[] args = new object[] { family.ToString(), subFamily.ToString(), sFontRef };
+                var systemFontFound = (bool)sMethodInfo.Invoke(null, args);
                 var result = args[2];
 
                 //if (!TryGetSystemFontReference(family.ToString(), subFamily.ToString(), out UnityFontReference unityFontReference))
                 if (!systemFontFound)
                 {
-                    //Debug.Log($"Could not find system font {fontReference.fontFamily} {fontReference.fontSubFamily}");
+                    //Debug.Log($"Could not find system font {fontLoadDescription.fontFamily} {fontLoadDescription.fontSubFamily}");
                     return;
                 }
                 //Debug.Log($"Found {fieldInfos[0].GetValue(result)} {fieldInfos[1].GetValue(result)} {fieldInfos[2].GetValue(result)} {fieldInfos[3].GetValue(result)}");
-                fontAssetPath = (string)this.fontReference[3].GetValue(result);
+                var systemFontPath = (string)sFontLoadDescription[3].GetValue(result);
+                if (!processedPaths.Add(systemFontPath))
+                    return; // all faces from system font file where already loaded this update, skip.
+                blob = new Blob(systemFontPath);
+            }
+            else if (fontLoadDescription.streamingAssetLocationValidated)
+            {
+                if (!processedPaths.Add(fontLoadDescription.filePath))
+                    return; // all faces from this file were already loaded this update, skip.
+                if (!TryCreateStreamingAssetBlob(fontLoadDescription.filePath.ToString(), out blob))
+                    return;
             }
             else
             {
-                if (fontLoadDescription.streamingAssetLocationValidated)
-                    fontAssetPath = Path.Combine(Application.streamingAssetsPath, fontLoadDescription.filePath.ToString());
-                else
-                    fontAssetPath = fontLoadDescription.filePath.ToString();
-
+                var fontAssetPath = fontLoadDescription.filePath.ToString();
                 if (!File.Exists(fontAssetPath))
                 {
                     //Debug.Log($"Could not find font in {fontAssetPath}");
                     return;
                 }
+                if (!processedPaths.Add(fontLoadDescription.filePath))
+                    return; // all faces from this file were already loaded this update, skip.
+                blob = new Blob(fontAssetPath);
             }
-
-            blob = new Blob(fontAssetPath);
             blob.MakeImmutable();//is this neccessary considering we dispose the blob in next instruction?
 
             // in case font file is a collection font, chances are that none of the faces have been loaded yet
@@ -188,7 +201,7 @@ namespace TextMeshDOTS
                         float coord;
 
                         //fetch a list of named variants                        
-                        //Debug.Log($"found {axisCount} variation axis for font {fontReference.fontFamily} {fontReference.fontSubFamily}, {face.NamedInstanceCount} named instances");
+                        //Debug.Log($"found {axisCount} variation axis for font {fontLoadDescription.fontFamily} {fontLoadDescription.fontSubFamily}, {face.NamedInstanceCount} named instances");
                         Span<float> coords = stackalloc float[axisCount];
                         for (int k = 0, kk = (int)face.NamedInstanceCount; k < kk; k++)
                         {
@@ -219,6 +232,38 @@ namespace TextMeshDOTS
             }
             //blob can be disposed here, face and font are disposed at world shutdown via FontTable.TryDispose 
             blob.Dispose();
+        }
+
+         // On Android StreamingAssets are inside the APK; per Unity docs only UnityWebRequest can read them
+        static bool TryCreateStreamingAssetBlob(string relativePath, out Blob blob)
+        {
+#if !UNITY_ANDROID || UNITY_EDITOR
+            var path = Path.Combine(Application.streamingAssetsPath, relativePath);
+            if (!File.Exists(path))
+            {
+                blob = default;
+                return false;
+            }
+            blob = new Blob(path);
+            return true;
+#else
+            var source = Path.Combine(Application.streamingAssetsPath, relativePath);
+            using (var request = UnityWebRequest.Get(source))
+            {
+                request.SendWebRequest();
+                while (!request.isDone) { }
+                if (request.result != UnityWebRequest.Result.Success)
+                {
+                    Debug.LogError($"TextMeshDOTS: failed to read '{source}': {request.error}");
+                    blob = default;
+                    return false;
+                }
+                var nativeData = request.downloadHandler.nativeData;
+                byte* ptr = (byte*)nativeData.GetUnsafeReadOnlyPtr();
+                blob = new Blob(ptr, (uint)nativeData.Length, MemoryMode.DUBLICATE);
+                return true;
+            }
+#endif
         }
     }
 }
