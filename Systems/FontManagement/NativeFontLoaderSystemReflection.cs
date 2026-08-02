@@ -9,6 +9,7 @@ using Unity.Entities;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Scenes;
 using UnityEngine;
+using UnityEngine.Assemblies;
 using UnityEngine.Networking;
 using UnityEngine.TextCore.LowLevel;
 
@@ -90,8 +91,10 @@ namespace TextMeshDOTS
         void GetSystemFontsMethod()
         {
             Assembly textCoreFontEngineModule = default;
-            foreach (Assembly loadedAssembly in AppDomain.CurrentDomain.GetAssemblies())
+            var loadedAssemblies = CurrentAssemblies.GetLoadedAssemblies();
+            for(int i = 0, ii = loadedAssemblies.Count; i<ii; i++)
             {
+                var loadedAssembly = loadedAssemblies[i];
                 if (loadedAssembly.GetName().Name == "UnityEngine.TextCoreFontEngineModule")
                 {
                     textCoreFontEngineModule = loadedAssembly;

@@ -31,7 +31,7 @@ namespace TextMeshDOTS.HarfBuzz.Rasterizer
 
         float maxDeviation;
         SDFOrientation orientation;
-        public DrawDelegates drawFunctions;
+        DrawDelegates drawFunctions;
         DrawData drawData;
         Blob blob;
         Face face;
