@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using TextMeshDOTS.Authoring;
 using TextMeshDOTS.HarfBuzz;
@@ -91,8 +92,15 @@ namespace TextMeshDOTS
         void GetSystemFontsMethod()
         {
             Assembly textCoreFontEngineModule = default;
+#if UNITY_6000_4_OR_NEWER
             var loadedAssemblies = CurrentAssemblies.GetLoadedAssemblies();
-            for(int i = 0, ii = loadedAssemblies.Count; i<ii; i++)
+            var assemblyCount = loadedAssemblies.Count;
+#else
+            var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var assemblyCount = loadedAssemblies.Length;
+#endif
+
+            for (int i = 0; i < assemblyCount; i++)
             {
                 var loadedAssembly = loadedAssemblies[i];
                 if (loadedAssembly.GetName().Name == "UnityEngine.TextCoreFontEngineModule")
