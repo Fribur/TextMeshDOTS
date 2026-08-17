@@ -17,6 +17,7 @@ namespace TextMeshDOTS.RichText
             ref CalliString.Enumerator enumerator,
             int position,
             ref NativeStream.Writer xmlTagStream, 
+            ref int tagCount,
             ref FixedString128Bytes m_htmlTag) 
         {
             int tagCharCount = 0;
@@ -70,7 +71,7 @@ namespace TextMeshDOTS.RichText
                             if (tag.tagType == TagType.Unknown)
                             {
                                 calliStringRaw.GetSubString(ref m_htmlTag, startByteIndex, tagByteCount);                                
-                                if (m_htmlTag[0] == 35)//special handling of tags that specify color without any prefix
+                                if (m_htmlTag[0] == 35)  //special handling of tags that specify color without any prefix
                                 {                                     
                                     tag.tagType = TagType.Color;
                                     tagValue.type = TagValueType.ColorValue;
@@ -211,7 +212,10 @@ namespace TextMeshDOTS.RichText
                 return false;
             }
             if (tag.tagType != TagType.Unknown)
+            {
                 xmlTagStream.Write(tag);
+                tagCount++;
+            }
 
             return true;            
         }

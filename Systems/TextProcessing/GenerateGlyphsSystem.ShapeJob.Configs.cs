@@ -2,7 +2,6 @@ using System;
 using TextMeshDOTS.HarfBuzz;
 using TextMeshDOTS.RichText;
 using Unity.Collections;
-using UnityEngine;
 
 namespace TextMeshDOTS
 {
@@ -119,6 +118,14 @@ namespace TextMeshDOTS
                 }
             }
 
+            struct ShapeSpan
+            {
+                public int clusterStart;
+                public Direction direction;
+                public Script script;
+                public Language language;
+            }
+
             struct FontConfig
             {
                 public int m_faceIndex;
@@ -137,7 +144,7 @@ namespace TextMeshDOTS
 
                 public FontTextureSize m_fontTextureSize;
 
-                FontLookupKey FontAssetRef
+                FontLookupKey fontLookupKey
                 {
                     get { return new FontLookupKey(m_fontFamilyHash, m_fontWeight, m_fontWidth, m_isItalic); }
                 }
@@ -160,7 +167,7 @@ namespace TextMeshDOTS
 
                     m_fontTextureSize = textBaseConfiguration.fontTextureSize;
 
-                    var defaultFaceIndex = fontTable.GetFaceIndex(FontAssetRef);
+                    var defaultFaceIndex = fontTable.GetFaceIndex(fontLookupKey);
                     if(defaultFaceIndex == -1)
                     {
                         //fontTable does not contain a font of this family,
@@ -168,9 +175,9 @@ namespace TextMeshDOTS
                         //leave everything else the same (weight, width etc), and search matching faceIndex
                         //Debug.Log($"Could not find FontLookupKey: {FontLookupKey}");
                         defaultFaceIndex = 0;
-                        var defaultFontAssetRef = fontTable.fontLookupKeys[defaultFaceIndex];
-                        m_fontFamilyHash = defaultFontAssetRef.familyHash;
-                        defaultFaceIndex = fontTable.GetFaceIndex(FontAssetRef);
+                        var defaultFontLookupKey = fontTable.fontLookupKeys[defaultFaceIndex];
+                        m_fontFamilyHash = defaultFontLookupKey.familyHash;
+                        defaultFaceIndex = fontTable.GetFaceIndex(fontLookupKey);
 
                         //var face = fontTable.faces[defaultFaceIndex];
                         //var language = Language.English();
@@ -179,7 +186,7 @@ namespace TextMeshDOTS
                     m_faceIndex = defaultFaceIndex == -1 ? m_faceIndex : defaultFaceIndex;
                     
                     if (fontTable.faces[m_faceIndex].HasVarData)
-                        fontTable.GetNamedVariationLookup(FontAssetRef, out m_namedVariationIndex);
+                        fontTable.GetNamedVariationLookup(fontLookupKey, out m_namedVariationIndex);
                 }
 
                 public void Update(ref XMLTag tag, ref FontTable fontTable, ref CalliString calliStringRaw)
@@ -193,10 +200,10 @@ namespace TextMeshDOTS
                             else
                                 m_isItalic = false;
 
-                            newFaceIndex = fontTable.GetFaceIndex(FontAssetRef);
+                            newFaceIndex = fontTable.GetFaceIndex(fontLookupKey);
                             m_faceIndex = newFaceIndex == -1 ? m_faceIndex : newFaceIndex;
                             if (fontTable.faces[m_faceIndex].HasVarData)
-                                fontTable.GetNamedVariationLookup(FontAssetRef, out m_namedVariationIndex);
+                                fontTable.GetNamedVariationLookup(fontLookupKey, out m_namedVariationIndex);
                             return;
                         case TagType.Bold:
                             if (!tag.isClosing)
@@ -207,10 +214,10 @@ namespace TextMeshDOTS
                             else
                                 m_fontWeight = m_fontWeightStack.RemoveExceptRoot();
 
-                            newFaceIndex = fontTable.GetFaceIndex(FontAssetRef);
+                            newFaceIndex = fontTable.GetFaceIndex(fontLookupKey);
                             m_faceIndex = newFaceIndex == -1 ? m_faceIndex : newFaceIndex;
                             if (fontTable.faces[m_faceIndex].HasVarData)
-                                fontTable.GetNamedVariationLookup(FontAssetRef, out m_namedVariationIndex);
+                                fontTable.GetNamedVariationLookup(fontLookupKey, out m_namedVariationIndex);
                             return;
                         case TagType.FontWeight:
                             if (!tag.isClosing)
@@ -221,10 +228,10 @@ namespace TextMeshDOTS
                             else
                                 m_fontWeight = m_fontWeightStack.RemoveExceptRoot();
 
-                            newFaceIndex = fontTable.GetFaceIndex(FontAssetRef);
+                            newFaceIndex = fontTable.GetFaceIndex(fontLookupKey);
                             m_faceIndex = newFaceIndex == -1 ? m_faceIndex : newFaceIndex;
                             if (fontTable.faces[m_faceIndex].HasVarData)
-                                fontTable.GetNamedVariationLookup(FontAssetRef, out m_namedVariationIndex);
+                                fontTable.GetNamedVariationLookup(fontLookupKey, out m_namedVariationIndex);
                             return;
                         case TagType.FontWidth:
                             if (!tag.isClosing)
@@ -235,10 +242,10 @@ namespace TextMeshDOTS
                             else
                                 m_fontWidth = m_fontWidthStack.RemoveExceptRoot();
 
-                            newFaceIndex = fontTable.GetFaceIndex(FontAssetRef);
+                            newFaceIndex = fontTable.GetFaceIndex(fontLookupKey);
                             m_faceIndex = newFaceIndex == -1 ? m_faceIndex : newFaceIndex;
                             if (fontTable.faces[m_faceIndex].HasVarData)
-                                fontTable.GetNamedVariationLookup(FontAssetRef, out m_namedVariationIndex);
+                                fontTable.GetNamedVariationLookup(fontLookupKey, out m_namedVariationIndex);
                             return;
                         case TagType.Font:
                             if (!tag.isClosing)
@@ -255,41 +262,111 @@ namespace TextMeshDOTS
                                     m_fontFamilyHashStack.Add(m_fontFamilyHash);
                                 }
 
-                                newFaceIndex = fontTable.GetFaceIndex(FontAssetRef);
+                                newFaceIndex = fontTable.GetFaceIndex(fontLookupKey);
                                 m_faceIndex = newFaceIndex == -1 ? m_faceIndex : newFaceIndex;
                                 if (fontTable.faces[m_faceIndex].HasVarData)
-                                    fontTable.GetNamedVariationLookup(FontAssetRef, out m_namedVariationIndex);
+                                    fontTable.GetNamedVariationLookup(fontLookupKey, out m_namedVariationIndex);
                                 return;
                             }
                             else
                             {
                                 m_fontFamilyHash = m_fontFamilyHashStack.RemoveExceptRoot();
 
-                                newFaceIndex = fontTable.GetFaceIndex(FontAssetRef);
+                                newFaceIndex = fontTable.GetFaceIndex(fontLookupKey);
                                 m_faceIndex = newFaceIndex == -1 ? m_faceIndex : newFaceIndex;
                                 if (fontTable.faces[m_faceIndex].HasVarData)
-                                    fontTable.GetNamedVariationLookup(FontAssetRef, out m_namedVariationIndex);
+                                    fontTable.GetNamedVariationLookup(fontLookupKey, out m_namedVariationIndex);
                             }
                         return;
                     }
                 }
             }
 
-            // Use LayoutConfig to change case prior to hb-shape. Works only for latin text
-            // Should this use cases really be in scope of TextMeshDOTS? 
+            // Use LayoutConfig to change case prior to hb-shape (works only for latin text,
+            // should this use case actually be in scope of TextMeshDOTS?), and to track
+            // the subset of rich-text-driven layout state needed to make word-wrap / line-break / vertical-
+            // layout decisions during shaping: font size, char/mono spacing, indent, line-justification, and
+            // baseline offset. Purely visual state (colors, gradients, FX rotation/scale, underline/
+            // strikethrough) stays in GenerateRenderGlyphsJob's own (larger) LayoutConfig.            
             struct LayoutConfig
             {
                 public FontStyles m_fontStyles;
 
+                public float                     m_currentFontSize;
+                public FixedStack512Bytes<float> m_sizeStack;
+
+                public float m_cSpacing;
+                public float m_monoSpacing;
+                public float m_xAdvance;
+
+                public float                     m_tagLineIndent;
+                public float                     m_tagIndent;
+                public FixedStack512Bytes<float> m_indentStack;
+
+                // <nobr>: suppresses word-wrap break-opportunity recording
+                public bool m_isNoBreak;
+
+                public HorizontalAlignmentOptions                     m_lineJustification;
+                public FixedStack512Bytes<HorizontalAlignmentOptions> m_lineJustificationStack;
+
+                public float                     m_baselineOffset;
+                public FixedStack512Bytes<float> m_baselineOffsetStack;
+
                 public LayoutConfig(in TextBaseConfiguration textBaseConfiguration)
                 {
                     m_fontStyles = textBaseConfiguration.fontStyles;
+
+                    m_currentFontSize = textBaseConfiguration.fontSize;
+                    m_sizeStack       = default;
+                    m_sizeStack.Add(m_currentFontSize);
+
+                    m_cSpacing    = 0;
+                    m_monoSpacing = 0;
+                    m_xAdvance    = 0;
+
+                    m_tagLineIndent = 0;
+                    m_tagIndent     = 0;
+                    m_indentStack   = default;
+                    m_indentStack.Add(m_tagIndent);
+
+                    m_isNoBreak = false;
+
+                    m_lineJustification      = textBaseConfiguration.lineJustification;
+                    m_lineJustificationStack = default;
+                    m_lineJustificationStack.Add(m_lineJustification);
+
+                    m_baselineOffset      = 0;
+                    m_baselineOffsetStack = default;
+                    m_baselineOffsetStack.Add(m_baselineOffset);
                 }
                 public void Reset(in TextBaseConfiguration textBaseConfiguration)
                 {
                     m_fontStyles = textBaseConfiguration.fontStyles;
+
+                    m_currentFontSize = textBaseConfiguration.fontSize;
+                    m_sizeStack.Clear();
+                    m_sizeStack.Add(m_currentFontSize);
+
+                    m_cSpacing    = 0;
+                    m_monoSpacing = 0;
+                    m_xAdvance    = 0;
+
+                    m_tagLineIndent = 0;
+                    m_tagIndent     = 0;
+                    m_indentStack.Clear();
+                    m_indentStack.Add(m_tagIndent);
+
+                    m_isNoBreak = false;
+
+                    m_lineJustification = textBaseConfiguration.lineJustification;
+                    m_lineJustificationStack.Clear();
+                    m_lineJustificationStack.Add(m_lineJustification);
+
+                    m_baselineOffset = 0;
+                    m_baselineOffsetStack.Clear();
+                    m_baselineOffsetStack.Add(0);
                 }
-                public void Update(ref XMLTag tag)
+                public void Update(ref XMLTag tag, in TextBaseConfiguration textBaseConfiguration)
                 {
                     switch (tag.tagType)
                     {
@@ -310,6 +387,163 @@ namespace TextMeshDOTS
                                 m_fontStyles |= FontStyles.LowerCase;
                         }
                         break;
+                        case TagType.NoBr:
+                            m_isNoBreak = !tag.isClosing;
+                            return;
+                        case TagType.Size:
+                            if (!tag.isClosing)
+                            {
+                                switch (tag.value.unit)
+                                {
+                                    case TagUnitType.Pixels:
+                                        m_currentFontSize = tag.value.NumericalValue;
+                                        m_sizeStack.Add(m_currentFontSize);
+                                        return;
+                                    case TagUnitType.FontUnits:
+                                        m_currentFontSize = textBaseConfiguration.fontSize * tag.value.NumericalValue;
+                                        m_sizeStack.Add(m_currentFontSize);
+                                        return;
+                                    case TagUnitType.Percentage:
+                                        m_currentFontSize = textBaseConfiguration.fontSize * tag.value.NumericalValue / 100;
+                                        m_sizeStack.Add(m_currentFontSize);
+                                        return;
+                                }
+                            }
+                            else
+                                m_currentFontSize = m_sizeStack.RemoveExceptRoot();
+                            return;
+                        case TagType.Space:
+                            switch (tag.value.unit)
+                            {
+                                case TagUnitType.Pixels:
+                                    m_xAdvance += (textBaseConfiguration.isOrthographic ? 1 : 0.1f) * tag.value.NumericalValue;
+                                    return;
+                                case TagUnitType.FontUnits:
+                                    m_xAdvance += (textBaseConfiguration.isOrthographic ? 1 : 0.1f) * m_currentFontSize * tag.value.NumericalValue;
+                                    return;
+                                case TagUnitType.Percentage:
+                                    // Not applicable
+                                    return;
+                            }
+                            return;
+                        case TagType.Align:
+                            if (!tag.isClosing)
+                            {
+                                switch (tag.value.stringValue)
+                                {
+                                    case StringValue.left:  // <align=left>
+                                        m_lineJustification = HorizontalAlignmentOptions.Left;
+                                        break;
+                                    case StringValue.right:  // <align=right>
+                                        m_lineJustification = HorizontalAlignmentOptions.Right;
+                                        break;
+                                    case StringValue.center:  // <align=center>
+                                        m_lineJustification = HorizontalAlignmentOptions.Center;
+                                        break;
+                                    case StringValue.justified:  // <align=justified>
+                                        m_lineJustification = HorizontalAlignmentOptions.Justified;
+                                        break;
+                                }
+                                m_lineJustificationStack.Add(m_lineJustification);
+                                return;
+                            }
+                            else
+                                m_lineJustification = m_lineJustificationStack.RemoveExceptRoot();
+                            return;
+                        case TagType.CSpace:
+                            if (!tag.isClosing)
+                            {
+                                switch (tag.value.unit)
+                                {
+                                    case TagUnitType.Pixels:
+                                        m_cSpacing = (textBaseConfiguration.isOrthographic ? 1 : 0.1f) * tag.value.NumericalValue;
+                                        return;
+                                    case TagUnitType.FontUnits:
+                                        m_cSpacing = (textBaseConfiguration.isOrthographic ? 1 : 0.1f) * m_currentFontSize * tag.value.NumericalValue;
+                                        return;
+                                    case TagUnitType.Percentage:
+                                        return;
+                                }
+                            }
+                            else
+                                m_cSpacing = 0;
+                            return;
+                        case TagType.Mspace:
+                            if (!tag.isClosing)
+                            {
+                                switch (tag.value.unit)
+                                {
+                                    case TagUnitType.Pixels:
+                                        m_monoSpacing = (textBaseConfiguration.isOrthographic ? 1 : 0.1f) * tag.value.NumericalValue;
+                                        return;
+                                    case TagUnitType.FontUnits:
+                                        m_monoSpacing = (textBaseConfiguration.isOrthographic ? 1 : 0.1f) * m_currentFontSize * tag.value.NumericalValue;
+                                        return;
+                                    case TagUnitType.Percentage:
+                                        return;
+                                }
+                            }
+                            else
+                                m_monoSpacing = 0;
+                            return;
+                        case TagType.Indent:
+                            if (!tag.isClosing)
+                            {
+                                switch (tag.value.unit)
+                                {
+                                    case TagUnitType.Pixels:
+                                        m_tagIndent = (textBaseConfiguration.isOrthographic ? 1 : 0.1f) * tag.value.NumericalValue;
+                                        break;
+                                    case TagUnitType.FontUnits:
+                                        m_tagIndent = (textBaseConfiguration.isOrthographic ? 1 : 0.1f) * m_currentFontSize * tag.value.NumericalValue;
+                                        break;
+                                    case TagUnitType.Percentage:
+                                        break;
+                                }
+                                m_indentStack.Add(m_tagIndent);
+                                m_xAdvance = m_tagIndent;
+                            }
+                            else
+                                m_tagIndent = m_indentStack.RemoveExceptRoot();
+                            return;
+                        case TagType.LineIndent:
+                            if (!tag.isClosing)
+                            {
+                                switch (tag.value.unit)
+                                {
+                                    case TagUnitType.Pixels:
+                                        m_tagLineIndent = (textBaseConfiguration.isOrthographic ? 1 : 0.1f) * tag.value.NumericalValue;
+                                        break;
+                                    case TagUnitType.FontUnits:
+                                        m_tagLineIndent = (textBaseConfiguration.isOrthographic ? 1 : 0.1f) * m_currentFontSize * tag.value.NumericalValue;
+                                        break;
+                                    case TagUnitType.Percentage:
+                                        break;
+                                }
+                                m_xAdvance += m_tagLineIndent;
+                            }
+                            else
+                                m_tagLineIndent = 0;
+                            return;
+                        case TagType.VOffset:
+                            if (!tag.isClosing)
+                            {
+                                switch (tag.value.unit)
+                                {
+                                    case TagUnitType.Pixels:
+                                        m_baselineOffset = (textBaseConfiguration.isOrthographic ? 1 : 0.1f) * tag.value.NumericalValue;
+                                        break;
+                                    case TagUnitType.FontUnits:
+                                        m_baselineOffset = (textBaseConfiguration.isOrthographic ? 1 : 0.1f) * m_currentFontSize * tag.value.NumericalValue;
+                                        break;
+                                    case TagUnitType.Percentage:
+                                        break;
+                                }
+                                m_baselineOffsetStack.Add(m_baselineOffset);
+                            }
+                            else
+                                m_baselineOffset = m_baselineOffsetStack.RemoveExceptRoot();
+                            return;
                     }
                 }
             }

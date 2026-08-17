@@ -14,27 +14,26 @@ namespace TextMeshDOTS
         internal partial struct ExtractTagsJob : IJobChunk
         {
             [NativeDisableParallelForRestriction] public NativeStream.Writer xmlTagStream;
-            [ReadOnly] public NativeArray<int> firstEntityIndexInChunk;
-            [ReadOnly] public BufferTypeHandle<CalliByte> calliByteHandle;
+            [ReadOnly] public BufferTypeHandle<CalliByte>                    calliByteHandle;
+            [ReadOnly] public ComponentTypeHandle<TextBaseConfiguration>     textBaseConfigurationHandle;
 
             public uint lastSystemVersion;
 
             [BurstCompile]
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                if (!(chunk.DidChange(ref calliByteHandle, lastSystemVersion)))
+                if (!chunk.DidChange(ref calliByteHandle, lastSystemVersion) && !chunk.DidChange(ref textBaseConfigurationHandle, lastSystemVersion))
                     return;
 
+                xmlTagStream.BeginForEachIndex(unfilteredChunkIndex);
                 //Debug.Log("Extract text segments job");
-
-                var firstEntityIndex = firstEntityIndexInChunk[unfilteredChunkIndex];                
                 var calliBytesBuffers = chunk.GetBufferAccessor(ref calliByteHandle);
 
                 var m_htmlTag = new FixedString128Bytes();
                 for (int indexInChunk = 0; indexInChunk < chunk.Count; indexInChunk++)
                 {
-                    int entityIndex = firstEntityIndex + indexInChunk;
-                    xmlTagStream.BeginForEachIndex(entityIndex);
+                    ref var header  = ref xmlTagStream.Allocate<XMLTagStreamHeader>();
+                    header.tagCount = 0;
 
                     var calliBytesBuffer = calliBytesBuffers[indexInChunk];
 
@@ -46,7 +45,7 @@ namespace TextMeshDOTS
                         var currentRune = rawCharacters.Current;
                         if (currentRune == '<')  // '<'
                         {
-                            if (RichTextParser.GetTag(in calliString, ref rawCharacters, previousRuneStartPosition, ref xmlTagStream, ref m_htmlTag))
+                            if (RichTextParser.GetTag(in calliString, ref rawCharacters, previousRuneStartPosition, ref xmlTagStream, ref header.tagCount, ref m_htmlTag))
                             {
                                 previousRuneStartPosition = rawCharacters.NextRuneByteIndex;
                                 continue;
@@ -56,8 +55,8 @@ namespace TextMeshDOTS
                         }
                         previousRuneStartPosition = rawCharacters.NextRuneByteIndex;
                     }
-                    xmlTagStream.EndForEachIndex();
                 }
+                xmlTagStream.EndForEachIndex();
             }
             public struct TextHelperStruct
             {

@@ -156,7 +156,7 @@ namespace TextMeshDOTS
             {
                 if (!threadRefCountChangeMap.IsCreated)
                     threadRefCountChangeMap = new UnsafeHashMap<uint, RefCountChangePtr>(1024, Allocator.Temp);
-
+                threadRefCountChangeMap.Clear();
                 var typeSet = new ComponentTypeSet(ComponentType.ReadWrite<ResidentRange>(), ComponentType.ReadWrite<PreviousRenderGlyph>());
                 ecb.RemoveComponent(unfilteredChunkIndex, chunk.GetNativeArray(entityHandle), in typeSet);
 
@@ -233,13 +233,12 @@ namespace TextMeshDOTS
                 
                 if (!threadRefCountChangeMap.IsCreated)
                     threadRefCountChangeMap = new UnsafeHashMap<uint, RefCountChangePtr>(1024, Allocator.Temp);
-                else
-                    threadRefCountChangeMap.Clear();
+                threadRefCountChangeMap.Clear();
 
                 refCountChangeBlocklist.BeginForEachIndex(unfilteredChunkIndex);
                 residentDeallocationBlocklist.BeginForEachIndex(unfilteredChunkIndex);
                 
-                var glyphBuffers               = !hasAnimated ? chunk.GetBufferAccessor(ref renderGlyphHandle) : default;
+                var glyphBuffers               = !hasAnimated? chunk.GetBufferAccessor(ref renderGlyphHandle) : default;
                 var previousRenderGlyphBuffers = chunk.GetBufferAccessor(ref previousRenderGlyphHandle);
 
                 var gpuStates = (GpuState*)chunk.GetRequiredComponentDataPtrRW(ref gpuStateHandle);

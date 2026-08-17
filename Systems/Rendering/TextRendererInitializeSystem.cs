@@ -35,7 +35,7 @@ namespace TextMeshDOTS
             });
 
             var renderingComponents = new ComponentTypeSet(ComponentType.ReadWrite<PreviousRenderGlyph>(), ComponentType.ReadWrite<GpuState>(),
-                                                           ComponentType.ReadWrite<ResidentRange>());
+                                                           ComponentType.ReadWrite<ResidentRange>(), ComponentType.ReadWrite<TextShaderIndex>());
             state.EntityManager.AddComponent(m_newGlyphsQuery, in renderingComponents);
             var glyphComponents = new ComponentTypeSet(ComponentType.ReadWrite<RenderGlyph>(), ComponentType.ReadWrite<AnimatedRenderGlyph>());
             state.EntityManager.RemoveComponent(m_deadMmiQuery, in glyphComponents);

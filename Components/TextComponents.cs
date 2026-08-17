@@ -39,8 +39,11 @@ namespace TextMeshDOTS
     {
         internal GlyphTable.Key glyphKey;
         public uint cluster;
-        public int xAdvance;
-        public int yAdvance;
+        // xAdvance and yAdvance are already scaled in xy local-space (glyph quad vertices space) in Unity units.
+        // These are not HarfBuzz font-unit advances.
+        public float xAdvance;
+        public float yAdvance;
+        public float baseline;
         public int xOffset;
         public int yOffset;
         public override string ToString()

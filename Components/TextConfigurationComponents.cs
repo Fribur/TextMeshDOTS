@@ -124,6 +124,11 @@ namespace TextMeshDOTS
             get => Bits.GetBit(packed, 31);
             set => Bits.SetBit(ref packed, 31, value);
         }
+
+        /// <summary>
+        /// Sets the defaultFontFamilyHash by computing the hash of the passed in fontFamily string
+        /// </summary>
+        /// <param name="fontFamily"></param>
         public void SetFamily(FixedString128Bytes fontFamily)
         {
             defaultFontFamilyHash = TextHelper.GetHashCodeCaseInsensitive(fontFamily);
@@ -138,8 +143,8 @@ namespace TextMeshDOTS
         Center,
         Right,
         Justified,
-        Flush,
-        Geometry
+        //Flush,
+        //Geometry
     }
 
     /// <summary>
