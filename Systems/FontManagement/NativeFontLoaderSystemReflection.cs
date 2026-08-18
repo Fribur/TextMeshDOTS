@@ -270,8 +270,11 @@ namespace TextMeshDOTS
                     return false;
                 }
                 var nativeData = request.downloadHandler.nativeData;
-                byte* ptr = (byte*)nativeData.GetUnsafeReadOnlyPtr();
-                blob = new Blob(ptr, (uint)nativeData.Length, MemoryMode.DUBLICATE);
+                unsafe
+                {
+                    byte* ptr = (byte*)nativeData.GetUnsafeReadOnlyPtr();
+                    blob = new Blob(ptr, (uint)nativeData.Length, MemoryMode.DUBLICATE);
+                }
                 return true;
             }
 #endif
