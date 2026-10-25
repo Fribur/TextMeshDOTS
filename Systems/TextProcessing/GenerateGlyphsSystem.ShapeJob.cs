@@ -20,17 +20,20 @@ namespace TextMeshDOTS
             public NativeStream.Writer missingGlyphsStream;
             [NativeDisableParallelForRestriction] public NativeStream.Writer glyphOTFStream;
             [ReadOnly] public NativeStream.Reader xmlTagStream;
-            [ReadOnly] public NativeArray<int> firstEntityIndexInChunk;
 
             [ReadOnly] public FontTable                                  fontTable;
             [ReadOnly] public GlyphTable                                 glyphTable;
             [ReadOnly] public ComponentTypeHandle<TextBaseConfiguration> textBaseConfigurationHandle;
-            [ReadOnly] public BufferTypeHandle<CalliByte> calliByteHandle;
-         
+            [ReadOnly] public BufferTypeHandle<CalliByte> calliByteHandle;         
 
             public uint lastSystemVersion;
 
             UnsafeHashSet<GlyphTable.Key> chunkMissingGlyphsSet;
+            UnsafeText cleanedString;
+            UnsafeList<XMLTag> xmlTags;
+            UnsafeList<GlyphOTF> outputGlyphString;
+            //UnsafeList<ShapeSpan> shapeSpans;
+
 
             [NativeSetThreadIndex]
             int threadIndex;
@@ -38,16 +41,24 @@ namespace TextMeshDOTS
             [BurstCompile]
             public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                if (!(chunk.DidChange(ref calliByteHandle, lastSystemVersion) ||
-                      chunk.DidChange(ref textBaseConfigurationHandle, lastSystemVersion)))
+                if ((!chunk.DidChange(ref calliByteHandle, lastSystemVersion) && !chunk.DidChange(ref textBaseConfigurationHandle, lastSystemVersion)) || fontTable.faces.IsEmpty)
                     return;
 
                 if (!chunkMissingGlyphsSet.IsCreated)
+                {
                     chunkMissingGlyphsSet = new UnsafeHashSet<GlyphTable.Key>(128, Allocator.Temp);
+                    cleanedString = new UnsafeText(1024, Allocator.Temp);
+                    xmlTags = new UnsafeList<XMLTag>(64, Allocator.Temp);
+                    outputGlyphString = new UnsafeList<GlyphOTF>(1024, Allocator.Temp);
+                    //shapeSpans = new UnsafeList<ShapeSpan>(16, Allocator.Temp);
+                }
                 chunkMissingGlyphsSet.Clear();
+                cleanedString.Clear();
 
-                var firstEntityIndex = firstEntityIndexInChunk[unfilteredChunkIndex];
-                missingGlyphsStream.BeginForEachIndex(unfilteredChunkIndex);                
+
+                missingGlyphsStream.BeginForEachIndex(unfilteredChunkIndex);
+                glyphOTFStream.BeginForEachIndex(unfilteredChunkIndex);
+                bool hasTags = xmlTagStream.BeginForEachIndex(unfilteredChunkIndex) != 0;
 
                 //Debug.Log("Shape job");
                 var calliBytesBuffers = chunk.GetBufferAccessor(ref calliByteHandle);
@@ -60,20 +71,15 @@ namespace TextMeshDOTS
                 //var shaperList = HB.hb_shape_list_shapers();
                 //var shapePlanCache = new NativeHashMap<FontLookupKey, ShapePlan>(16, Allocator.Temp);
 
-                var cleanedString = new NativeText(1024, Allocator.Temp);
                 LayoutConfig layoutConfig = default;
                 FontConfig fontConfig = default;
 
                 for (int indexInChunk = 0; indexInChunk < chunk.Count; indexInChunk++)
                 {
-                    int entityIndex = firstEntityIndex + indexInChunk;
-                    glyphOTFStream.BeginForEachIndex(entityIndex);
-
-                    var xmlTagCount = xmlTagStream.BeginForEachIndex(entityIndex);
-                    var xmlTags = new NativeArray<XMLTag>(xmlTagCount, Allocator.Temp);                    
+                    var xmlTagCount = hasTags ? xmlTagStream.Read<XMLTagStreamHeader>().tagCount : 0;
+                    xmlTags.Resize(xmlTagCount);                
                     for (int i = 0; i < xmlTagCount; i++)
                         xmlTags[i] = xmlTagStream.Read<XMLTag>();
-                    xmlTagStream.EndForEachIndex();
 
                     var calliBytesBuffer = calliBytesBuffers[indexInChunk].Reinterpret<byte>();
                     var textBaseConfiguration = textBaseConfigurations[indexInChunk];
@@ -82,25 +88,64 @@ namespace TextMeshDOTS
 
                     fontConfig.Reset(textBaseConfiguration, ref fontTable);
                     layoutConfig.Reset(textBaseConfiguration);
-                    //glyphOTFs.Clear();
                     var calliString = new CalliString(calliBytesBuffer);
                     cleanedString.Capacity = calliString.Capacity;
 
-                    if (xmlTagStream.Count() == 0)
-                        ShapeNoRichText(calliString, ref layoutConfig, cleanedString, ref fontConfig, ref fontTable, ref openTypeFeatures, ref textBaseConfiguration, ref language, ref buffer, ref glyphOTFStream);
+                    if (xmlTagCount == 0)
+                        ShapeNoRichText(calliString, 
+                            ref layoutConfig, 
+                            ref cleanedString, 
+                            ref fontConfig, 
+                            ref fontTable, 
+                            ref openTypeFeatures, 
+                            ref textBaseConfiguration, 
+                            ref language, 
+                            ref buffer, 
+                            ref outputGlyphString);
                     else
-                        ShapeRichText(calliString, ref layoutConfig, cleanedString, ref fontConfig, ref fontTable, ref openTypeFeatures, ref textBaseConfiguration, ref language, ref buffer, ref glyphOTFStream, ref xmlTags);
+                        ShapeRichText(calliString, 
+                            ref layoutConfig, 
+                            ref cleanedString, 
+                            ref fontConfig, 
+                            ref fontTable, 
+                            ref openTypeFeatures, 
+                            ref textBaseConfiguration, 
+                            ref language, 
+                            ref buffer, 
+                            ref outputGlyphString, 
+                            ref xmlTags);
+
+                    // Word-wrap and output
+                    ref var header = ref glyphOTFStream.Allocate<GlyphOTFStreamHeader>();
+                    header = default;                    
+
+                    // Write out glyphs to stream, and detect missing glyphs
+                    foreach (var glyphOTF in outputGlyphString)
+                    {
+                        if (!glyphTable.glyphHashToGlyphEntryIDMap.ContainsKey(glyphOTF.glyphKey))
+                        {
+                            // We use the hashset to avoid redundantly adding the same glyph for this chunk.
+                            // The missingGlyphsStream may still have redundancies between chunks, but this reduces
+                            // some of the work while still maintaining determinism.
+                            if (chunkMissingGlyphsSet.Add(glyphOTF.glyphKey))
+                                missingGlyphsStream.Write(glyphOTF.glyphKey);
+                        }
+                        glyphOTFStream.Write(glyphOTF);
+                    }
+                    header.glyphCount = outputGlyphString.Length;
 
                     cleanedString.Clear();
-                    glyphOTFStream.EndForEachIndex();
-                    
+                    outputGlyphString.Clear();
+                    //shapeSpans.Clear();
                 }
                 //add missing glyphs identifed in chunks processed by this thread to missingGlyphs
+                glyphOTFStream.EndForEachIndex();
+                xmlTagStream.EndForEachIndex();
                 missingGlyphsStream.EndForEachIndex();
                 buffer.Dispose();
             }
 
-            void AppendAndConvertCase(NativeText cleanedString, FontStyles fontStyles, ref Unicode.Rune currentRune)
+            void AppendAndConvertCase(ref UnsafeText cleanedString, FontStyles fontStyles, ref Unicode.Rune currentRune)
             {
                 if ((fontStyles & FontStyles.UpperCase) == FontStyles.UpperCase)
                     cleanedString.Append(currentRune.ToUpper());
@@ -111,37 +156,47 @@ namespace TextMeshDOTS
             }
             void ShapeNoRichText(CalliString calliString,
                 ref LayoutConfig layoutConfig,
-                NativeText cleanedString,
+                ref UnsafeText cleanedString,
                 ref FontConfig fontConfig,
                 ref FontTable fontTable,
                 ref OpenTypeFeatureConfig openTypeFeatures,
                 ref TextBaseConfiguration textBaseConfiguration,
                 ref Language language,
                 ref Buffer buffer,
-                ref NativeStream.Writer glyphOTFStream)
+                ref UnsafeList<GlyphOTF> outputGlyphString)
             {
                 var rawCharacters = calliString.GetEnumerator();
                 //copy text into buffer used for shaping, convert case while doing so
                 while (rawCharacters.MoveNext())
                 {
                     var currentRune = rawCharacters.Current;
-                    AppendAndConvertCase(cleanedString, layoutConfig.m_fontStyles, ref currentRune);
+                    AppendAndConvertCase(ref cleanedString, layoutConfig.m_fontStyles, ref currentRune);
                 }
                 openTypeFeatures.SetGlobalFeatures(textBaseConfiguration, (uint)cleanedString.Length);
-                Shape(buffer, cleanedString, 0, cleanedString.Length, ref language, ref fontTable, ref fontConfig, fontConfig.m_faceIndex, fontConfig.m_namedVariationIndex, openTypeFeatures.values, ref glyphOTFStream);
+                Shape(buffer, 
+                    ref cleanedString, 
+                    0, 
+                    cleanedString.Length, 
+                    ref language, 
+                    ref fontTable, 
+                    ref fontConfig, 
+                    fontConfig.m_faceIndex, 
+                    fontConfig.m_namedVariationIndex, 
+                    openTypeFeatures.values, 
+                    ref outputGlyphString);
             }
 
             void ShapeRichText(CalliString calliString,
               ref LayoutConfig layoutConfig,
-              NativeText cleanedString,
+              ref UnsafeText cleanedString,
               ref FontConfig fontConfig,
               ref FontTable fontTable,
               ref OpenTypeFeatureConfig openTypeFeatures,
               ref TextBaseConfiguration textBaseConfiguration,
               ref Language language,
               ref Buffer buffer,
-              ref NativeStream.Writer glyphOTFStream,
-              ref NativeArray<XMLTag> xmlTags)
+              ref UnsafeList<GlyphOTF> outputGlyphString,
+              ref UnsafeList<XMLTag> xmlTags)
             {
                 //text has richtext tags. Search segments where font, language, script and direction does does not change (To-Do: use ICU for that),
                 //apply opentype features requested via richtext tags, and shape
@@ -169,7 +224,7 @@ namespace TextMeshDOTS
                     }
                     if (!keepGoing)
                         continue;
-                    AppendAndConvertCase(cleanedString, layoutConfig.m_fontStyles, ref currentRune);
+                    AppendAndConvertCase(ref cleanedString, layoutConfig.m_fontStyles, ref currentRune);
                 }
 
                 var richTextStartID = 0;
@@ -192,7 +247,17 @@ namespace TextMeshDOTS
                     openTypeFeatures.SetGlobalFeatures(textBaseConfiguration, (uint)cleanedString.Length);
                     var cleanedSegmentLength = cleanedEnd - cleanedStart;
                     if(cleanedSegmentLength > 0 ) 
-                        Shape(buffer, cleanedString, cleanedStart, cleanedSegmentLength, ref language, ref fontTable, ref fontConfig, currentFaceIndex, currentNamedVariationIndex, openTypeFeatures.values, ref glyphOTFStream);
+                        Shape(buffer, 
+                            ref cleanedString, 
+                            cleanedStart, 
+                            cleanedSegmentLength, 
+                            ref language, 
+                            ref fontTable, 
+                            ref fontConfig, 
+                            currentFaceIndex, 
+                            currentNamedVariationIndex, 
+                            openTypeFeatures.values, 
+                            ref outputGlyphString);
                     currentFaceIndex = fontConfig.m_faceIndex;
                     currentNamedVariationIndex = fontConfig.m_namedVariationIndex;
                     cleanedStart = cleanedEnd;
@@ -202,7 +267,7 @@ namespace TextMeshDOTS
             }
 
             void Shape(Buffer buffer,
-                NativeText text,
+                ref UnsafeText text,
                 int startIndex,
                 int length,
                 ref Language language,
@@ -211,7 +276,7 @@ namespace TextMeshDOTS
                 int faceIndex,
                 int namedVariationIndex,
                 NativeList<Feature> features,
-                ref NativeStream.Writer glyphOTFStream)
+                ref UnsafeList<GlyphOTF> outputGlyphString)
             {
                 if (startIndex + length == text.Length && text.Length > 0 && text[^ 1] == 0)
                     length--; //last byte of CalliBytes buffer appears to be always '0', which should not be shaped. 
@@ -247,9 +312,9 @@ namespace TextMeshDOTS
                 //    shapePlan = new ShapePlan(nativeFontPointer.face, ref segmentProperties, features, shaperList);
                 //    shapePlanCache.Add(lookupKey, shapePlan);
                 //}
-                //marker.Begin();
+                //shapeMarker.Begin();
                 //shapePlan.Execute(font, buffer, features);
-                //marker.End();
+                //shapeMarker.End();
 
                 shapeMarker.Begin();
                 font.Shape(buffer, features);
@@ -280,15 +345,7 @@ namespace TextMeshDOTS
                         xOffset = glyphPosition.xOffset,
                         yOffset = glyphPosition.yOffset,
                     };
-                    if (!glyphTable.glyphHashToGlyphEntryIDMap.ContainsKey(glyphOTF.glyphKey))
-                    {
-                        // We use the hashset to avoid redundantly adding the same glyph for this chunk.
-                        // The missingGlyphsStream may still have redundancies between chunks, but this reduces
-                        // some of the work while still maintaining determinism.
-                        if (chunkMissingGlyphsSet.Add(glyphOTF.glyphKey))
-                            missingGlyphsStream.Write(glyphOTF.glyphKey);
-                    }
-                    glyphOTFStream.Write(glyphOTF);
+                    outputGlyphString.Add(in glyphOTF);
                 }
                 buffer.ClearContent();
                 features.Clear();

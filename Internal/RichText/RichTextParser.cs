@@ -17,6 +17,7 @@ namespace TextMeshDOTS.RichText
             ref CalliString.Enumerator enumerator,
             int position,
             ref NativeStream.Writer xmlTagStream, 
+            ref int tagCount,
             ref FixedString128Bytes m_htmlTag) 
         {
             int tagCharCount = 0;
@@ -28,7 +29,6 @@ namespace TextMeshDOTS.RichText
             ref var tagValue = ref tag.value;
             int nameHashCode = default;
             int valueHashCode = default;
-
 
             bool isTagSet = false;
             bool isValidHtmlTag = false;
@@ -70,7 +70,7 @@ namespace TextMeshDOTS.RichText
                             if (tag.tagType == TagType.Unknown)
                             {
                                 calliStringRaw.GetSubString(ref m_htmlTag, startByteIndex, tagByteCount);                                
-                                if (m_htmlTag[0] == 35)//special handling of tags that specify color without any prefix
+                                if (m_htmlTag[0] == 35) //special handling of tags that specify color without any prefix
                                 {                                     
                                     tag.tagType = TagType.Color;
                                     tagValue.type = TagValueType.ColorValue;
@@ -211,7 +211,10 @@ namespace TextMeshDOTS.RichText
                 return false;
             }
             if (tag.tagType != TagType.Unknown)
+            {                
                 xmlTagStream.Write(tag);
+                tagCount++;
+            }
 
             return true;            
         }
@@ -610,7 +613,7 @@ namespace TextMeshDOTS.RichText
         /// <returns></returns>
         static Color32 HexCharsToColor(in FixedString128Bytes htmlTag, int tagCount)
         {
-            if (tagCount == 3)//Alpha <#FF> 2 Hex values alpha only
+            if (tagCount == 3) //Alpha <#FF> 2 Hex values alpha only
             {
                 byte a = (byte)(HexToInt((char)htmlTag[1]) * 16 + HexToInt((char)htmlTag[2]));
                 return new Color32(0, 0, 0, a);
